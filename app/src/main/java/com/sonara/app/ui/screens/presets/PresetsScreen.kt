@@ -72,7 +72,7 @@ fun PresetsScreen() {
                             labelColor = SonaraTextSecondary
                         ),
                         border = if (selected) BorderStroke(1.dp, primary.copy(alpha = 0.3f))
-                                 else FilterChipDefaults.filterChipBorder(enabled = true, selected = false)
+                                 else FilterChipDefaults.filterChipBorder(true, false)
                     )
                 }
             }

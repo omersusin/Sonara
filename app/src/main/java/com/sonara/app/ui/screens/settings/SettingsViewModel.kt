@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
+import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.ui.theme.AccentColor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,60 +21,66 @@ data class SettingsUiState(
     val aiEnabled: Boolean = true,
     val autoEqEnabled: Boolean = true,
     val apiKeyInput: String = "",
-    val sharedSecretInput: String = ""
+    val sharedSecretInput: String = "",
+    val cacheSize: Int = 0,
+    val smoothTransitions: Boolean = true,
+    val safetyLimiter: Boolean = true,
+    val showClearDataDialog: Boolean = false,
+    val showClearCacheDialog: Boolean = false
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-    private val prefs = (application as SonaraApp).preferences
+    private val app = application as SonaraApp
+    private val prefs = app.preferences
+    private val cache = TrackCache(app.database.trackCacheDao())
+
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch { prefs.accentColorFlow.collect { c -> _uiState.update { it.copy(accentColor = c) } } }
+        viewModelScope.launch { prefs.lastFmApiKeyFlow.collect { k -> _uiState.update { it.copy(lastFmApiKey = k, isApiKeySet = k.isNotBlank()) } } }
+        viewModelScope.launch { prefs.lastFmSharedSecretFlow.collect { s -> _uiState.update { it.copy(lastFmSharedSecret = s, isSharedSecretSet = s.isNotBlank()) } } }
+        viewModelScope.launch { prefs.aiEnabledFlow.collect { e -> _uiState.update { it.copy(aiEnabled = e) } } }
+        viewModelScope.launch { prefs.autoEqEnabledFlow.collect { e -> _uiState.update { it.copy(autoEqEnabled = e) } } }
+        refreshCacheSize()
+    }
+
+    fun updateApiKeyInput(v: String) { _uiState.update { it.copy(apiKeyInput = v) } }
+    fun updateSharedSecretInput(v: String) { _uiState.update { it.copy(sharedSecretInput = v) } }
+
+    fun saveApiKey() { viewModelScope.launch { val k = _uiState.value.apiKeyInput; if (k.isNotBlank()) { prefs.setLastFmApiKey(k); _uiState.update { it.copy(apiKeyInput = "") } } } }
+    fun saveSharedSecret() { viewModelScope.launch { val s = _uiState.value.sharedSecretInput; if (s.isNotBlank()) { prefs.setLastFmSharedSecret(s); _uiState.update { it.copy(sharedSecretInput = "") } } } }
+
+    fun setAccentColor(c: AccentColor) { viewModelScope.launch { prefs.setAccentColor(c) } }
+    fun setAiEnabled(e: Boolean) { viewModelScope.launch { prefs.setAiEnabled(e) } }
+    fun setAutoEqEnabled(e: Boolean) { viewModelScope.launch { prefs.setAutoEqEnabled(e) } }
+
+    fun clearCache() {
         viewModelScope.launch {
-            prefs.accentColorFlow.collect { color ->
-                _uiState.update { it.copy(accentColor = color) }
-            }
-        }
-        viewModelScope.launch {
-            prefs.lastFmApiKeyFlow.collect { key ->
-                _uiState.update { it.copy(lastFmApiKey = key, isApiKeySet = key.isNotBlank()) }
-            }
-        }
-        viewModelScope.launch {
-            prefs.lastFmSharedSecretFlow.collect { secret ->
-                _uiState.update { it.copy(lastFmSharedSecret = secret, isSharedSecretSet = secret.isNotBlank()) }
-            }
-        }
-        viewModelScope.launch {
-            prefs.aiEnabledFlow.collect { enabled ->
-                _uiState.update { it.copy(aiEnabled = enabled) }
-            }
-        }
-        viewModelScope.launch {
-            prefs.autoEqEnabledFlow.collect { enabled ->
-                _uiState.update { it.copy(autoEqEnabled = enabled) }
-            }
+            cache.clear()
+            refreshCacheSize()
+            _uiState.update { it.copy(showClearCacheDialog = false) }
         }
     }
 
-    fun updateApiKeyInput(value: String) { _uiState.update { it.copy(apiKeyInput = value) } }
-    fun updateSharedSecretInput(value: String) { _uiState.update { it.copy(sharedSecretInput = value) } }
-
-    fun saveApiKey() {
+    fun clearAllData() {
         viewModelScope.launch {
-            val key = _uiState.value.apiKeyInput
-            if (key.isNotBlank()) { prefs.setLastFmApiKey(key); _uiState.update { it.copy(apiKeyInput = "") } }
+            cache.clear()
+            prefs.setLastFmApiKey("")
+            prefs.setLastFmSharedSecret("")
+            prefs.setAiEnabled(true)
+            prefs.setAutoEqEnabled(true)
+            prefs.setAccentColor(AccentColor.Amber)
+            refreshCacheSize()
+            _uiState.update { it.copy(showClearDataDialog = false) }
         }
     }
 
-    fun saveSharedSecret() {
-        viewModelScope.launch {
-            val secret = _uiState.value.sharedSecretInput
-            if (secret.isNotBlank()) { prefs.setLastFmSharedSecret(secret); _uiState.update { it.copy(sharedSecretInput = "") } }
-        }
-    }
+    fun showClearCacheDialog(show: Boolean) { _uiState.update { it.copy(showClearCacheDialog = show) } }
+    fun showClearDataDialog(show: Boolean) { _uiState.update { it.copy(showClearDataDialog = show) } }
 
-    fun setAccentColor(color: AccentColor) { viewModelScope.launch { prefs.setAccentColor(color) } }
-    fun setAiEnabled(enabled: Boolean) { viewModelScope.launch { prefs.setAiEnabled(enabled) } }
-    fun setAutoEqEnabled(enabled: Boolean) { viewModelScope.launch { prefs.setAutoEqEnabled(enabled) } }
+    private fun refreshCacheSize() {
+        viewModelScope.launch { val size = cache.size(); _uiState.update { it.copy(cacheSize = size) } }
+    }
 }

@@ -19,7 +19,8 @@ import com.sonara.app.media.NowPlayingInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class DashboardUiState(
@@ -40,12 +41,20 @@ data class DashboardUiState(
         ResolveSource.NONE -> "None"
     }
 
+    val isResolving: Boolean get() = resolveResult.isResolving
+    val hasTrackInfo: Boolean get() = resolveResult.source != ResolveSource.NONE
+    val genre: String get() = resolveResult.trackInfo.genre.ifEmpty { "Unknown" }
+    val mood: String get() = resolveResult.trackInfo.mood.ifEmpty { "Unknown" }
+    val energy: Float get() = resolveResult.trackInfo.energy
+    val confidence: Float get() = resolveResult.trackInfo.confidence
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is DashboardUiState) return false
         return nowPlaying == other.nowPlaying && resolveResult == other.resolveResult &&
             headphone == other.headphone && autoEqState == other.autoEqState &&
-            currentPresetName == other.currentPresetName && bands.contentEquals(other.bands)
+            currentPresetName == other.currentPresetName && bands.contentEquals(other.bands) &&
+            isAiEnabled == other.isAiEnabled && isAutoEqEnabled == other.isAutoEqEnabled
     }
     override fun hashCode() = nowPlaying.hashCode()
 }
@@ -54,10 +63,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val app = application as SonaraApp
     private val prefs = app.preferences
 
-    val mediaMonitor = MediaSessionMonitor(application)
-    val headphoneDetector = HeadphoneDetector(application)
-    val autoEqManager = AutoEqManager()
-    val trackResolver: TrackResolver
+    private val mediaMonitor = MediaSessionMonitor(application)
+    private val headphoneDetector = HeadphoneDetector(application)
+    private val autoEqManager = AutoEqManager()
+    private val trackResolver: TrackResolver
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
@@ -67,51 +76,53 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         trackResolver = TrackResolver(LastFmResolver(), LocalAudioAnalyzer(), cache)
 
         viewModelScope.launch {
-            combine(
-                mediaMonitor.nowPlaying,
-                trackResolver.result,
-                headphoneDetector.headphone,
-                autoEqManager.state,
-                prefs.aiEnabledFlow,
-                prefs.autoEqEnabledFlow
-            ) { values ->
-                @Suppress("UNCHECKED_CAST")
-                val np = values[0] as NowPlayingInfo
-                val rr = values[1] as ResolveResult
-                val hp = values[2] as HeadphoneInfo
-                val aeq = values[3] as AutoEqState
-                val aiOn = values[4] as Boolean
-                val aeqOn = values[5] as Boolean
-                DashboardUiState(
-                    nowPlaying = np,
-                    resolveResult = rr,
-                    headphone = hp,
-                    autoEqState = aeq,
-                    isAiEnabled = aiOn,
-                    isAutoEqEnabled = aeqOn
-                )
-            }.collect { _uiState.value = it }
-        }
-
-        viewModelScope.launch {
             mediaMonitor.nowPlaying.collect { np ->
+                _uiState.update { it.copy(nowPlaying = np) }
                 if (np.hasTrack) {
-                    val apiKey = prefs.lastFmApiKeyFlow.let { flow ->
-                        var key = ""
-                        flow.collect { key = it; return@collect }
-                        key
-                    }
+                    val apiKey = prefs.lastFmApiKeyFlow.first()
                     trackResolver.resolve(np.title, np.artist, apiKey)
                 }
             }
         }
 
         viewModelScope.launch {
+            trackResolver.result.collect { result ->
+                _uiState.update { it.copy(resolveResult = result) }
+            }
+        }
+
+        viewModelScope.launch {
             headphoneDetector.headphone.collect { hp ->
-                var aeqEnabled = true
-                prefs.autoEqEnabledFlow.collect { aeqEnabled = it; return@collect }
+                _uiState.update { it.copy(headphone = hp) }
+                val aeqEnabled = prefs.autoEqEnabledFlow.first()
                 autoEqManager.onHeadphoneChanged(hp, aeqEnabled)
             }
         }
+
+        viewModelScope.launch {
+            autoEqManager.state.collect { aeq ->
+                _uiState.update { it.copy(autoEqState = aeq) }
+            }
+        }
+
+        viewModelScope.launch {
+            prefs.aiEnabledFlow.collect { enabled ->
+                _uiState.update { it.copy(isAiEnabled = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
+            prefs.autoEqEnabledFlow.collect { enabled ->
+                _uiState.update { it.copy(isAutoEqEnabled = enabled) }
+            }
+        }
+
+        headphoneDetector.start()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        headphoneDetector.stop()
+        mediaMonitor.stop()
     }
 }

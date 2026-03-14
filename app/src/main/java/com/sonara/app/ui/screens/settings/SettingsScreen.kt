@@ -68,6 +68,8 @@ fun SettingsScreen() {
         item { SectionHeader("Sound Engine") }
         item { SoundEngineCard(state, viewModel) }
 
+        item { SectionHeader("Data") }
+        item { DataManagementCard(state, viewModel) }
         item { SectionHeader("About") }
         item { AboutCard() }
 
