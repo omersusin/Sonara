@@ -8,6 +8,7 @@ enum class AccentColor(
     val primaryLight: Color,
     val primaryDark: Color
 ) {
+    Auto("Auto", Color(0xFF8E8E93), Color(0xFFAAAAAA), Color(0xFF6E6E73)),
     Amber("Amber", Color(0xFFD4A574), Color(0xFFEDCFAA), Color(0xFFB8875A)),
     Rose("Rose", Color(0xFFCF8E8E), Color(0xFFE4B3B3), Color(0xFFB37272)),
     Ocean("Ocean", Color(0xFF7B9EB8), Color(0xFFA3BFD4), Color(0xFF5F8099)),

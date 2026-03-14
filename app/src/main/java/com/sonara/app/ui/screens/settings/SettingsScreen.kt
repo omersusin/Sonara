@@ -1,6 +1,7 @@
 package com.sonara.app.ui.screens.settings
 
 import androidx.compose.foundation.background
+import android.os.Build
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -173,19 +175,20 @@ private fun AccentColorCard(selected: AccentColor, onSelect: (AccentColor) -> Un
     FluentCard {
         Text("Accent Color", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
-        Text(selected.displayName, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Text(if (selected == AccentColor.Auto) "Wallpaper colors" else selected.displayName, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
         Spacer(Modifier.height(16.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            AccentColor.entries.forEach { color ->
+            val availableColors = if (Build.VERSION.SDK_INT >= 31) AccentColor.entries else AccentColor.entries.filter { it != AccentColor.Auto }
+            availableColors.forEach { color ->
                 val isSelected = color == selected
                 Box(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(color.primary)
+                        .then(if (color == AccentColor.Auto) Modifier.background(Brush.sweepGradient(listOf(SonaraInfo, SonaraSuccess, SonaraBandLow, SonaraError, SonaraWarning, SonaraInfo))) else Modifier.background(color.primary))
                         .then(
                             if (isSelected) Modifier.border(2.5.dp, SonaraTextPrimary, CircleShape)
                             else Modifier.border(1.dp, SonaraDivider.copy(alpha = 0.3f), CircleShape)
