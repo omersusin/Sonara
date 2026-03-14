@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.BorderStroke
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -161,7 +162,7 @@ private fun KeyInputSection(
             onClick = onSave,
             enabled = inputValue.isNotBlank(),
             shape = MaterialTheme.shapes.extraLarge,
-            border = ButtonDefaults.outlinedButtonBorder(enabled = inputValue.isNotBlank()),
+            border = BorderStroke(1.dp, if (inputValue.isNotBlank()) MaterialTheme.colorScheme.primary else SonaraDivider),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
         ) { Text(buttonText) }
     }
