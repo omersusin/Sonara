@@ -22,7 +22,11 @@ class SonaraApp : Application() {
         preferences = SonaraPreferences(this)
         database = SonaraDatabase.get(this)
         presetRepository = PresetRepository(database.presetDao())
-        appScope.launch { presetRepository.initBuiltIns() }
+
+        appScope.launch {
+            presetRepository.initBuiltIns()
+            com.sonara.app.intelligence.cache.TrackCache(database.trackCacheDao()).cleanup()
+        }
     }
 
     companion object {
