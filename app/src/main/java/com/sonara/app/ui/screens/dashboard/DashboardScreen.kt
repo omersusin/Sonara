@@ -1,5 +1,7 @@
 package com.sonara.app.ui.screens.dashboard
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -13,17 +15,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bluetooth
-import androidx.compose.material.icons.rounded.Cable
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.HeadsetOff
 import androidx.compose.material.icons.rounded.Memory
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Save
@@ -40,13 +39,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.sonara.app.data.models.ConnectionType
-import com.sonara.app.intelligence.ResolveSource
 import com.sonara.app.ui.components.ChipStatus
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.components.NowPlayingBar
+import com.sonara.app.ui.components.PermissionCard
 import com.sonara.app.ui.components.SonaraVisualizer
 import com.sonara.app.ui.components.StatusChip
 import com.sonara.app.ui.theme.*
@@ -56,6 +55,7 @@ fun DashboardScreen() {
     val viewModel: DashboardViewModel = viewModel()
     val state by viewModel.uiState.collectAsState()
     val primary = MaterialTheme.colorScheme.primary
+    val context = LocalContext.current
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -63,16 +63,25 @@ fun DashboardScreen() {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { HeaderSection(state, primary) }
+
+        if (!state.notificationListenerEnabled) {
+            item {
+                PermissionCard(onGrant = {
+                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                })
+            }
+        }
+
         item { NowPlayingBar(
-            title = state.nowPlaying.displayTitle,
-            artist = state.nowPlaying.displayArtist,
-            isPlaying = state.nowPlaying.isPlaying
+            title = if (state.hasTrack) state.title else "No music playing",
+            artist = state.artist,
+            isPlaying = state.isPlaying
         ) }
         item { IntelligenceCard(state, primary) }
         item { HeadphoneCard(state, primary) }
         item { SoundProfileCard(state, primary) }
-        item { SonaraVisualizer(isPlaying = state.nowPlaying.isPlaying) }
-        item { QuickActions(primary) }
+        item { SonaraVisualizer(isPlaying = state.isPlaying) }
+        item { QuickActions() }
         item { Spacer(Modifier.height(8.dp)) }
     }
 }
@@ -100,42 +109,34 @@ private fun HeaderSection(state: DashboardUiState, primary: androidx.compose.ui.
 @Composable
 private fun IntelligenceCard(state: DashboardUiState, primary: androidx.compose.ui.graphics.Color) {
     FluentCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Intelligence", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
                 Spacer(Modifier.height(4.dp))
                 if (state.isResolving) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = primary)
-                        Text("Analyzing...", style = MaterialTheme.typography.bodyLarge, color = SonaraTextPrimary)
+                        Text("Analyzing...", style = MaterialTheme.typography.bodyLarge)
                     }
-                } else if (state.hasTrackInfo) {
-                    Text(
-                        "${state.genre.replaceFirstChar { it.uppercase() }} · ${state.mood.replaceFirstChar { it.uppercase() }}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = SonaraTextPrimary
-                    )
+                } else if (state.hasTrack && state.sourceLabel != "None") {
+                    Text("${state.genre.replaceFirstChar { it.uppercase() }} · ${state.mood.replaceFirstChar { it.uppercase() }}", style = MaterialTheme.typography.bodyLarge)
                 } else {
-                    Text("Waiting for music...", style = MaterialTheme.typography.bodyLarge, color = SonaraTextPrimary)
+                    Text("Waiting for music...", style = MaterialTheme.typography.bodyLarge)
                 }
             }
-            if (state.hasTrackInfo) {
-                val sourceIcon = when (state.resolveResult.source) {
-                    ResolveSource.LASTFM, ResolveSource.LASTFM_ARTIST -> Icons.Rounded.Public
-                    ResolveSource.LOCAL_AI -> Icons.Rounded.Memory
+            if (state.hasTrack && state.sourceLabel != "None") {
+                val icon = when {
+                    state.sourceLabel.contains("Last") -> Icons.Rounded.Public
+                    state.sourceLabel.contains("AI") -> Icons.Rounded.Memory
                     else -> Icons.Rounded.AutoAwesome
                 }
-                StatusChip(state.sourceLabel, ChipStatus.Active, sourceIcon)
+                StatusChip(state.sourceLabel, ChipStatus.Active, icon)
             } else {
                 StatusChip("Idle", ChipStatus.Inactive)
             }
         }
 
-        if (state.hasTrackInfo) {
+        if (state.hasTrack && state.sourceLabel != "None") {
             Spacer(Modifier.height(10.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 InfoPill("Energy", "${(state.energy * 100).toInt()}%", Modifier.weight(1f), primary)
@@ -146,17 +147,9 @@ private fun IntelligenceCard(state: DashboardUiState, primary: androidx.compose.
 }
 
 @Composable
-private fun InfoPill(label: String, value: String, modifier: Modifier = Modifier, primary: androidx.compose.ui.graphics.Color) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(8.dp),
-        color = SonaraCardElevated
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+private fun InfoPill(label: String, value: String, modifier: Modifier, primary: androidx.compose.ui.graphics.Color) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(8.dp), color = SonaraCardElevated) {
+        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
             Text(value, style = MaterialTheme.typography.labelLarge, color = primary)
         }
@@ -166,55 +159,42 @@ private fun InfoPill(label: String, value: String, modifier: Modifier = Modifier
 @Composable
 private fun HeadphoneCard(state: DashboardUiState, primary: androidx.compose.ui.graphics.Color) {
     FluentCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                val hpIcon = if (state.headphone.isConnected) {
-                    when (state.headphone.type) {
-                        ConnectionType.BLUETOOTH_A2DP, ConnectionType.BLUETOOTH_LE -> Icons.Rounded.Bluetooth
-                        ConnectionType.WIRED -> Icons.Rounded.Cable
-                        ConnectionType.USB -> Icons.Rounded.Usb
-                        else -> Icons.Rounded.Headphones
-                    }
+                val icon = if (state.headphoneConnected) {
+                    if (state.headphoneType.contains("BLUETOOTH")) Icons.Rounded.Bluetooth
+                    else if (state.headphoneType.contains("USB")) Icons.Rounded.Usb
+                    else Icons.Rounded.Headphones
                 } else Icons.Rounded.HeadsetOff
 
-                Icon(hpIcon, null, tint = if (state.headphone.isConnected) primary else SonaraTextTertiary, modifier = Modifier.size(20.dp))
+                Icon(icon, null, tint = if (state.headphoneConnected) primary else SonaraTextTertiary, modifier = Modifier.size(20.dp))
                 Column {
                     Text("Headphone", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-                    Text(
-                        if (state.headphone.isConnected) state.headphone.name else "No device connected",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = SonaraTextPrimary
-                    )
+                    Text(if (state.headphoneConnected) state.headphoneName else "No device connected", style = MaterialTheme.typography.bodyLarge)
                 }
             }
             val aeqStatus = when {
-                !state.headphone.isConnected -> ChipStatus.Inactive
-                state.autoEqState.isActive -> ChipStatus.Active
+                !state.headphoneConnected -> ChipStatus.Inactive
+                state.autoEqActive -> ChipStatus.Active
                 !state.isAutoEqEnabled -> ChipStatus.Inactive
                 else -> ChipStatus.Warning
             }
-            val aeqLabel = when {
-                !state.headphone.isConnected -> "No Device"
-                state.autoEqState.isActive -> "AutoEQ On"
-                !state.isAutoEqEnabled -> "AutoEQ Off"
-                else -> "No Profile"
-            }
-            StatusChip(aeqLabel, aeqStatus)
+            StatusChip(
+                when {
+                    !state.headphoneConnected -> "No Device"
+                    state.autoEqActive -> "AutoEQ On"
+                    !state.isAutoEqEnabled -> "AutoEQ Off"
+                    else -> "No Profile"
+                }, aeqStatus
+            )
         }
 
-        if (state.autoEqState.isActive && state.autoEqState.profile != null) {
+        if (state.autoEqActive && state.autoEqProfile.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
             Surface(shape = RoundedCornerShape(8.dp), color = SonaraCardElevated) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Profile: ${state.autoEqState.profile.name}", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                    Text("${(state.autoEqState.profile.matchConfidence * 100).toInt()}% match", style = MaterialTheme.typography.labelSmall, color = primary)
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Profile: ${state.autoEqProfile}", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    Text("${(state.autoEqConfidence * 100).toInt()}% match", style = MaterialTheme.typography.labelSmall, color = primary)
                 }
             }
         }
@@ -234,25 +214,23 @@ private fun SoundProfileCard(state: DashboardUiState, primary: androidx.compose.
                 horizontalArrangement = Arrangement.spacedBy(3.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
-                state.bands.forEachIndexed { i, v ->
+                state.bands.forEach { v ->
                     val normalized = ((v + 12f) / 24f).coerceIn(0.08f, 1f)
                     Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height((normalized * 36).dp)
-                            .background(
-                                primary.copy(alpha = 0.2f + normalized * 0.5f),
-                                RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)
-                            )
+                        modifier = Modifier.weight(1f).height((normalized * 36).dp)
+                            .background(primary.copy(alpha = 0.2f + normalized * 0.5f), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
                     )
                 }
+            }
+            if (state.aiReasoning.isNotEmpty()) {
+                Text(state.aiReasoning, style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary, maxLines = 2)
             }
         }
     }
 }
 
 @Composable
-private fun QuickActions(primary: androidx.compose.ui.graphics.Color) {
+private fun QuickActions() {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         QuickActionBtn(Modifier.weight(1f), Icons.Rounded.SwapHoriz, "Compare")
         QuickActionBtn(Modifier.weight(1f), Icons.Rounded.Save, "Save")
@@ -262,17 +240,8 @@ private fun QuickActions(primary: androidx.compose.ui.graphics.Color) {
 
 @Composable
 private fun QuickActionBtn(modifier: Modifier, icon: ImageVector, label: String) {
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.small,
-        color = SonaraCard,
-        border = BorderStroke(0.6.dp, SonaraDivider.copy(alpha = 0.3f))
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
+    Surface(modifier = modifier, shape = MaterialTheme.shapes.small, color = SonaraCard, border = BorderStroke(0.6.dp, SonaraDivider.copy(alpha = 0.3f))) {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Icon(icon, label, tint = SonaraTextSecondary, modifier = Modifier.size(20.dp))
             Text(label, style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
         }

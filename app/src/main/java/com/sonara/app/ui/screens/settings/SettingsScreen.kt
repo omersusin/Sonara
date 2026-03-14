@@ -66,6 +66,18 @@ fun SettingsScreen() {
         item { SectionHeader("Sound Engine") }
         item { SoundEngineCard(state, viewModel) }
 
+        item {
+            FluentCard {
+                val primary = MaterialTheme.colorScheme.primary
+                SwitchRow("Smooth Transitions", "Gradual EQ changes between tracks", state.smoothTransitions) { viewModel.setSmoothTransitions(it) }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
+                SwitchRow("Safety Limiter", "Prevent audio clipping and distortion", state.safetyLimiter) { viewModel.setSafetyLimiter(it) }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
+                SwitchRow("Auto Preset", "Automatically select preset based on genre", state.autoPreset) { viewModel.setAutoPreset(it) }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
+                SwitchRow("Scrobbling", "Send listening history to Last.fm", state.scrobblingEnabled) { viewModel.setScrobblingEnabled(it) }
+            }
+        }
         item { SectionHeader("Data") }
         item { DataManagementCard(state, viewModel) }
 
@@ -245,6 +257,18 @@ private fun DataManagementCard(state: SettingsUiState, viewModel: SettingsViewMo
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
             ) { Text("Reset") }
         }
+    }
+}
+
+@Composable
+private fun SwitchRow(title: String, description: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    val primary = MaterialTheme.colorScheme.primary
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange, colors = SwitchDefaults.colors(checkedThumbColor = primary, checkedTrackColor = primary.copy(alpha = 0.3f), uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated))
     }
 }
 

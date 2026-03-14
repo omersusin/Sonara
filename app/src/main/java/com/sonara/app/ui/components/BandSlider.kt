@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -26,7 +25,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import com.sonara.app.ui.theme.*
+import com.sonara.app.ui.theme.SonaraCardElevated
+import com.sonara.app.ui.theme.SonaraTextTertiary
 
 @Composable
 fun BandSlider(
@@ -39,7 +39,9 @@ fun BandSlider(
     enabled: Boolean = true
 ) {
     val trackHeight = 140.dp
-    val trackHeightPx = with(LocalDensity.current) { trackHeight.toPx() }
+    val density = LocalDensity.current
+    val trackHeightPx = with(density) { trackHeight.toPx() }
+    val thumbRadiusPx = with(density) { 7.dp.toPx() }
     val range = maxValue - minValue
     val primary = MaterialTheme.colorScheme.primary
 
@@ -63,6 +65,7 @@ fun BandSlider(
             modifier = Modifier.width(32.dp).height(trackHeight),
             contentAlignment = Alignment.TopCenter
         ) {
+            // Track background
             Box(
                 modifier = Modifier
                     .width(3.dp)
@@ -72,40 +75,40 @@ fun BandSlider(
                     .align(Alignment.Center)
             )
 
-            val midY = trackHeightPx / 2f
-            val thumbY = dragOffset
-            val fillTop: Float
-            val fillHeight: Float
-
-            if (thumbY < midY) {
-                fillTop = thumbY
-                fillHeight = midY - thumbY
+            // Active fill
+            val midPx = trackHeightPx / 2f
+            val fillTopPx: Float
+            val fillHeightPx: Float
+            if (dragOffset < midPx) {
+                fillTopPx = dragOffset
+                fillHeightPx = midPx - dragOffset
             } else {
-                fillTop = midY
-                fillHeight = thumbY - midY
+                fillTopPx = midPx
+                fillHeightPx = dragOffset - midPx
             }
-
-            val fillTopDp = with(LocalDensity.current) { fillTop.toDp() }
-            val fillHeightDp = with(LocalDensity.current) { fillHeight.toDp() }
+            val fillTopDp = with(density) { fillTopPx.toDp() }
+            val fillHeightDp = with(density) { fillHeightPx.toDp() }
 
             Box(
                 modifier = Modifier
                     .width(3.dp)
                     .height(fillHeightDp)
-                    .offset { IntOffset(0, fillTopDp.roundToPx()) }
+                    .align(Alignment.TopCenter)
+                    .offset { IntOffset(0, with(density) { fillTopDp.roundToPx() }) }
                     .clip(RoundedCornerShape(2.dp))
                     .background(if (enabled) primary.copy(alpha = 0.7f) else SonaraTextTertiary.copy(alpha = 0.3f))
-                    .align(Alignment.TopCenter)
             )
 
-            val thumbDp = with(LocalDensity.current) { dragOffset.toDp() }
+            // Thumb
+            val thumbDp = with(density) { dragOffset.toDp() }
+            val thumbOffsetDp = with(density) { (dragOffset - thumbRadiusPx).toDp() }
             Box(
                 modifier = Modifier
-                    .offset { IntOffset(0, thumbDp.roundToPx() - with(density) { 7.dp.roundToPx() }) }
+                    .align(Alignment.TopCenter)
+                    .offset { IntOffset(0, with(density) { thumbOffsetDp.roundToPx() }) }
                     .size(14.dp)
                     .clip(CircleShape)
                     .background(if (enabled) primary else SonaraTextTertiary)
-                    .align(Alignment.TopCenter)
                     .then(
                         if (enabled) Modifier.pointerInput(Unit) {
                             detectVerticalDragGestures { _, dragAmount ->

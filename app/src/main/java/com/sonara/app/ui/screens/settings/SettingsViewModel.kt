@@ -1,10 +1,13 @@
 package com.sonara.app.ui.screens.settings
 
 import android.app.Application
+import android.content.ComponentName
+import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
 import com.sonara.app.intelligence.cache.TrackCache
+import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.theme.AccentColor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,13 +23,14 @@ data class SettingsUiState(
     val accentColor: AccentColor = AccentColor.Amber,
     val aiEnabled: Boolean = true,
     val autoEqEnabled: Boolean = true,
+    val smoothTransitions: Boolean = true,
+    val safetyLimiter: Boolean = true,
+    val scrobblingEnabled: Boolean = false,
+    val autoPreset: Boolean = true,
     val apiKeyInput: String = "",
     val sharedSecretInput: String = "",
     val cacheSize: Int = 0,
-    val smoothTransitions: Boolean = true,
-    val safetyLimiter: Boolean = true,
-    val showClearDataDialog: Boolean = false,
-    val showClearCacheDialog: Boolean = false
+    val notificationListenerEnabled: Boolean = false
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -43,7 +47,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.lastFmSharedSecretFlow.collect { s -> _uiState.update { it.copy(lastFmSharedSecret = s, isSharedSecretSet = s.isNotBlank()) } } }
         viewModelScope.launch { prefs.aiEnabledFlow.collect { e -> _uiState.update { it.copy(aiEnabled = e) } } }
         viewModelScope.launch { prefs.autoEqEnabledFlow.collect { e -> _uiState.update { it.copy(autoEqEnabled = e) } } }
+        viewModelScope.launch { prefs.smoothTransitionsFlow.collect { e -> _uiState.update { it.copy(smoothTransitions = e) } } }
+        viewModelScope.launch { prefs.safetyLimiterFlow.collect { e -> _uiState.update { it.copy(safetyLimiter = e) } } }
+        viewModelScope.launch { prefs.scrobblingEnabledFlow.collect { e -> _uiState.update { it.copy(scrobblingEnabled = e) } } }
+        viewModelScope.launch { prefs.autoPresetFlow.collect { e -> _uiState.update { it.copy(autoPreset = e) } } }
         refreshCacheSize()
+        checkNotificationListener()
     }
 
     fun updateApiKeyInput(v: String) { _uiState.update { it.copy(apiKeyInput = v) } }
@@ -55,32 +64,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setAccentColor(c: AccentColor) { viewModelScope.launch { prefs.setAccentColor(c) } }
     fun setAiEnabled(e: Boolean) { viewModelScope.launch { prefs.setAiEnabled(e) } }
     fun setAutoEqEnabled(e: Boolean) { viewModelScope.launch { prefs.setAutoEqEnabled(e) } }
+    fun setSmoothTransitions(e: Boolean) { viewModelScope.launch { prefs.setSmoothTransitions(e) } }
+    fun setSafetyLimiter(e: Boolean) { viewModelScope.launch { prefs.setSafetyLimiter(e) } }
+    fun setScrobblingEnabled(e: Boolean) { viewModelScope.launch { prefs.setScrobblingEnabled(e) } }
+    fun setAutoPreset(e: Boolean) { viewModelScope.launch { prefs.setAutoPreset(e) } }
 
-    fun clearCache() {
-        viewModelScope.launch {
-            cache.clear()
-            refreshCacheSize()
-            _uiState.update { it.copy(showClearCacheDialog = false) }
-        }
-    }
+    fun clearCache() { viewModelScope.launch { cache.clear(); refreshCacheSize() } }
+    fun clearAllData() { viewModelScope.launch { cache.clear(); prefs.resetAll(); refreshCacheSize() } }
 
-    fun clearAllData() {
-        viewModelScope.launch {
-            cache.clear()
-            prefs.setLastFmApiKey("")
-            prefs.setLastFmSharedSecret("")
-            prefs.setAiEnabled(true)
-            prefs.setAutoEqEnabled(true)
-            prefs.setAccentColor(AccentColor.Amber)
-            refreshCacheSize()
-            _uiState.update { it.copy(showClearDataDialog = false) }
-        }
-    }
+    private fun refreshCacheSize() { viewModelScope.launch { _uiState.update { it.copy(cacheSize = cache.size()) } } }
 
-    fun showClearCacheDialog(show: Boolean) { _uiState.update { it.copy(showClearCacheDialog = show) } }
-    fun showClearDataDialog(show: Boolean) { _uiState.update { it.copy(showClearDataDialog = show) } }
-
-    private fun refreshCacheSize() {
-        viewModelScope.launch { val size = cache.size(); _uiState.update { it.copy(cacheSize = size) } }
+    fun checkNotificationListener() {
+        val cn = ComponentName(getApplication<Application>(), SonaraNotificationListener::class.java)
+        val flat = Settings.Secure.getString(getApplication<Application>().contentResolver, "enabled_notification_listeners")
+        _uiState.update { it.copy(notificationListenerEnabled = flat?.contains(cn.flattenToString()) == true) }
     }
 }
