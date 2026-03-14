@@ -1,7 +1,6 @@
 package com.sonara.app.ui.screens.equalizer
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,7 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material3.AlertDialog
@@ -28,7 +26,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -71,40 +68,23 @@ fun EqualizerScreen() {
     }
 
     if (showSaveDialog) {
-        SavePresetDialog(
-            onDismiss = { showSaveDialog = false },
-            onSave = { name -> viewModel.saveCurrentAsPreset(name); showSaveDialog = false }
-        )
+        SavePresetDialog(onDismiss = { showSaveDialog = false }, onSave = { name -> viewModel.saveCurrentAsPreset(name); showSaveDialog = false })
     }
 }
 
 @Composable
 private fun Header(state: EqualizerUiState, vm: EqualizerViewModel, primary: androidx.compose.ui.graphics.Color, onSave: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Column {
             Text("Equalizer", style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(2.dp))
             Text(state.currentPresetName, style = MaterialTheme.typography.bodySmall, color = primary)
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            IconButton(onClick = onSave) {
-                Icon(Icons.Rounded.Save, "Save", tint = SonaraTextSecondary)
-            }
-            IconButton(onClick = { vm.resetBands() }) {
-                Icon(Icons.Rounded.Refresh, "Reset", tint = SonaraTextSecondary)
-            }
-            Switch(
-                checked = state.isEnabled,
-                onCheckedChange = { vm.setEnabled(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = primary, checkedTrackColor = primary.copy(alpha = 0.3f),
-                    uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated
-                )
-            )
+            IconButton(onClick = onSave) { Icon(Icons.Rounded.Save, "Save", tint = SonaraTextSecondary) }
+            IconButton(onClick = { vm.resetBands() }) { Icon(Icons.Rounded.Refresh, "Reset", tint = SonaraTextSecondary) }
+            Switch(checked = state.isEnabled, onCheckedChange = { vm.setEnabled(it) },
+                colors = SwitchDefaults.colors(checkedThumbColor = primary, checkedTrackColor = primary.copy(alpha = 0.3f), uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated))
         }
     }
 }
@@ -119,10 +99,8 @@ private fun PresetQuickPicker(state: EqualizerUiState, vm: EqualizerViewModel, p
                 onClick = { vm.applyPreset(preset) },
                 label = { Text(preset.name, style = MaterialTheme.typography.labelMedium) },
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = primary.copy(alpha = 0.15f),
-                    selectedLabelColor = primary,
-                    containerColor = SonaraCard,
-                    labelColor = SonaraTextSecondary
+                    selectedContainerColor = primary.copy(alpha = 0.15f), selectedLabelColor = primary,
+                    containerColor = SonaraCard, labelColor = SonaraTextSecondary
                 ),
                 border = if (selected) BorderStroke(1.dp, primary.copy(alpha = 0.3f))
                          else BorderStroke(1.dp, SonaraDivider.copy(alpha = 0.3f))
@@ -192,20 +170,16 @@ private fun EffectRow(label: String, value: Int, onValueChange: (Int) -> Unit, e
 private fun SavePresetDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var name by remember { mutableStateOf("") }
     AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = SonaraCard,
+        onDismissRequest = onDismiss, containerColor = SonaraCard,
         title = { Text("Save Preset") },
         text = {
-            OutlinedTextField(
-                value = name, onValueChange = { name = it },
+            OutlinedTextField(value = name, onValueChange = { name = it },
                 placeholder = { Text("Preset name", color = SonaraTextTertiary) },
                 singleLine = true, shape = MaterialTheme.shapes.small,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = SonaraDivider,
                     focusedContainerColor = SonaraCardElevated, unfocusedContainerColor = SonaraCardElevated,
-                    cursorColor = MaterialTheme.colorScheme.primary, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary
-                )
-            )
+                    cursorColor = MaterialTheme.colorScheme.primary, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary))
         },
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(name) }) { Text("Save", color = MaterialTheme.colorScheme.primary) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = SonaraTextSecondary) } }

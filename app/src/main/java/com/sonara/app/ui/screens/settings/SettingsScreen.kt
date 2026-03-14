@@ -1,6 +1,8 @@
 package com.sonara.app.ui.screens.settings
 
+import android.content.Intent
 import android.os.Build
+import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -37,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -49,6 +53,7 @@ import com.sonara.app.ui.theme.*
 fun SettingsScreen() {
     val viewModel: SettingsViewModel = viewModel()
     val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -56,6 +61,10 @@ fun SettingsScreen() {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { Text("Settings", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(vertical = 8.dp)) }
+
+        if (!state.notificationListenerEnabled) {
+            item { NotificationPermissionCard { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) } }
+        }
 
         item { SectionHeader("Last.fm Integration") }
         item { LastFmCard(state, viewModel) }
@@ -66,18 +75,9 @@ fun SettingsScreen() {
         item { SectionHeader("Sound Engine") }
         item { SoundEngineCard(state, viewModel) }
 
-        item {
-            FluentCard {
-                val primary = MaterialTheme.colorScheme.primary
-                SwitchRow("Smooth Transitions", "Gradual EQ changes between tracks", state.smoothTransitions) { viewModel.setSmoothTransitions(it) }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
-                SwitchRow("Safety Limiter", "Prevent audio clipping and distortion", state.safetyLimiter) { viewModel.setSafetyLimiter(it) }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
-                SwitchRow("Auto Preset", "Automatically select preset based on genre", state.autoPreset) { viewModel.setAutoPreset(it) }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
-                SwitchRow("Scrobbling", "Send listening history to Last.fm", state.scrobblingEnabled) { viewModel.setScrobblingEnabled(it) }
-            }
-        }
+        item { SectionHeader("Advanced") }
+        item { AdvancedCard(state, viewModel) }
+
         item { SectionHeader("Data") }
         item { DataManagementCard(state, viewModel) }
 
@@ -90,49 +90,42 @@ fun SettingsScreen() {
 
 @Composable
 private fun SectionHeader(title: String) {
-    Text(
-        title.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        color = SonaraTextTertiary,
-        modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp)
-    )
+    Text(title.uppercase(), style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary,
+        modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp))
+}
+
+@Composable
+private fun NotificationPermissionCard(onGrant: () -> Unit) {
+    FluentCard {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Rounded.Notifications, null, tint = SonaraWarning, modifier = Modifier.size(24.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Notification Access", style = MaterialTheme.typography.titleMedium)
+                Text("Required to detect playing music", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(onClick = onGrant, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+        ) { Text("Grant Permission") }
+    }
 }
 
 @Composable
 private fun LastFmCard(state: SettingsUiState, viewModel: SettingsViewModel) {
     FluentCard {
-        KeyInputSection(
-            title = "API Key",
-            isSet = state.isApiKeySet,
-            description = if (state.isApiKeySet) "Genre detection via Last.fm is active." else "Enter your Last.fm API key to enable genre detection.",
-            inputValue = state.apiKeyInput,
-            onInputChange = { viewModel.updateApiKeyInput(it) },
-            placeholder = "Enter API key...",
-            buttonText = "Save API Key",
-            onSave = { viewModel.saveApiKey() }
-        )
-
+        KeyInputSection("API Key", state.isApiKeySet,
+            if (state.isApiKeySet) "Genre detection via Last.fm is active." else "Enter your Last.fm API key to enable genre detection.",
+            state.apiKeyInput, { viewModel.updateApiKeyInput(it) }, "Enter API key...", "Save API Key") { viewModel.saveApiKey() }
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
-
-        KeyInputSection(
-            title = "Shared Secret",
-            isSet = state.isSharedSecretSet,
-            description = if (state.isSharedSecretSet) "Scrobbling is ready." else "Required for Last.fm scrobbling.",
-            inputValue = state.sharedSecretInput,
-            onInputChange = { viewModel.updateSharedSecretInput(it) },
-            placeholder = "Enter shared secret...",
-            buttonText = "Save Secret",
-            onSave = { viewModel.saveSharedSecret() }
-        )
+        KeyInputSection("Shared Secret", state.isSharedSecretSet,
+            if (state.isSharedSecretSet) "Scrobbling is ready." else "Required for Last.fm scrobbling.",
+            state.sharedSecretInput, { viewModel.updateSharedSecretInput(it) }, "Enter shared secret...", "Save Secret") { viewModel.saveSharedSecret() }
     }
 }
 
 @Composable
-private fun KeyInputSection(
-    title: String, isSet: Boolean, description: String,
-    inputValue: String, onInputChange: (String) -> Unit,
-    placeholder: String, buttonText: String, onSave: () -> Unit
-) {
+private fun KeyInputSection(title: String, isSet: Boolean, description: String, inputValue: String, onInputChange: (String) -> Unit, placeholder: String, buttonText: String, onSave: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         StatusChip(if (isSet) "Set" else "Not Set", if (isSet) ChipStatus.Active else ChipStatus.Inactive)
@@ -140,25 +133,16 @@ private fun KeyInputSection(
     Spacer(Modifier.height(4.dp))
     Text(description, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
     Spacer(Modifier.height(10.dp))
-    OutlinedTextField(
-        value = inputValue, onValueChange = onInputChange,
-        placeholder = { Text(placeholder, color = SonaraTextTertiary) },
-        visualTransformation = PasswordVisualTransformation(),
-        modifier = Modifier.fillMaxWidth(), singleLine = true, shape = MaterialTheme.shapes.small,
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = SonaraDivider,
+    OutlinedTextField(value = inputValue, onValueChange = onInputChange, placeholder = { Text(placeholder, color = SonaraTextTertiary) },
+        visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = MaterialTheme.shapes.small,
+        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = SonaraDivider,
             focusedContainerColor = SonaraCardElevated, unfocusedContainerColor = SonaraCardElevated,
-            cursorColor = MaterialTheme.colorScheme.primary, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary
-        )
-    )
+            cursorColor = MaterialTheme.colorScheme.primary, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary))
     Spacer(Modifier.height(10.dp))
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        OutlinedButton(
-            onClick = onSave, enabled = inputValue.isNotBlank(),
-            shape = MaterialTheme.shapes.extraLarge,
+        OutlinedButton(onClick = onSave, enabled = inputValue.isNotBlank(), shape = MaterialTheme.shapes.extraLarge,
             border = BorderStroke(1.dp, if (inputValue.isNotBlank()) MaterialTheme.colorScheme.primary else SonaraDivider),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-        ) { Text(buttonText) }
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)) { Text(buttonText) }
     }
 }
 
@@ -167,35 +151,18 @@ private fun AccentColorCard(selected: AccentColor, onSelect: (AccentColor) -> Un
     FluentCard {
         Text("Accent Color", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
-        Text(
-            if (selected == AccentColor.Auto) "Wallpaper colors" else selected.displayName,
-            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary
-        )
+        Text(if (selected == AccentColor.Auto) "Wallpaper colors" else selected.displayName, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
         Spacer(Modifier.height(16.dp))
         val availableColors = if (Build.VERSION.SDK_INT >= 31) AccentColor.entries else AccentColor.entries.filter { it != AccentColor.Auto }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             availableColors.forEach { color ->
                 val isSelected = color == selected
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .then(
-                            if (color == AccentColor.Auto) Modifier.background(
-                                Brush.sweepGradient(listOf(SonaraInfo, SonaraSuccess, SonaraBandLow, SonaraError, SonaraWarning, SonaraInfo))
-                            ) else Modifier.background(color.primary)
-                        )
-                        .then(
-                            if (isSelected) Modifier.border(2.5.dp, SonaraTextPrimary, CircleShape)
-                            else Modifier.border(1.dp, SonaraDivider.copy(alpha = 0.3f), CircleShape)
-                        )
-                        .clickable { onSelect(color) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isSelected) {
-                        Icon(Icons.Rounded.Check, null, tint = SonaraBackground, modifier = Modifier.size(18.dp))
-                    }
-                }
+                Box(modifier = Modifier.size(38.dp).clip(CircleShape)
+                    .then(if (color == AccentColor.Auto) Modifier.background(Brush.sweepGradient(listOf(SonaraInfo, SonaraSuccess, SonaraBandLow, SonaraError, SonaraWarning, SonaraInfo)))
+                          else Modifier.background(color.primary))
+                    .then(if (isSelected) Modifier.border(2.5.dp, SonaraTextPrimary, CircleShape) else Modifier.border(1.dp, SonaraDivider.copy(alpha = 0.3f), CircleShape))
+                    .clickable { onSelect(color) }, contentAlignment = Alignment.Center
+                ) { if (isSelected) Icon(Icons.Rounded.Check, null, tint = SonaraBackground, modifier = Modifier.size(18.dp)) }
             }
         }
     }
@@ -203,60 +170,23 @@ private fun AccentColorCard(selected: AccentColor, onSelect: (AccentColor) -> Un
 
 @Composable
 private fun SoundEngineCard(state: SettingsUiState, viewModel: SettingsViewModel) {
-    val primary = MaterialTheme.colorScheme.primary
     FluentCard {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("AI Auto-adjust", style = MaterialTheme.typography.titleMedium)
-                Text("Adjust EQ based on detected genre and mood", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-            }
-            Switch(
-                checked = state.aiEnabled, onCheckedChange = { viewModel.setAiEnabled(it) },
-                colors = SwitchDefaults.colors(checkedThumbColor = primary, checkedTrackColor = primary.copy(alpha = 0.3f), uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated)
-            )
-        }
-        HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("AutoEQ", style = MaterialTheme.typography.titleMedium)
-                Text("Apply headphone correction automatically", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-            }
-            Switch(
-                checked = state.autoEqEnabled, onCheckedChange = { viewModel.setAutoEqEnabled(it) },
-                colors = SwitchDefaults.colors(checkedThumbColor = primary, checkedTrackColor = primary.copy(alpha = 0.3f), uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated)
-            )
-        }
+        SwitchRow("AI Auto-adjust", "Adjust EQ based on detected genre and mood", state.aiEnabled) { viewModel.setAiEnabled(it) }
+        SettingsDivider()
+        SwitchRow("AutoEQ", "Apply headphone correction automatically", state.autoEqEnabled) { viewModel.setAutoEqEnabled(it) }
+        SettingsDivider()
+        SwitchRow("Auto Preset", "Automatically select preset based on genre", state.autoPreset) { viewModel.setAutoPreset(it) }
     }
 }
 
 @Composable
-private fun DataManagementCard(state: SettingsUiState, viewModel: SettingsViewModel) {
+private fun AdvancedCard(state: SettingsUiState, viewModel: SettingsViewModel) {
     FluentCard {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("Track Cache", style = MaterialTheme.typography.titleMedium)
-                Text("${state.cacheSize} tracks cached", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-            }
-            OutlinedButton(
-                onClick = { viewModel.clearCache() },
-                shape = MaterialTheme.shapes.extraLarge,
-                border = BorderStroke(1.dp, SonaraDivider),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
-            ) { Text("Clear") }
-        }
-        HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("Reset All Settings", style = MaterialTheme.typography.titleMedium)
-                Text("Clear all data and restore defaults", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-            }
-            OutlinedButton(
-                onClick = { viewModel.clearAllData() },
-                shape = MaterialTheme.shapes.extraLarge,
-                border = BorderStroke(1.dp, SonaraError.copy(alpha = 0.5f)),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
-            ) { Text("Reset") }
-        }
+        SwitchRow("Smooth Transitions", "Gradual EQ changes between tracks", state.smoothTransitions) { viewModel.setSmoothTransitions(it) }
+        SettingsDivider()
+        SwitchRow("Safety Limiter", "Prevent audio clipping and distortion", state.safetyLimiter) { viewModel.setSafetyLimiter(it) }
+        SettingsDivider()
+        SwitchRow("Scrobbling", "Send listening history to Last.fm", state.scrobblingEnabled) { viewModel.setScrobblingEnabled(it) }
     }
 }
 
@@ -268,7 +198,30 @@ private fun SwitchRow(title: String, description: String, checked: Boolean, onCh
             Text(title, style = MaterialTheme.typography.titleMedium)
             Text(description, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange, colors = SwitchDefaults.colors(checkedThumbColor = primary, checkedTrackColor = primary.copy(alpha = 0.3f), uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated))
+        Switch(checked = checked, onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(checkedThumbColor = primary, checkedTrackColor = primary.copy(alpha = 0.3f), uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated))
+    }
+}
+
+@Composable
+private fun SettingsDivider() {
+    HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
+}
+
+@Composable
+private fun DataManagementCard(state: SettingsUiState, viewModel: SettingsViewModel) {
+    FluentCard {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column { Text("Track Cache", style = MaterialTheme.typography.titleMedium); Text("${state.cacheSize} tracks cached", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
+            OutlinedButton(onClick = { viewModel.clearCache() }, shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, SonaraDivider), colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)) { Text("Clear") }
+        }
+        SettingsDivider()
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column { Text("Reset All Settings", style = MaterialTheme.typography.titleMedium); Text("Clear all data and restore defaults", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
+            OutlinedButton(onClick = { viewModel.clearAllData() }, shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, SonaraError.copy(alpha = 0.5f)), colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)) { Text("Reset") }
+        }
     }
 }
 
@@ -276,10 +229,7 @@ private fun SwitchRow(title: String, description: String, checked: Boolean, onCh
 private fun AboutCard() {
     FluentCard {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("Sonara", style = MaterialTheme.typography.titleMedium)
-                Text("Personal Sound Engine", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-            }
+            Column { Text("Sonara", style = MaterialTheme.typography.titleMedium); Text("Personal Sound Engine", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
             Text("v1.0.0", style = MaterialTheme.typography.labelLarge, color = SonaraTextTertiary)
         }
     }

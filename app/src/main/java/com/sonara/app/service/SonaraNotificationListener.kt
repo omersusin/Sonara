@@ -2,10 +2,11 @@ package com.sonara.app.service
 
 import android.media.MediaMetadata
 import android.media.session.MediaController
-import android.media.session.MediaSession
+import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.content.ComponentName
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,7 +54,6 @@ class SonaraNotificationListener : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        // Trigger session check
         checkActiveSessions()
     }
 
@@ -66,12 +66,17 @@ class SonaraNotificationListener : NotificationListenerService() {
 
     private fun checkActiveSessions() {
         try {
-            val sessions = getActiveSessions(null)
-            val playing = sessions?.firstOrNull { controller ->
+            val manager = getSystemService(MEDIA_SESSION_SERVICE) as MediaSessionManager
+            val component = ComponentName(this, SonaraNotificationListener::class.java)
+            val sessions: List<MediaController> = manager.getActiveSessions(component)
+
+            val playing = sessions.firstOrNull { controller: MediaController ->
                 controller.playbackState?.state == PlaybackState.STATE_PLAYING
             }
-            val target = playing ?: sessions?.firstOrNull()
-            target?.let { attachTo(it) }
+            val target: MediaController? = playing ?: sessions.firstOrNull()
+            if (target != null) {
+                attachTo(target)
+            }
         } catch (e: SecurityException) {
             // Permission not granted
         }

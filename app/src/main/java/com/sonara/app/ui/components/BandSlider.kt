@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -23,7 +24,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.sonara.app.ui.theme.SonaraCardElevated
 import com.sonara.app.ui.theme.SonaraTextTertiary
@@ -41,7 +41,6 @@ fun BandSlider(
     val trackHeight = 140.dp
     val density = LocalDensity.current
     val trackHeightPx = with(density) { trackHeight.toPx() }
-    val thumbRadiusPx = with(density) { 7.dp.toPx() }
     val range = maxValue - minValue
     val primary = MaterialTheme.colorScheme.primary
 
@@ -94,18 +93,17 @@ fun BandSlider(
                     .width(3.dp)
                     .height(fillHeightDp)
                     .align(Alignment.TopCenter)
-                    .offset { IntOffset(0, with(density) { fillTopDp.roundToPx() }) }
+                    .offset(x = 0.dp, y = fillTopDp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(if (enabled) primary.copy(alpha = 0.7f) else SonaraTextTertiary.copy(alpha = 0.3f))
             )
 
             // Thumb
-            val thumbDp = with(density) { dragOffset.toDp() }
-            val thumbOffsetDp = with(density) { (dragOffset - thumbRadiusPx).toDp() }
+            val thumbOffsetDp = with(density) { (dragOffset - 7.dp.toPx()).toDp() }
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .offset { IntOffset(0, with(density) { thumbOffsetDp.roundToPx() }) }
+                    .offset(x = 0.dp, y = thumbOffsetDp)
                     .size(14.dp)
                     .clip(CircleShape)
                     .background(if (enabled) primary else SonaraTextTertiary)
