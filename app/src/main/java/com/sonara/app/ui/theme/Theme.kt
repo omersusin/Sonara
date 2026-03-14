@@ -6,16 +6,19 @@ import androidx.compose.runtime.Composable
 
 private val SonaraColorScheme = darkColorScheme(
     primary = SonaraPrimary,
-    onPrimary = SonaraBlack,
-    primaryContainer = SonaraPrimaryDark,
-    secondary = SonaraAccentBlue,
-    background = SonaraBlack,
+    onPrimary = SonaraBackground,
+    primaryContainer = SonaraPrimaryContainer,
+    onPrimaryContainer = SonaraPrimary,
+    secondary = SonaraInfo,
+    background = SonaraBackground,
     surface = SonaraSurface,
     surfaceVariant = SonaraCard,
     onBackground = SonaraTextPrimary,
     onSurface = SonaraTextPrimary,
     onSurfaceVariant = SonaraTextSecondary,
-    error = SonaraAccentRed
+    outline = SonaraDivider,
+    outlineVariant = SonaraDivider,
+    error = SonaraError
 )
 
 @Composable
@@ -23,6 +26,7 @@ fun SonaraTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = SonaraColorScheme,
         typography = SonaraTypography,
+        shapes = SonaraShapes,
         content = content
     )
 }

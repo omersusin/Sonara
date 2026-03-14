@@ -1,11 +1,13 @@
 package com.sonara.app.ui.components
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -14,13 +16,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.sonara.app.ui.navigation.Screen
-import com.sonara.app.ui.theme.SonaraPrimary
-import com.sonara.app.ui.theme.SonaraPrimaryDark
-import com.sonara.app.ui.theme.SonaraSurface
-import com.sonara.app.ui.theme.SonaraTextMuted
+import com.sonara.app.ui.theme.*
 
 private data class NavItem(val screen: Screen, val icon: ImageVector)
 
@@ -36,30 +36,33 @@ fun SonaraBottomBar(navController: NavController) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
 
-    NavigationBar(containerColor = SonaraSurface, contentColor = SonaraTextMuted) {
-        items.forEach { item ->
-            val selected = currentRoute == item.screen.route
-            NavigationBarItem(
-                selected = selected,
-                onClick = {
-                    if (currentRoute != item.screen.route) {
-                        navController.navigate(item.screen.route) {
-                            popUpTo(Screen.Dashboard.route) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
+    Column {
+        HorizontalDivider(thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
+        NavigationBar(containerColor = SonaraSurface, tonalElevation = 0.dp) {
+            items.forEach { item ->
+                val selected = currentRoute == item.screen.route
+                NavigationBarItem(
+                    selected = selected,
+                    onClick = {
+                        if (currentRoute != item.screen.route) {
+                            navController.navigate(item.screen.route) {
+                                popUpTo(Screen.Dashboard.route) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
-                    }
-                },
-                icon = { Icon(item.icon, contentDescription = item.screen.label) },
-                label = { Text(item.screen.label) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = SonaraPrimary,
-                    selectedTextColor = SonaraPrimary,
-                    unselectedIconColor = SonaraTextMuted,
-                    unselectedTextColor = SonaraTextMuted,
-                    indicatorColor = SonaraPrimaryDark.copy(alpha = 0.15f)
+                    },
+                    icon = { Icon(item.icon, contentDescription = item.screen.label) },
+                    label = { Text(item.screen.label) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = SonaraPrimary,
+                        selectedTextColor = SonaraPrimary,
+                        unselectedIconColor = SonaraTextTertiary,
+                        unselectedTextColor = SonaraTextTertiary,
+                        indicatorColor = SonaraPrimary.copy(alpha = 0.1f)
+                    )
                 )
-            )
+            }
         }
     }
 }
