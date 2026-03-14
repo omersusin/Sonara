@@ -1,7 +1,8 @@
 package com.sonara.app.ui.screens.settings
 
-import androidx.compose.foundation.background
 import android.os.Build
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,14 +20,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -55,9 +55,7 @@ fun SettingsScreen() {
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item {
-            Text("Settings", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(vertical = 8.dp))
-        }
+        item { Text("Settings", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(vertical = 8.dp)) }
 
         item { SectionHeader("Last.fm Integration") }
         item { LastFmCard(state, viewModel) }
@@ -70,6 +68,7 @@ fun SettingsScreen() {
 
         item { SectionHeader("Data") }
         item { DataManagementCard(state, viewModel) }
+
         item { SectionHeader("About") }
         item { AboutCard() }
 
@@ -101,11 +100,7 @@ private fun LastFmCard(state: SettingsUiState, viewModel: SettingsViewModel) {
             onSave = { viewModel.saveApiKey() }
         )
 
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 16.dp),
-            thickness = 0.5.dp,
-            color = SonaraDivider.copy(alpha = 0.5f)
-        )
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
 
         KeyInputSection(
             title = "Shared Secret",
@@ -122,20 +117,11 @@ private fun LastFmCard(state: SettingsUiState, viewModel: SettingsViewModel) {
 
 @Composable
 private fun KeyInputSection(
-    title: String,
-    isSet: Boolean,
-    description: String,
-    inputValue: String,
-    onInputChange: (String) -> Unit,
-    placeholder: String,
-    buttonText: String,
-    onSave: () -> Unit
+    title: String, isSet: Boolean, description: String,
+    inputValue: String, onInputChange: (String) -> Unit,
+    placeholder: String, buttonText: String, onSave: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         StatusChip(if (isSet) "Set" else "Not Set", if (isSet) ChipStatus.Active else ChipStatus.Inactive)
     }
@@ -143,28 +129,20 @@ private fun KeyInputSection(
     Text(description, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
     Spacer(Modifier.height(10.dp))
     OutlinedTextField(
-        value = inputValue,
-        onValueChange = onInputChange,
+        value = inputValue, onValueChange = onInputChange,
         placeholder = { Text(placeholder, color = SonaraTextTertiary) },
         visualTransformation = PasswordVisualTransformation(),
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.fillMaxWidth(), singleLine = true, shape = MaterialTheme.shapes.small,
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = SonaraDivider,
-            focusedContainerColor = SonaraCardElevated,
-            unfocusedContainerColor = SonaraCardElevated,
-            cursorColor = MaterialTheme.colorScheme.primary,
-            focusedTextColor = SonaraTextPrimary,
-            unfocusedTextColor = SonaraTextPrimary
+            focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = SonaraDivider,
+            focusedContainerColor = SonaraCardElevated, unfocusedContainerColor = SonaraCardElevated,
+            cursorColor = MaterialTheme.colorScheme.primary, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary
         )
     )
     Spacer(Modifier.height(10.dp))
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
         OutlinedButton(
-            onClick = onSave,
-            enabled = inputValue.isNotBlank(),
+            onClick = onSave, enabled = inputValue.isNotBlank(),
             shape = MaterialTheme.shapes.extraLarge,
             border = BorderStroke(1.dp, if (inputValue.isNotBlank()) MaterialTheme.colorScheme.primary else SonaraDivider),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
@@ -177,20 +155,24 @@ private fun AccentColorCard(selected: AccentColor, onSelect: (AccentColor) -> Un
     FluentCard {
         Text("Accent Color", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
-        Text(if (selected == AccentColor.Auto) "Wallpaper colors" else selected.displayName, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Text(
+            if (selected == AccentColor.Auto) "Wallpaper colors" else selected.displayName,
+            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary
+        )
         Spacer(Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            val availableColors = if (Build.VERSION.SDK_INT >= 31) AccentColor.entries else AccentColor.entries.filter { it != AccentColor.Auto }
+        val availableColors = if (Build.VERSION.SDK_INT >= 31) AccentColor.entries else AccentColor.entries.filter { it != AccentColor.Auto }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             availableColors.forEach { color ->
                 val isSelected = color == selected
                 Box(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .then(if (color == AccentColor.Auto) Modifier.background(Brush.sweepGradient(listOf(SonaraInfo, SonaraSuccess, SonaraBandLow, SonaraError, SonaraWarning, SonaraInfo))) else Modifier.background(color.primary))
+                        .then(
+                            if (color == AccentColor.Auto) Modifier.background(
+                                Brush.sweepGradient(listOf(SonaraInfo, SonaraSuccess, SonaraBandLow, SonaraError, SonaraWarning, SonaraInfo))
+                            ) else Modifier.background(color.primary)
+                        )
                         .then(
                             if (isSelected) Modifier.border(2.5.dp, SonaraTextPrimary, CircleShape)
                             else Modifier.border(1.dp, SonaraDivider.copy(alpha = 0.3f), CircleShape)
@@ -199,7 +181,7 @@ private fun AccentColorCard(selected: AccentColor, onSelect: (AccentColor) -> Un
                     contentAlignment = Alignment.Center
                 ) {
                     if (isSelected) {
-                        Icon(Icons.Rounded.Check, contentDescription = null, tint = SonaraBackground, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Check, null, tint = SonaraBackground, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -209,53 +191,59 @@ private fun AccentColorCard(selected: AccentColor, onSelect: (AccentColor) -> Un
 
 @Composable
 private fun SoundEngineCard(state: SettingsUiState, viewModel: SettingsViewModel) {
+    val primary = MaterialTheme.colorScheme.primary
     FluentCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("AI Auto-adjust", style = MaterialTheme.typography.titleMedium)
                 Text("Adjust EQ based on detected genre and mood", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
             }
             Switch(
-                checked = state.aiEnabled,
-                onCheckedChange = { viewModel.setAiEnabled(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.primary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                    uncheckedThumbColor = SonaraTextTertiary,
-                    uncheckedTrackColor = SonaraCardElevated
-                )
+                checked = state.aiEnabled, onCheckedChange = { viewModel.setAiEnabled(it) },
+                colors = SwitchDefaults.colors(checkedThumbColor = primary, checkedTrackColor = primary.copy(alpha = 0.3f), uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated)
             )
         }
-
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 14.dp),
-            thickness = 0.5.dp,
-            color = SonaraDivider.copy(alpha = 0.5f)
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("AutoEQ", style = MaterialTheme.typography.titleMedium)
                 Text("Apply headphone correction automatically", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
             }
             Switch(
-                checked = state.autoEqEnabled,
-                onCheckedChange = { viewModel.setAutoEqEnabled(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.primary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                    uncheckedThumbColor = SonaraTextTertiary,
-                    uncheckedTrackColor = SonaraCardElevated
-                )
+                checked = state.autoEqEnabled, onCheckedChange = { viewModel.setAutoEqEnabled(it) },
+                colors = SwitchDefaults.colors(checkedThumbColor = primary, checkedTrackColor = primary.copy(alpha = 0.3f), uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated)
             )
+        }
+    }
+}
+
+@Composable
+private fun DataManagementCard(state: SettingsUiState, viewModel: SettingsViewModel) {
+    FluentCard {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text("Track Cache", style = MaterialTheme.typography.titleMedium)
+                Text("${state.cacheSize} tracks cached", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+            }
+            OutlinedButton(
+                onClick = { viewModel.clearCache() },
+                shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, SonaraDivider),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
+            ) { Text("Clear") }
+        }
+        HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text("Reset All Settings", style = MaterialTheme.typography.titleMedium)
+                Text("Clear all data and restore defaults", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+            }
+            OutlinedButton(
+                onClick = { viewModel.clearAllData() },
+                shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, SonaraError.copy(alpha = 0.5f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
+            ) { Text("Reset") }
         }
     }
 }
@@ -263,11 +251,7 @@ private fun SoundEngineCard(state: SettingsUiState, viewModel: SettingsViewModel
 @Composable
 private fun AboutCard() {
     FluentCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Text("Sonara", style = MaterialTheme.typography.titleMedium)
                 Text("Personal Sound Engine", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
