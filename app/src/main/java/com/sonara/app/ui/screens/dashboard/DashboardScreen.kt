@@ -38,6 +38,8 @@ import com.sonara.app.ui.theme.*
 
 @Composable
 fun DashboardScreen() {
+    val primary = MaterialTheme.colorScheme.primary
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
@@ -50,8 +52,8 @@ fun DashboardScreen() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Sonara", style = MaterialTheme.typography.headlineLarge, color = SonaraPrimary)
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Text("Sonara", style = MaterialTheme.typography.headlineLarge, color = primary)
+                    Spacer(Modifier.height(2.dp))
                     Text("Personal Sound Engine", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
                 }
                 StatusChip(label = "AI Ready", status = ChipStatus.Active, icon = Icons.Rounded.AutoAwesome)
@@ -69,7 +71,7 @@ fun DashboardScreen() {
                 ) {
                     Column {
                         Text("Intelligence", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(Modifier.height(4.dp))
                         Text("Waiting for music...", style = MaterialTheme.typography.bodyLarge, color = SonaraTextPrimary)
                     }
                     StatusChip("Idle", ChipStatus.Inactive)
@@ -101,7 +103,7 @@ fun DashboardScreen() {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Sound Profile", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-                        Text("Flat", style = MaterialTheme.typography.labelLarge, color = SonaraPrimary)
+                        Text("Flat", style = MaterialTheme.typography.labelLarge, color = primary)
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth().height(36.dp),
@@ -114,7 +116,7 @@ fun DashboardScreen() {
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(h.dp)
-                                    .background(SonaraPrimary.copy(alpha = 0.35f), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                                    .background(primary.copy(alpha = 0.35f), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
                             )
                         }
                     }
@@ -129,6 +131,8 @@ fun DashboardScreen() {
                 QuickActionBtn(Modifier.weight(1f), Icons.Rounded.Refresh, "Reset")
             }
         }
+
+        item { Spacer(Modifier.height(8.dp)) }
     }
 }
 

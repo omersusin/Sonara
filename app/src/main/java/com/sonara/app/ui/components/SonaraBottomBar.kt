@@ -9,6 +9,7 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -35,6 +36,7 @@ fun SonaraBottomBar(navController: NavController) {
     )
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
+    val primary = MaterialTheme.colorScheme.primary
 
     Column {
         HorizontalDivider(thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
@@ -55,11 +57,11 @@ fun SonaraBottomBar(navController: NavController) {
                     icon = { Icon(item.icon, contentDescription = item.screen.label) },
                     label = { Text(item.screen.label) },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = SonaraPrimary,
-                        selectedTextColor = SonaraPrimary,
+                        selectedIconColor = primary,
+                        selectedTextColor = primary,
                         unselectedIconColor = SonaraTextTertiary,
                         unselectedTextColor = SonaraTextTertiary,
-                        indicatorColor = SonaraPrimary.copy(alpha = 0.1f)
+                        indicatorColor = primary.copy(alpha = 0.1f)
                     )
                 )
             }

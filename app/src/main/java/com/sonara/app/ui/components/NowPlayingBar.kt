@@ -36,7 +36,7 @@ fun NowPlayingBar(
                 modifier = Modifier.size(44.dp).background(SonaraCardElevated, RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = SonaraPrimary, modifier = Modifier.size(22.dp))
+                Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
