@@ -14,9 +14,20 @@ object AiEqSuggestionEngine {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (other !is EqSuggestion) return false
-            return bands.contentEquals(other.bands)
+            return bands.contentEquals(other.bands) &&
+                bassBoost == other.bassBoost &&
+                virtualizer == other.virtualizer &&
+                preamp == other.preamp &&
+                reasoning == other.reasoning
         }
-        override fun hashCode() = bands.contentHashCode()
+        override fun hashCode(): Int {
+            var result = bands.contentHashCode()
+            result = 31 * result + bassBoost
+            result = 31 * result + virtualizer
+            result = 31 * result + preamp.hashCode()
+            result = 31 * result + reasoning.hashCode()
+            return result
+        }
     }
 
     fun suggest(trackInfo: TrackInfo): EqSuggestion {
@@ -91,7 +102,7 @@ object AiEqSuggestionEngine {
     }
 
     private fun calculatePreamp(bands: FloatArray): Float {
-        val maxGain = bands.max()
+        val maxGain = bands.maxOrNull() ?: 0f
         return if (maxGain > 6f) -(maxGain - 6f) * 0.5f else 0f
     }
 

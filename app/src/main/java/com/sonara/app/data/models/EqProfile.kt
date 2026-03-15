@@ -10,7 +10,16 @@ data class EqProfile(
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is EqProfile) return false
-        return bands.contentEquals(other.bands) && preamp == other.preamp
+        return bands.contentEquals(other.bands) && preamp == other.preamp &&
+            bassBoost == other.bassBoost && virtualizer == other.virtualizer &&
+            loudness == other.loudness
     }
-    override fun hashCode() = bands.contentHashCode()
+    override fun hashCode(): Int {
+        var result = bands.contentHashCode()
+        result = 31 * result + preamp.hashCode()
+        result = 31 * result + bassBoost
+        result = 31 * result + virtualizer
+        result = 31 * result + loudness
+        return result
+    }
 }

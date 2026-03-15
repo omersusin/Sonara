@@ -25,10 +25,28 @@ data class ActiveSoundState(
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is ActiveSoundState) return false
-        return presetName == other.presetName && finalBands.contentEquals(other.finalBands) &&
-            preamp == other.preamp && bassBoost == other.bassBoost
+        return presetName == other.presetName &&
+            presetBands.contentEquals(other.presetBands) &&
+            autoEqBands.contentEquals(other.autoEqBands) &&
+            aiBands.contentEquals(other.aiBands) &&
+            finalBands.contentEquals(other.finalBands) &&
+            preamp == other.preamp && bassBoost == other.bassBoost &&
+            virtualizer == other.virtualizer && loudness == other.loudness &&
+            isClipping == other.isClipping
     }
-    override fun hashCode() = finalBands.contentHashCode()
+    override fun hashCode(): Int {
+        var result = presetName.hashCode()
+        result = 31 * result + presetBands.contentHashCode()
+        result = 31 * result + autoEqBands.contentHashCode()
+        result = 31 * result + aiBands.contentHashCode()
+        result = 31 * result + finalBands.contentHashCode()
+        result = 31 * result + preamp.hashCode()
+        result = 31 * result + bassBoost
+        result = 31 * result + virtualizer
+        result = 31 * result + loudness
+        result = 31 * result + isClipping.hashCode()
+        return result
+    }
 }
 
 class PresetManager(private val audioEngine: AudioEngine) {

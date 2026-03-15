@@ -71,7 +71,6 @@ class SonaraNotificationListener : NotificationListenerService() {
     override fun onDestroy() {
         super.onDestroy()
         try {
-            val cn = ComponentName(this, SonaraNotificationListener::class.java)
             sessionManager?.removeOnActiveSessionsChangedListener(sessionListener)
         } catch (_: Exception) {}
         activeController?.unregisterCallback(controllerCallback)

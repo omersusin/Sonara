@@ -41,8 +41,9 @@ class ScrobblingManager {
                     .post(body.build())
                     .build()
 
-                val response = client.newCall(request).execute()
-                response.isSuccessful
+                client.newCall(request).execute().use { response ->
+                    response.isSuccessful
+                }
             }
         } catch (e: Exception) {
             false
@@ -83,8 +84,9 @@ class ScrobblingManager {
                     .post(body.build())
                     .build()
 
-                val response = client.newCall(request).execute()
-                response.isSuccessful
+                client.newCall(request).execute().use { response ->
+                    response.isSuccessful
+                }
             }
         } catch (e: Exception) {
             false
@@ -111,11 +113,12 @@ class ScrobblingManager {
                     .post(body.build())
                     .build()
 
-                val response = client.newCall(request).execute()
-                val responseBody = response.body?.string() ?: return@withContext null
+                client.newCall(request).execute().use { response ->
+                    val responseBody = response.body?.string() ?: return@withContext null
 
-                val regex = """"key"\s*:\s*"([^"]+)"""".toRegex()
-                regex.find(responseBody)?.groupValues?.get(1)
+                    val regex = """"key"\s*:\s*"([^"]+)"""".toRegex()
+                    regex.find(responseBody)?.groupValues?.get(1)
+                }
             }
         } catch (e: Exception) {
             null
