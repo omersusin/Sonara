@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -42,146 +43,96 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonara.app.audio.equalizer.TenBandEqualizer
 import com.sonara.app.ui.components.BandSlider
+import com.sonara.app.ui.components.ChipStatus
 import com.sonara.app.ui.components.EqCurve
 import com.sonara.app.ui.components.FluentCard
+import com.sonara.app.ui.components.StatusChip
 import com.sonara.app.ui.theme.*
+import kotlin.math.roundToInt
 
 @Composable
 fun EqualizerScreen() {
-    val viewModel: EqualizerViewModel = viewModel()
-    val state by viewModel.uiState.collectAsState()
-    val primary = MaterialTheme.colorScheme.primary
-    var showSaveDialog by remember { mutableStateOf(false) }
+    val vm: EqualizerViewModel = viewModel()
+    val s by vm.uiState.collectAsState()
+    val p = MaterialTheme.colorScheme.primary
+    var showSave by remember { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item { Header(state, viewModel, primary, onSave = { showSaveDialog = true }) }
-        item { PresetQuickPicker(state, viewModel, primary) }
-        item { CurveCard(state) }
-        item { BandsCard(state, viewModel) }
-        item { PreampCard(state, viewModel, primary) }
-        item { EffectsCard(state, viewModel, primary) }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item {
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column { Text("Equalizer", style = MaterialTheme.typography.headlineLarge); Spacer(Modifier.height(2.dp)); Text(s.currentPresetName, style = MaterialTheme.typography.bodySmall, color = p) }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(onClick = { showSave = true }) { Icon(Icons.Rounded.Save, "Save", tint = SonaraTextSecondary) }
+                    IconButton(onClick = { vm.resetBands() }) { Icon(Icons.Rounded.Refresh, "Reset", tint = SonaraTextSecondary) }
+                    Switch(checked = s.isEnabled, onCheckedChange = { vm.setEnabled(it) }, colors = SwitchDefaults.colors(checkedThumbColor = p, checkedTrackColor = p.copy(0.3f), uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated))
+                }
+            }
+        }
+
+        if (s.isClipping) {
+            item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { StatusChip("⚠ Clipping detected — levels may be reduced", ChipStatus.Warning) } }
+        }
+
+        item { LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(s.availablePresets.take(15)) { preset ->
+                val sel = preset.name == s.currentPresetName
+                FilterChip(sel, onClick = { vm.applyPreset(preset) }, label = { Text(preset.name, style = MaterialTheme.typography.labelMedium) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = p.copy(0.15f), selectedLabelColor = p, containerColor = SonaraCard, labelColor = SonaraTextSecondary),
+                    border = BorderStroke(1.dp, if (sel) p.copy(0.3f) else SonaraDivider.copy(0.3f)))
+            }
+        } }
+
+        item { FluentCard { EqCurve(bands = s.bands) } }
+
+        item { FluentCard {
+            Text("Bands", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                s.bands.forEachIndexed { i, v -> BandSlider(v, { vm.setBand(i, it) }, TenBandEqualizer.LABELS[i], enabled = s.isEnabled) }
+            }
+        } }
+
+        item { FluentCard {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Preamp", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+                Text("${if (s.preamp >= 0) "+" else ""}${"%.1f".format(s.preamp)} dB", style = MaterialTheme.typography.labelLarge, color = if (s.preamp != 0f) p else SonaraTextTertiary)
+            }; Spacer(Modifier.height(4.dp))
+            Slider(s.preamp, { vm.setPreamp(it) }, valueRange = -12f..12f, enabled = s.isEnabled,
+                colors = SliderDefaults.colors(thumbColor = p, activeTrackColor = p, inactiveTrackColor = SonaraCardElevated))
+        } }
+
+        item { FluentCard {
+            Text("Effects", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Spacer(Modifier.height(12.dp))
+            EffRow("Bass Boost", s.bassBoost, { vm.setBassBoost(it) }, s.isEnabled, p, 1000f, "%") { "${(it / 10f).roundToInt()}%" }
+            Spacer(Modifier.height(8.dp))
+            EffRow("Virtualizer", s.virtualizer, { vm.setVirtualizer(it) }, s.isEnabled, p, 1000f, "%") { "${(it / 10f).roundToInt()}%" }
+            Spacer(Modifier.height(8.dp))
+            EffRow("Loudness", s.loudness, { vm.setLoudness(it) }, s.isEnabled, p, 3000f, "dB") { "${"%.1f".format(it / 100f)} dB" }
+        } }
+
         item { Spacer(Modifier.height(8.dp)) }
     }
 
-    if (showSaveDialog) {
-        SavePresetDialog(onDismiss = { showSaveDialog = false }, onSave = { name -> viewModel.saveCurrentAsPreset(name); showSaveDialog = false })
-    }
+    if (showSave) { SaveDialog({ showSave = false }) { name -> vm.saveCurrentAsPreset(name); showSave = false } }
 }
 
 @Composable
-private fun Header(state: EqualizerUiState, vm: EqualizerViewModel, primary: androidx.compose.ui.graphics.Color, onSave: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Column {
-            Text("Equalizer", style = MaterialTheme.typography.headlineLarge)
-            Spacer(Modifier.height(2.dp))
-            Text(state.currentPresetName, style = MaterialTheme.typography.bodySmall, color = primary)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            IconButton(onClick = onSave) { Icon(Icons.Rounded.Save, "Save", tint = SonaraTextSecondary) }
-            IconButton(onClick = { vm.resetBands() }) { Icon(Icons.Rounded.Refresh, "Reset", tint = SonaraTextSecondary) }
-            Switch(checked = state.isEnabled, onCheckedChange = { vm.setEnabled(it) },
-                colors = SwitchDefaults.colors(checkedThumbColor = primary, checkedTrackColor = primary.copy(alpha = 0.3f), uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated))
-        }
-    }
-}
-
-@Composable
-private fun PresetQuickPicker(state: EqualizerUiState, vm: EqualizerViewModel, primary: androidx.compose.ui.graphics.Color) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(state.availablePresets.take(15)) { preset ->
-            val selected = preset.name == state.currentPresetName
-            FilterChip(
-                selected = selected,
-                onClick = { vm.applyPreset(preset) },
-                label = { Text(preset.name, style = MaterialTheme.typography.labelMedium) },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = primary.copy(alpha = 0.15f), selectedLabelColor = primary,
-                    containerColor = SonaraCard, labelColor = SonaraTextSecondary
-                ),
-                border = if (selected) BorderStroke(1.dp, primary.copy(alpha = 0.3f))
-                         else BorderStroke(1.dp, SonaraDivider.copy(alpha = 0.3f))
-            )
-        }
-    }
-}
-
-@Composable
-private fun CurveCard(state: EqualizerUiState) {
-    FluentCard { EqCurve(bands = state.bands) }
-}
-
-@Composable
-private fun BandsCard(state: EqualizerUiState, vm: EqualizerViewModel) {
-    FluentCard {
-        Text("Bands", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-        Spacer(Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            state.bands.forEachIndexed { i, value ->
-                BandSlider(value = value, onValueChange = { vm.setBand(i, it) }, label = TenBandEqualizer.LABELS[i], enabled = state.isEnabled)
-            }
-        }
-    }
-}
-
-@Composable
-private fun PreampCard(state: EqualizerUiState, vm: EqualizerViewModel, primary: androidx.compose.ui.graphics.Color) {
-    FluentCard {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Preamp", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-            Text("${if (state.preamp >= 0) "+" else ""}${String.format("%.1f", state.preamp)} dB",
-                style = MaterialTheme.typography.labelLarge, color = if (state.preamp != 0f) primary else SonaraTextTertiary)
-        }
-        Spacer(Modifier.height(4.dp))
-        Slider(value = state.preamp, onValueChange = { vm.setPreamp(it) }, valueRange = -12f..12f, enabled = state.isEnabled,
-            colors = SliderDefaults.colors(thumbColor = primary, activeTrackColor = primary, inactiveTrackColor = SonaraCardElevated))
-    }
-}
-
-@Composable
-private fun EffectsCard(state: EqualizerUiState, vm: EqualizerViewModel, primary: androidx.compose.ui.graphics.Color) {
-    FluentCard {
-        Text("Effects", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-        Spacer(Modifier.height(12.dp))
-        EffectRow("Bass Boost", state.bassBoost, { vm.setBassBoost(it) }, state.isEnabled, primary)
-        Spacer(Modifier.height(8.dp))
-        EffectRow("Virtualizer", state.virtualizer, { vm.setVirtualizer(it) }, state.isEnabled, primary)
-        Spacer(Modifier.height(8.dp))
-        EffectRow("Loudness", state.loudness, { vm.setLoudness(it) }, state.isEnabled, primary)
-    }
-}
-
-@Composable
-private fun EffectRow(label: String, value: Int, onValueChange: (Int) -> Unit, enabled: Boolean, primary: androidx.compose.ui.graphics.Color) {
+private fun EffRow(label: String, value: Int, onChange: (Int) -> Unit, enabled: Boolean, p: androidx.compose.ui.graphics.Color, max: Float, unit: String, format: (Int) -> String) {
     Column {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
-            Text("${(value / 10f).toInt()}%", style = MaterialTheme.typography.labelMedium, color = if (value > 0) primary else SonaraTextTertiary)
+            Text(format(value), style = MaterialTheme.typography.labelMedium, color = if (value > 0) p else SonaraTextTertiary)
         }
-        Slider(value = value.toFloat(), onValueChange = { onValueChange(it.toInt()) }, valueRange = 0f..1000f, enabled = enabled,
-            colors = SliderDefaults.colors(thumbColor = primary, activeTrackColor = primary, inactiveTrackColor = SonaraCardElevated))
+        Slider(value.toFloat(), { onChange(it.toInt()) }, valueRange = 0f..max, enabled = enabled,
+            colors = SliderDefaults.colors(thumbColor = p, activeTrackColor = p, inactiveTrackColor = SonaraCardElevated))
     }
 }
 
 @Composable
-private fun SavePresetDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
+private fun SaveDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var name by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss, containerColor = SonaraCard,
-        title = { Text("Save Preset") },
-        text = {
-            OutlinedTextField(value = name, onValueChange = { name = it },
-                placeholder = { Text("Preset name", color = SonaraTextTertiary) },
-                singleLine = true, shape = MaterialTheme.shapes.small,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = SonaraDivider,
-                    focusedContainerColor = SonaraCardElevated, unfocusedContainerColor = SonaraCardElevated,
-                    cursorColor = MaterialTheme.colorScheme.primary, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary))
-        },
-        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(name) }) { Text("Save", color = MaterialTheme.colorScheme.primary) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = SonaraTextSecondary) } }
-    )
+    AlertDialog(onDismiss, containerColor = SonaraCard, title = { Text("Save Preset") },
+        text = { OutlinedTextField(name, { name = it }, placeholder = { Text("Preset name", color = SonaraTextTertiary) }, singleLine = true, shape = MaterialTheme.shapes.small,
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = SonaraDivider, focusedContainerColor = SonaraCardElevated, unfocusedContainerColor = SonaraCardElevated, cursorColor = MaterialTheme.colorScheme.primary, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary)) },
+        confirmButton = { TextButton({ if (name.isNotBlank()) onSave(name) }) { Text("Save", color = MaterialTheme.colorScheme.primary) } },
+        dismissButton = { TextButton(onDismiss) { Text("Cancel", color = SonaraTextSecondary) } })
 }

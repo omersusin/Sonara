@@ -95,6 +95,7 @@ class SonaraApp : Application() {
         trackResolver.forceReResolve()
     }
 
+    override fun onTerminate() { super.onTerminate(); headphoneDetector.stop(); audioEngine.release() }
     companion object {
         lateinit var instance: SonaraApp private set
     }

@@ -10,7 +10,6 @@ import android.media.session.PlaybackState
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,7 +29,7 @@ class SonaraNotificationListener : NotificationListenerService() {
         override fun onPlaybackStateChanged(state: PlaybackState?) {
             _nowPlaying.value = _nowPlaying.value.copy(isPlaying = state?.state == PlaybackState.STATE_PLAYING)
         }
-        override fun onSessionDestroyed() { _nowPlaying.value = ListenerNowPlaying(); recycleArt(); activeController = null }
+        override fun onSessionDestroyed() { _nowPlaying.value = ListenerNowPlaying(); _albumArt.value = null; activeController = null }
     }
 
     private val sessionListener = MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
@@ -38,63 +37,39 @@ class SonaraNotificationListener : NotificationListenerService() {
     }
 
     override fun onCreate() { super.onCreate(); instance = this; sessionManager = getSystemService(MEDIA_SESSION_SERVICE) as? MediaSessionManager }
-
     override fun onListenerConnected() { super.onListenerConnected(); refreshSessions() }
     override fun onNotificationPosted(sbn: StatusBarNotification?) { refreshSessions() }
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {}
 
     override fun onDestroy() {
         super.onDestroy()
-        if (sessionListenerRegistered) {
-            try { sessionManager?.removeOnActiveSessionsChangedListener(sessionListener) } catch (_: Exception) {}
-            sessionListenerRegistered = false
-        }
-        activeController?.unregisterCallback(controllerCallback)
-        activeController = null
-        recycleArt()
-        instance = null
+        if (sessionListenerRegistered) { try { sessionManager?.removeOnActiveSessionsChangedListener(sessionListener) } catch (_: Exception) {}; sessionListenerRegistered = false }
+        activeController?.unregisterCallback(controllerCallback); activeController = null; _albumArt.value = null; instance = null
     }
 
     private fun refreshSessions() {
         try {
             val cn = ComponentName(this, SonaraNotificationListener::class.java)
-            if (!sessionListenerRegistered) {
-                sessionManager?.addOnActiveSessionsChangedListener(sessionListener, cn)
-                sessionListenerRegistered = true
-            }
-            val sessions = sessionManager?.getActiveSessions(cn) ?: return
-            pickBest(sessions)
+            if (!sessionListenerRegistered) { sessionManager?.addOnActiveSessionsChangedListener(sessionListener, cn); sessionListenerRegistered = true }
+            val sessions = sessionManager?.getActiveSessions(cn) ?: return; pickBest(sessions)
         } catch (_: SecurityException) {}
     }
 
     private fun pickBest(controllers: List<MediaController>) {
         val playing = controllers.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-        val target = playing ?: controllers.firstOrNull() ?: return
-        attachTo(target)
+        val target = playing ?: controllers.firstOrNull() ?: return; attachTo(target)
     }
 
     private fun attachTo(controller: MediaController) {
-        if (activeController?.sessionToken == controller.sessionToken) {
-            controller.metadata?.let { extractMetadata(it) }
-            return
-        }
-        activeController?.unregisterCallback(controllerCallback)
-        activeController = controller
-        controller.registerCallback(controllerCallback)
-        controller.metadata?.let { extractMetadata(it) }
-        _nowPlaying.value = _nowPlaying.value.copy(
-            isPlaying = controller.playbackState?.state == PlaybackState.STATE_PLAYING,
-            packageName = controller.packageName ?: ""
-        )
+        if (activeController?.sessionToken == controller.sessionToken) { controller.metadata?.let { extractMetadata(it) }; return }
+        activeController?.unregisterCallback(controllerCallback); activeController = controller
+        controller.registerCallback(controllerCallback); controller.metadata?.let { extractMetadata(it) }
+        _nowPlaying.value = _nowPlaying.value.copy(isPlaying = controller.playbackState?.state == PlaybackState.STATE_PLAYING, packageName = controller.packageName ?: "")
     }
 
     private fun extractMetadata(metadata: MediaMetadata) {
-        val newArt = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
-            ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_ART)
-        val oldArt = _albumArt.value
-        if (oldArt != null && oldArt != newArt && !oldArt.isRecycled) {
-            try { oldArt.recycle() } catch (_: Exception) {}
-        }
+        // NO bitmap.recycle() — multiple collectors use this bitmap
+        val newArt = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_ART)
         _albumArt.value = newArt
         _nowPlaying.value = _nowPlaying.value.copy(
             title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "",
@@ -104,21 +79,12 @@ class SonaraNotificationListener : NotificationListenerService() {
         )
     }
 
-    private fun recycleArt() {
-        _albumArt.value?.let { if (!it.isRecycled) try { it.recycle() } catch (_: Exception) {} }
-        _albumArt.value = null
-    }
-
     companion object {
         var instance: SonaraNotificationListener? = null; private set
         private val _nowPlaying = MutableStateFlow(ListenerNowPlaying())
         val nowPlaying: StateFlow<ListenerNowPlaying> = _nowPlaying.asStateFlow()
         private val _albumArt = MutableStateFlow<Bitmap?>(null)
         val albumArt: StateFlow<Bitmap?> = _albumArt.asStateFlow()
-        fun isEnabled(ctx: Context): Boolean {
-            val cn = ComponentName(ctx, SonaraNotificationListener::class.java)
-            val flat = Settings.Secure.getString(ctx.contentResolver, "enabled_notification_listeners")
-            return flat?.contains(cn.flattenToString()) == true
-        }
+        fun isEnabled(ctx: Context): Boolean { val cn = ComponentName(ctx, SonaraNotificationListener::class.java); val flat = Settings.Secure.getString(ctx.contentResolver, "enabled_notification_listeners"); return flat?.contains(cn.flattenToString()) == true }
     }
 }

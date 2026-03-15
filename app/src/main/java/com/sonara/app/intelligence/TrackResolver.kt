@@ -50,15 +50,15 @@ class TrackResolver(private val lastFmResolver: LastFmResolver, private val loca
         val local = localAnalyzer.analyze(title, artist)
         Log.d("TrackResolver", "Local AI: ${local.genre} conf=${local.confidence}")
 
-        val final = if (local.genre != "other" && local.confidence >= 0.3f) local
+        val finalResult = if (local.genre != "other" && local.confidence >= 0.3f) local
             else if (lfmResult != null) lfmResult.copy(source = "lastfm-local-fallback")
             else local
 
         // Don't cache low-confidence "other"
-        if (final.genre != "other" || final.confidence >= 0.4f) trackCache.put(final)
+        if (finalResult.genre != "other" || final.confidence >= 0.4f) trackCache.put(finalResult)
         else Log.d("TrackResolver", "Skip cache for low-conf other")
 
-        _result.value = ResolveResult(final, if (final.source.contains("lastfm")) ResolveSource.LASTFM else ResolveSource.LOCAL_AI)
+        _result.value = ResolveResult(finalResult, if (finalResult.source.contains("lastfm")) ResolveSource.LASTFM else ResolveSource.LOCAL_AI)
     }
 
     fun forceReResolve() { lastKey = "" }
