@@ -26,13 +26,10 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".service.SonaraService"
-            android:foregroundServiceType="mediaPlayback"
-            android:exported="false" />
+        <service android:name=".service.SonaraService"
+            android:foregroundServiceType="mediaPlayback" android:exported="false" />
 
-        <service
-            android:name=".service.SonaraNotificationListener"
+        <service android:name=".service.SonaraNotificationListener"
             android:label="Sonara Sound Engine"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
             android:exported="false">
@@ -40,6 +37,13 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <receiver android:name=".audio.engine.AudioSessionReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.action.OPEN_AUDIO_EFFECT_CONTROL_SESSION" />
+                <action android:name="android.media.action.CLOSE_AUDIO_EFFECT_CONTROL_SESSION" />
+            </intent-filter>
+        </receiver>
 
     </application>
 </manifest>

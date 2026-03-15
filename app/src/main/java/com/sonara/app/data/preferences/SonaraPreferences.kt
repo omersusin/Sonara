@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sonara.app.ui.theme.AccentColor
@@ -27,6 +28,11 @@ class SonaraPreferences(private val context: Context) {
         private val SCROBBLING_ENABLED = booleanPreferencesKey("scrobbling_enabled")
         private val AUTO_PRESET = booleanPreferencesKey("auto_preset")
         private val NOTIFICATION_LISTENER_PROMPTED = booleanPreferencesKey("notification_listener_prompted")
+
+        private val SONGS_LEARNED = intPreferencesKey("songs_learned")
+        private val SONGS_VIA_LASTFM = intPreferencesKey("songs_via_lastfm")
+        private val SONGS_VIA_LOCAL = intPreferencesKey("songs_via_local")
+        private val GENRE_STATS = stringPreferencesKey("genre_stats")
     }
 
     val accentColorFlow: Flow<AccentColor> = context.dataStore.data.map { prefs ->
@@ -65,7 +71,38 @@ class SonaraPreferences(private val context: Context) {
     val notificationListenerPromptedFlow: Flow<Boolean> = context.dataStore.data.map { it[NOTIFICATION_LISTENER_PROMPTED] ?: false }
     suspend fun setNotificationListenerPrompted(prompted: Boolean) { context.dataStore.edit { it[NOTIFICATION_LISTENER_PROMPTED] = prompted } }
 
-    suspend fun resetAll() {
-        context.dataStore.edit { it.clear() }
+    // Learning stats
+    val songsLearnedFlow: Flow<Int> = context.dataStore.data.map { it[SONGS_LEARNED] ?: 0 }
+    val songsViaLastFmFlow: Flow<Int> = context.dataStore.data.map { it[SONGS_VIA_LASTFM] ?: 0 }
+    val songsViaLocalFlow: Flow<Int> = context.dataStore.data.map { it[SONGS_VIA_LOCAL] ?: 0 }
+    val genreStatsFlow: Flow<String> = context.dataStore.data.map { it[GENRE_STATS] ?: "" }
+
+    suspend fun incrementSongLearned(source: String, genre: String) {
+        context.dataStore.edit { prefs ->
+            prefs[SONGS_LEARNED] = (prefs[SONGS_LEARNED] ?: 0) + 1
+            if (source.contains("lastfm")) prefs[SONGS_VIA_LASTFM] = (prefs[SONGS_VIA_LASTFM] ?: 0) + 1
+            else prefs[SONGS_VIA_LOCAL] = (prefs[SONGS_VIA_LOCAL] ?: 0) + 1
+
+            val current = prefs[GENRE_STATS] ?: ""
+            val map = parseGenreStats(current).toMutableMap()
+            map[genre.lowercase()] = (map[genre.lowercase()] ?: 0) + 1
+            prefs[GENRE_STATS] = serializeGenreStats(map)
+        }
+    }
+
+    suspend fun resetAll() { context.dataStore.edit { it.clear() } }
+
+    companion object {
+        fun parseGenreStats(raw: String): Map<String, Int> {
+            if (raw.isBlank()) return emptyMap()
+            return raw.split(";").mapNotNull { entry ->
+                val parts = entry.split(":")
+                if (parts.size == 2) parts[0] to (parts[1].toIntOrNull() ?: 0) else null
+            }.toMap()
+        }
+
+        fun serializeGenreStats(map: Map<String, Int>): String {
+            return map.entries.sortedByDescending { it.value }.joinToString(";") { "${it.key}:${it.value}" }
+        }
     }
 }

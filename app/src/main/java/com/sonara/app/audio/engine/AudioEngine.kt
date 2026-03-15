@@ -1,73 +1,73 @@
 package com.sonara.app.audio.engine
 
-import android.content.Context
-import android.media.AudioDeviceCallback
-import android.media.AudioDeviceInfo
-import android.media.AudioManager
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.Virtualizer
-import android.os.Handler
-import android.os.Looper
+import android.util.Log
 
-class AudioEngine(private val context: Context) {
-    private var equalizer: Equalizer? = null
-    private var bassBoost: BassBoost? = null
-    private var virtualizer: Virtualizer? = null
-    private var loudness: LoudnessEnhancer? = null
-    private val handler = Handler(Looper.getMainLooper())
-    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+class AudioEngine {
+    private val TAG = "SonaraEQ"
+    private val sessions = mutableMapOf<Int, SessionEffects>()
+    private var pendingBands: FloatArray = FloatArray(10)
+    private var pendingBass: Int = 0
+    private var pendingVirt: Int = 0
+    private var pendingLoud: Int = 0
+    private var enabled: Boolean = true
 
     var isInitialized: Boolean = false
         private set
 
-    private var pendingBands: FloatArray? = null
-    private var pendingBass: Int = 0
-    private var pendingVirt: Int = 0
-    private var pendingLoud: Int = 0
-    private var isEnabled: Boolean = true
-
-    private val routeCallback = object : AudioDeviceCallback() {
-        override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) { reinit() }
-        override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) { reinit() }
+    private class SessionEffects(
+        val sessionId: Int,
+        var equalizer: Equalizer? = null,
+        var bassBoost: BassBoost? = null,
+        var virtualizer: Virtualizer? = null,
+        var loudness: LoudnessEnhancer? = null
+    ) {
+        fun release() {
+            try { equalizer?.release() } catch (_: Exception) {}
+            try { bassBoost?.release() } catch (_: Exception) {}
+            try { virtualizer?.release() } catch (_: Exception) {}
+            try { loudness?.release() } catch (_: Exception) {}
+        }
     }
 
     fun init(): Boolean {
-        release()
-        val success = createEffects()
-        if (success) {
-            audioManager.registerAudioDeviceCallback(routeCallback, handler)
-        }
-        return success
+        return attachSession(0)
     }
 
-    private fun createEffects(): Boolean {
+    fun attachSession(sessionId: Int): Boolean {
+        if (sessions.containsKey(sessionId)) return true
         return try {
-            equalizer = Equalizer(0, 0).apply { enabled = isEnabled }
-            try { bassBoost = BassBoost(0, 0).apply { enabled = isEnabled } } catch (_: Exception) {}
-            try { virtualizer = Virtualizer(0, 0).apply { enabled = isEnabled } } catch (_: Exception) {}
-            try { loudness = LoudnessEnhancer(0).apply { enabled = isEnabled } } catch (_: Exception) {}
+            val effects = SessionEffects(sessionId)
+            effects.equalizer = Equalizer(1, sessionId).apply { enabled = this@AudioEngine.enabled }
+            try { effects.bassBoost = BassBoost(1, sessionId).apply { enabled = this@AudioEngine.enabled } } catch (_: Exception) {}
+            try { effects.virtualizer = Virtualizer(1, sessionId).apply { enabled = this@AudioEngine.enabled } } catch (_: Exception) {}
+            try { effects.loudness = LoudnessEnhancer(sessionId).apply { enabled = this@AudioEngine.enabled } } catch (_: Exception) {}
+            sessions[sessionId] = effects
             isInitialized = true
-            reapplyPending()
+            applyPendingTo(effects)
+            Log.d(TAG, "Attached session $sessionId, total=${sessions.size}")
             true
         } catch (e: Exception) {
-            isInitialized = false
+            Log.e(TAG, "Failed session $sessionId: ${e.message}")
             false
         }
     }
 
-    private fun reinit() {
-        handler.removeCallbacksAndMessages(null)
-        handler.postDelayed({
-            releaseEffectsOnly()
-            createEffects()
-        }, 500)
+    fun detachSession(sessionId: Int) {
+        if (sessionId == 0) return
+        sessions.remove(sessionId)?.release()
     }
 
     fun applyBands(tenBands: FloatArray) {
         pendingBands = tenBands.copyOf()
-        val eq = equalizer ?: return
+        sessions.values.forEach { applyBandsTo(it, tenBands) }
+    }
+
+    private fun applyBandsTo(effects: SessionEffects, tenBands: FloatArray) {
+        val eq = effects.equalizer ?: return
         val count = eq.numberOfBands.toInt()
         if (count == 0) return
         val range = eq.bandLevelRange
@@ -81,52 +81,47 @@ class AudioEngine(private val context: Context) {
 
     fun applyBassBoost(strength: Int) {
         pendingBass = strength
-        try { bassBoost?.setStrength(strength.coerceIn(0, 1000).toShort()) } catch (_: Exception) {}
+        sessions.values.forEach { s ->
+            try { s.bassBoost?.setStrength(strength.coerceIn(0, 1000).toShort()) } catch (_: Exception) {}
+        }
     }
 
     fun applyVirtualizer(strength: Int) {
         pendingVirt = strength
-        try { virtualizer?.setStrength(strength.coerceIn(0, 1000).toShort()) } catch (_: Exception) {}
+        sessions.values.forEach { s ->
+            try { s.virtualizer?.setStrength(strength.coerceIn(0, 1000).toShort()) } catch (_: Exception) {}
+        }
     }
 
     fun applyLoudness(gain: Int) {
         pendingLoud = gain
-        try { loudness?.setTargetGain(gain) } catch (_: Exception) {}
+        sessions.values.forEach { s ->
+            try { s.loudness?.setTargetGain(gain) } catch (_: Exception) {}
+        }
     }
 
-    fun setEnabled(enabled: Boolean) {
-        isEnabled = enabled
-        try { equalizer?.enabled = enabled } catch (_: Exception) {}
-        try { bassBoost?.enabled = enabled } catch (_: Exception) {}
-        try { virtualizer?.enabled = enabled } catch (_: Exception) {}
-        try { loudness?.enabled = enabled } catch (_: Exception) {}
+    fun setEnabled(on: Boolean) {
+        enabled = on
+        sessions.values.forEach { s ->
+            try { s.equalizer?.enabled = on } catch (_: Exception) {}
+            try { s.bassBoost?.enabled = on } catch (_: Exception) {}
+            try { s.virtualizer?.enabled = on } catch (_: Exception) {}
+            try { s.loudness?.enabled = on } catch (_: Exception) {}
+        }
     }
 
-    private fun reapplyPending() {
-        pendingBands?.let { applyBands(it) }
-        if (pendingBass > 0) applyBassBoost(pendingBass)
-        if (pendingVirt > 0) applyVirtualizer(pendingVirt)
-        if (pendingLoud > 0) applyLoudness(pendingLoud)
+    private fun applyPendingTo(effects: SessionEffects) {
+        applyBandsTo(effects, pendingBands)
+        try { effects.bassBoost?.setStrength(pendingBass.coerceIn(0, 1000).toShort()) } catch (_: Exception) {}
+        try { effects.virtualizer?.setStrength(pendingVirt.coerceIn(0, 1000).toShort()) } catch (_: Exception) {}
+        try { effects.loudness?.setTargetGain(pendingLoud) } catch (_: Exception) {}
     }
 
     fun release() {
-        try { audioManager.unregisterAudioDeviceCallback(routeCallback) } catch (_: Exception) {}
-        releaseEffectsOnly()
-    }
-
-    private fun releaseEffectsOnly() {
-        try { equalizer?.release() } catch (_: Exception) {}
-        try { bassBoost?.release() } catch (_: Exception) {}
-        try { virtualizer?.release() } catch (_: Exception) {}
-        try { loudness?.release() } catch (_: Exception) {}
-        equalizer = null; bassBoost = null; virtualizer = null; loudness = null
+        sessions.values.forEach { it.release() }
+        sessions.clear()
         isInitialized = false
     }
 
-    fun getDeviceBandCount(): Int = equalizer?.numberOfBands?.toInt() ?: 0
-
-    fun getDeviceBandRange(): Pair<Short, Short> {
-        val range = equalizer?.bandLevelRange ?: shortArrayOf(-1500, 1500)
-        return range[0] to range[1]
-    }
+    fun getDeviceBandCount(): Int = sessions[0]?.equalizer?.numberOfBands?.toInt() ?: 0
 }

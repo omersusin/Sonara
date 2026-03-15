@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +26,8 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
@@ -49,112 +52,146 @@ import com.sonara.app.ui.theme.*
 
 @Composable
 fun InsightsScreen() {
-    val viewModel: InsightsViewModel = viewModel()
-    val state by viewModel.uiState.collectAsState()
-    val albumArt by viewModel.albumArt.collectAsState()
-    val primary = MaterialTheme.colorScheme.primary
+    val vm: InsightsViewModel = viewModel()
+    val s by vm.uiState.collectAsState()
+    val art by vm.albumArt.collectAsState()
+    val p = MaterialTheme.colorScheme.primary
 
-    LaunchedEffect(Unit) { viewModel.refreshCache() }
+    LaunchedEffect(Unit) { vm.refreshCache() }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Column(Modifier.padding(vertical = 8.dp)) { Text("Insights", style = MaterialTheme.typography.headlineLarge); Spacer(Modifier.height(2.dp)); Text("How Sonara processes your sound", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary) } }
-
-        item { TrackCard(state, albumArt, primary) }
-        item { PipelineCard(state, primary) }
-        item { ConfidenceCard(state, primary) }
-        item { EnergyCard(state, primary) }
-        item { StatsCard(state, primary) }
+        item { TrackCard(s, art, p) }
+        item { LearningCard(s, p) }
+        item { GenreCard(s, p) }
+        item { DetectionCard(s, p) }
+        item { AnalysisCard(s, p) }
+        item { PipelineCard(s, p) }
         item { Spacer(Modifier.height(8.dp)) }
     }
 }
 
 @Composable
-private fun TrackCard(state: InsightsUiState, art: Bitmap?, primary: androidx.compose.ui.graphics.Color) {
+private fun TrackCard(s: InsightsUiState, art: Bitmap?, p: androidx.compose.ui.graphics.Color) {
     FluentCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (art != null) {
-                Image(bitmap = art.asImageBitmap(), contentDescription = "Art", modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
-            } else {
-                Box(Modifier.size(48.dp).background(SonaraCardElevated, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MusicNote, null, tint = primary, modifier = Modifier.size(24.dp)) }
-            }
-            Column(Modifier.weight(1f)) {
-                Text(state.trackTitle.ifEmpty { "No track playing" }, style = MaterialTheme.typography.titleMedium)
-                if (state.trackArtist.isNotEmpty()) Text(state.trackArtist, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-            }
-            if (state.isPlaying) { Box(Modifier.size(8.dp).background(SonaraSuccess, CircleShape)) }
+            if (art != null) Image(art.asImageBitmap(), "Art", Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+            else Box(Modifier.size(48.dp).background(SonaraCardElevated, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MusicNote, null, tint = p, modifier = Modifier.size(24.dp)) }
+            Column(Modifier.weight(1f)) { Text(s.trackTitle.ifEmpty { "No track playing" }, style = MaterialTheme.typography.titleMedium); if (s.trackArtist.isNotEmpty()) Text(s.trackArtist, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
+            if (s.isPlaying) Box(Modifier.size(8.dp).background(SonaraSuccess, CircleShape))
         }
     }
 }
 
 @Composable
-private fun PipelineCard(state: InsightsUiState, primary: androidx.compose.ui.graphics.Color) {
+private fun LearningCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
     FluentCard {
-        Text("Sound Pipeline", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Spacer(Modifier.height(14.dp))
-        PRow(Icons.Rounded.Album, "Data Source", state.dataSource, primary, state.dataSource != "None")
-        PDivider()
-        PRow(Icons.Rounded.AutoAwesome, "Genre", state.genre.replaceFirstChar { it.uppercase() }, primary, state.genre != "Unknown")
-        PDivider()
-        PRow(Icons.Rounded.Speed, "Mood", state.mood.replaceFirstChar { it.uppercase() }, primary, state.mood != "Unknown")
-        PDivider()
-        PRow(Icons.Rounded.Memory, "AI Engine", state.aiAdjustment, primary, state.isAiEnabled)
-        PDivider()
-        PRow(Icons.Rounded.Headphones, "Headphone", if (state.headphoneConnected) state.headphoneName else "Not connected", primary, state.headphoneConnected)
-        PDivider()
-        PRow(Icons.Rounded.Tune, "AutoEQ", if (state.autoEqActive) "Active" else if (!state.isAutoEqEnabled) "Disabled" else "No profile", primary, state.autoEqActive)
-        PDivider()
-        PRow(Icons.Rounded.GraphicEq, "EQ Session", if (state.eqActive) "Active" else "Waiting", primary, state.eqActive)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Rounded.School, null, tint = p, modifier = Modifier.size(20.dp))
+            Text("AI Learning", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            StatBox(s.songsLearned.toString(), "Songs Learned", p)
+            StatBox(s.songsViaLastFm.toString(), "Via Last.fm", p)
+            StatBox(s.songsViaLocal.toString(), "Via Local AI", p)
+            StatBox("${s.apiAccuracy}%", "API Accuracy", p)
+        }
     }
 }
 
 @Composable
-private fun PRow(icon: ImageVector, label: String, value: String, primary: androidx.compose.ui.graphics.Color, active: Boolean) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(8.dp).background(if (active) primary.copy(alpha = 0.8f) else SonaraTextTertiary.copy(alpha = 0.3f), CircleShape))
-        Icon(icon, null, tint = if (active) SonaraTextSecondary else SonaraTextTertiary, modifier = Modifier.size(18.dp))
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = SonaraTextSecondary, modifier = Modifier.weight(1f))
-        Text(value, style = MaterialTheme.typography.labelLarge, color = if (active) SonaraTextPrimary else SonaraTextTertiary)
+private fun StatBox(value: String, label: String, p: androidx.compose.ui.graphics.Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.headlineMedium, color = p)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
     }
 }
 
 @Composable
-private fun PDivider() { Row(Modifier.padding(start = 3.dp)) { Box(Modifier.size(width = 2.dp, height = 16.dp).background(SonaraDivider.copy(alpha = 0.3f))) } }
+private fun GenreCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
+    if (s.genreDistribution.isEmpty()) return
+    FluentCard {
+        Text("Genre Distribution", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(12.dp))
+        val sorted = s.genreDistribution.entries.sortedByDescending { it.value }.take(8)
+        val max = sorted.firstOrNull()?.value?.toFloat() ?: 1f
+        sorted.forEach { (genre, count) ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(genre.uppercase(), style = MaterialTheme.typography.labelSmall, color = SonaraTextSecondary, modifier = Modifier.width(80.dp))
+                Box(Modifier.weight(1f).height(16.dp).clip(RoundedCornerShape(4.dp)).background(SonaraCardElevated)) {
+                    Box(Modifier.fillMaxWidth(count / max).height(16.dp).clip(RoundedCornerShape(4.dp)).background(p.copy(alpha = 0.6f)))
+                }
+                Text(count.toString(), style = MaterialTheme.typography.labelSmall, color = SonaraTextPrimary, modifier = Modifier.width(30.dp).padding(start = 8.dp))
+            }
+        }
+    }
+}
 
 @Composable
-private fun ConfidenceCard(state: InsightsUiState, primary: androidx.compose.ui.graphics.Color) {
+private fun DetectionCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
     FluentCard {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Confidence", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Text("${(state.confidence * 100).toInt()}%", style = MaterialTheme.typography.labelLarge, color = primary) }
+        Text("Detection", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(s.genre.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleLarge, color = p)
+                Text("Genre", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(s.mood.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleLarge, color = p)
+                Text("Mood", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnalysisCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
+    FluentCard {
+        Text("Analysis Details", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(12.dp))
+        BarRow("Energy", s.energy, p)
         Spacer(Modifier.height(8.dp))
-        LinearProgressIndicator(progress = { state.confidence }, Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)), color = primary, trackColor = SonaraCardElevated, strokeCap = StrokeCap.Round)
+        BarRow("Confidence", s.confidence, p)
     }
 }
 
 @Composable
-private fun EnergyCard(state: InsightsUiState, primary: androidx.compose.ui.graphics.Color) {
+private fun BarRow(label: String, value: Float, p: androidx.compose.ui.graphics.Color) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = SonaraTextSecondary, modifier = Modifier.width(90.dp))
+        LinearProgressIndicator(progress = { value }, Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)), color = p, trackColor = SonaraCardElevated, strokeCap = StrokeCap.Round)
+        Text("${(value * 100).toInt()}%", style = MaterialTheme.typography.labelMedium, color = p, modifier = Modifier.width(40.dp).padding(start = 8.dp))
+    }
+}
+
+@Composable
+private fun PipelineCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
     FluentCard {
-        Text("Energy Level", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Calm", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary); Text("Energetic", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary) }
-        Spacer(Modifier.height(4.dp))
-        LinearProgressIndicator(progress = { state.energy }, Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)), color = primary, trackColor = SonaraCardElevated, strokeCap = StrokeCap.Round)
+        Text("Pipeline", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(12.dp))
+        PRow(Icons.Rounded.Album, "Source", s.dataSource, p, s.dataSource != "None")
+        PDivider()
+        PRow(Icons.Rounded.Memory, "AI", if (s.isAiEnabled) "Active" else "Off", p, s.isAiEnabled)
+        PDivider()
+        PRow(Icons.Rounded.Headphones, "Headphone", if (s.headphoneConnected) s.headphoneName else "None", p, s.headphoneConnected)
+        PDivider()
+        PRow(Icons.Rounded.GraphicEq, "EQ", if (s.eqActive) "Active" else "Off", p, s.eqActive)
+        PDivider()
+        PRow(Icons.Rounded.Cached, "Cache", "${s.cacheSize} tracks", p, s.cacheSize > 0)
     }
 }
 
 @Composable
-private fun StatsCard(state: InsightsUiState, primary: androidx.compose.ui.graphics.Color) {
-    FluentCard {
-        Text("Stats", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatI("Cache", "${state.cacheSize}", Icons.Rounded.Cached, primary, Modifier.weight(1f))
-            StatI("AI", if (state.isAiEnabled) "On" else "Off", Icons.Rounded.Memory, primary, Modifier.weight(1f))
-            StatI("EQ", if (state.eqActive) "Active" else "Off", Icons.Rounded.GraphicEq, primary, Modifier.weight(1f))
-        }
+private fun PRow(icon: ImageVector, label: String, value: String, p: androidx.compose.ui.graphics.Color, on: Boolean) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(8.dp).background(if (on) p.copy(0.8f) else SonaraTextTertiary.copy(0.3f), CircleShape))
+        Icon(icon, null, tint = if (on) SonaraTextSecondary else SonaraTextTertiary, modifier = Modifier.size(18.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = SonaraTextSecondary, modifier = Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.labelLarge, color = if (on) SonaraTextPrimary else SonaraTextTertiary)
     }
 }
 
 @Composable
-private fun StatI(label: String, value: String, icon: ImageVector, primary: androidx.compose.ui.graphics.Color, modifier: Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) { Icon(icon, null, tint = SonaraTextTertiary, modifier = Modifier.size(18.dp)); Text(value, style = MaterialTheme.typography.labelLarge, color = primary); Text(label, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary) }
-}
+private fun PDivider() { Row(Modifier.padding(start = 3.dp)) { Box(Modifier.size(width = 2.dp, height = 16.dp).background(SonaraDivider.copy(0.3f))) } }

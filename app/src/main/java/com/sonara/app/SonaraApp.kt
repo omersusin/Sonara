@@ -18,13 +18,18 @@ class SonaraApp : Application() {
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    // Shared EQ state — all screens observe this
+    var currentBands: FloatArray = FloatArray(10); private set
+    var currentPresetName: String = "Flat"; private set
+    var isManualPreset: Boolean = false; private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
         preferences = SonaraPreferences(this)
         database = SonaraDatabase.get(this)
         presetRepository = PresetRepository(database.presetDao())
-        audioEngine = AudioEngine(this)
+        audioEngine = AudioEngine()
         audioEngine.init()
 
         appScope.launch {
@@ -33,9 +38,18 @@ class SonaraApp : Application() {
         }
     }
 
-    fun applyEqBands(bands: FloatArray) {
+    fun applyEqBands(bands: FloatArray, presetName: String = currentPresetName, manual: Boolean = false) {
+        currentBands = bands.copyOf()
+        currentPresetName = presetName
+        isManualPreset = manual
         if (!audioEngine.isInitialized) audioEngine.init()
         audioEngine.applyBands(bands)
+    }
+
+    fun applyEffects(bass: Int = 0, virt: Int = 0, loud: Int = 0) {
+        audioEngine.applyBassBoost(bass)
+        audioEngine.applyVirtualizer(virt)
+        audioEngine.applyLoudness(loud)
     }
 
     companion object {
