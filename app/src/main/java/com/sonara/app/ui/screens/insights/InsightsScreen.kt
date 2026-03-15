@@ -106,7 +106,7 @@ private fun PipelineCard(state: InsightsUiState, primary: androidx.compose.ui.gr
         PDivider()
         PRow(Icons.Rounded.Tune, "AutoEQ", if (state.autoEqActive) "Active" else if (!state.isAutoEqEnabled) "Disabled" else "No profile", primary, state.autoEqActive)
         PDivider()
-        PRow(Icons.Rounded.GraphicEq, "EQ Session", if (state.eqSessionActive) "Active" else "Waiting", primary, state.eqSessionActive)
+        PRow(Icons.Rounded.GraphicEq, "EQ Session", if (state.eqActive) "Active" else "Waiting", primary, state.eqActive)
     }
 }
 
@@ -149,7 +149,7 @@ private fun StatsCard(state: InsightsUiState, primary: androidx.compose.ui.graph
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatI("Cache", "${state.cacheSize}", Icons.Rounded.Cached, primary, Modifier.weight(1f))
             StatI("AI", if (state.isAiEnabled) "On" else "Off", Icons.Rounded.Memory, primary, Modifier.weight(1f))
-            StatI("EQ", if (state.eqSessionActive) "Active" else "Off", Icons.Rounded.GraphicEq, primary, Modifier.weight(1f))
+            StatI("EQ", if (state.eqActive) "Active" else "Off", Icons.Rounded.GraphicEq, primary, Modifier.weight(1f))
         }
     }
 }

@@ -82,7 +82,7 @@ fun DashboardScreen() {
                     Text("Personal Sound Engine", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (state.eqSessionActive) StatusChip("EQ Active", ChipStatus.Active)
+                    if (state.eqActive) StatusChip("EQ Active", ChipStatus.Active)
                     StatusChip(if (state.isAiEnabled) "AI On" else "AI Off",
                         if (state.isAiEnabled) ChipStatus.Active else ChipStatus.Inactive, Icons.Rounded.AutoAwesome)
                 }
