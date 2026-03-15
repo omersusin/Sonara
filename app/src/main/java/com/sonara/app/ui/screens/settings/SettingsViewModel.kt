@@ -1,8 +1,6 @@
 package com.sonara.app.ui.screens.settings
 
 import android.app.Application
-import android.content.ComponentName
-import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
@@ -58,8 +56,25 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun updateApiKeyInput(v: String) { _uiState.update { it.copy(apiKeyInput = v) } }
     fun updateSharedSecretInput(v: String) { _uiState.update { it.copy(sharedSecretInput = v) } }
 
-    fun saveApiKey() { viewModelScope.launch { val k = _uiState.value.apiKeyInput; if (k.isNotBlank()) { prefs.setLastFmApiKey(k); _uiState.update { it.copy(apiKeyInput = "") } } } }
-    fun saveSharedSecret() { viewModelScope.launch { val s = _uiState.value.sharedSecretInput; if (s.isNotBlank()) { prefs.setLastFmSharedSecret(s); _uiState.update { it.copy(sharedSecretInput = "") } } } }
+    fun saveApiKey() {
+        viewModelScope.launch {
+            val k = _uiState.value.apiKeyInput
+            if (k.isNotBlank()) {
+                prefs.setLastFmApiKey(k)
+                _uiState.update { it.copy(apiKeyInput = "", isApiKeySet = true, lastFmApiKey = k) }
+            }
+        }
+    }
+
+    fun saveSharedSecret() {
+        viewModelScope.launch {
+            val s = _uiState.value.sharedSecretInput
+            if (s.isNotBlank()) {
+                prefs.setLastFmSharedSecret(s)
+                _uiState.update { it.copy(sharedSecretInput = "", isSharedSecretSet = true, lastFmSharedSecret = s) }
+            }
+        }
+    }
 
     fun setAccentColor(c: AccentColor) { viewModelScope.launch { prefs.setAccentColor(c) } }
     fun setAiEnabled(e: Boolean) { viewModelScope.launch { prefs.setAiEnabled(e) } }
@@ -72,11 +87,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun clearCache() { viewModelScope.launch { cache.clear(); refreshCacheSize() } }
     fun clearAllData() { viewModelScope.launch { cache.clear(); prefs.resetAll(); refreshCacheSize() } }
 
-    private fun refreshCacheSize() { viewModelScope.launch { _uiState.update { it.copy(cacheSize = cache.size()) } } }
-
     fun checkNotificationListener() {
-        val cn = ComponentName(getApplication<Application>(), SonaraNotificationListener::class.java)
-        val flat = Settings.Secure.getString(getApplication<Application>().contentResolver, "enabled_notification_listeners")
-        _uiState.update { it.copy(notificationListenerEnabled = flat?.contains(cn.flattenToString()) == true) }
+        val enabled = SonaraNotificationListener.isEnabled(getApplication())
+        _uiState.update { it.copy(notificationListenerEnabled = enabled) }
     }
+
+    private fun refreshCacheSize() { viewModelScope.launch { _uiState.update { it.copy(cacheSize = cache.size()) } } }
 }
