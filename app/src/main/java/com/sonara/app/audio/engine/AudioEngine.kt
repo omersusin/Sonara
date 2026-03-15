@@ -26,7 +26,7 @@ class AudioEngine {
         if (isInitialized) return true
         return try {
             equalizer = Equalizer(0, 0).apply { enabled = isEnabled }
-            Log.d(TAG, "EQ created: ${numberOfBands} bands")
+            Log.d(TAG, "EQ created: ${equalizer?.numberOfBands} bands")
             try { bassBoost = BassBoost(0, 0).apply { enabled = isEnabled } } catch (e: Exception) { Log.w(TAG, "BassBoost failed: ${e.message}") }
             try { virtualizer = Virtualizer(0, 0).apply { enabled = isEnabled } } catch (e: Exception) { Log.w(TAG, "Virtualizer failed: ${e.message}") }
             try { loudness = LoudnessEnhancer(0).apply { enabled = isEnabled } } catch (e: Exception) { Log.w(TAG, "Loudness failed: ${e.message}") }
