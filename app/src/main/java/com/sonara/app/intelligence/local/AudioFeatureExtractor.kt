@@ -40,7 +40,7 @@ class AudioFeatureExtractor {
         "mussorgsky", "borodin", "janacek", "holst", "vaughan williams",
         "palestrina", "monteverdi", "purcell", "telemann", "corelli", "scarlatti",
         "yo-yo ma", "itzhak perlman", "lang lang", "martha argerich", "vladimir horowitz",
-        "arthur rubinstein", "jascha heifetz", "herbert von karajan", "leonard bernstein",
+        "arthur rubinstein", "jascha heifetz", "herbert von karajan",
         "andre rieu", "andre previn", "zubin mehta", "gustavo dudamel"
     )
 

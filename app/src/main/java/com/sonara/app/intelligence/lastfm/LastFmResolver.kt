@@ -78,7 +78,7 @@ class LastFmResolver {
                 "contemporary r&b", "new jack swing", "quiet storm", "rhythm and blues"),
             "jazz" to listOf("jazz", "smooth jazz", "bebop", "fusion", "swing",
                 "cool jazz", "free jazz", "latin jazz", "acid jazz", "nu jazz", "big band",
-                "bossa nova", "modal jazz", "post-bop", "hard bop", "jazz fusion", "vocal jazz"),
+                "modal jazz", "post-bop", "hard bop", "jazz fusion", "vocal jazz"),
             "classical" to listOf("classical", "orchestra", "symphony", "chamber", "baroque", "romantic",
                 "opera", "choral", "orchestral", "piano", "instrumental", "contemporary classical",
                 "minimalism", "minimalist", "impressionism", "neoclassical", "modern classical",
@@ -98,7 +98,7 @@ class LastFmResolver {
                 "electric blues", "blues rock", "country blues", "rhythm and blues", "texas blues",
                 "acoustic blues", "modern blues", "british blues"),
             "reggae" to listOf("reggae", "ska", "dub", "dancehall",
-                "roots reggae", "lovers rock", "ragga", "rocksteady", "reggaeton"),
+                "roots reggae", "lovers rock", "ragga", "rocksteady"),
             "latin" to listOf("latin", "salsa", "reggaeton", "bossa nova", "samba",
                 "latin pop", "latin rock", "cumbia", "bachata", "merengue", "tango",
                 "mariachi", "norteño", "vallenato", "tropical", "latin jazz")
