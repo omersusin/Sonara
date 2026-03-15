@@ -77,7 +77,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         } }
         viewModelScope.launch { prefs.songsViaLocalFlow.collect { n -> _uiState.update { it.copy(songsViaLocal = n) } } }
         viewModelScope.launch { prefs.genreStatsFlow.collect { raw ->
-            _uiState.update { it.copy(genreDistribution = SonaraPreferences.parseGenreStats(raw)) }
+            _uiState.update { it.copy(genreDistribution = SonaraPreferences.SonaraPreferences.parseGenreStats(raw)) }
         } }
 
         refreshCache()

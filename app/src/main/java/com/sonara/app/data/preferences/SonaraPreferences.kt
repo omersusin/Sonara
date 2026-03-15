@@ -16,62 +16,58 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 class SonaraPreferences(private val context: Context) {
 
-    companion object {
-        private val ACCENT_COLOR = stringPreferencesKey("accent_color")
-        private val LASTFM_API_KEY = stringPreferencesKey("lastfm_api_key")
-        private val LASTFM_SHARED_SECRET = stringPreferencesKey("lastfm_shared_secret")
-        private val LASTFM_SESSION_KEY = stringPreferencesKey("lastfm_session_key")
-        private val AI_ENABLED = booleanPreferencesKey("ai_enabled")
-        private val AUTOEQ_ENABLED = booleanPreferencesKey("autoeq_enabled")
-        private val SMOOTH_TRANSITIONS = booleanPreferencesKey("smooth_transitions")
-        private val SAFETY_LIMITER = booleanPreferencesKey("safety_limiter")
-        private val SCROBBLING_ENABLED = booleanPreferencesKey("scrobbling_enabled")
-        private val AUTO_PRESET = booleanPreferencesKey("auto_preset")
-        private val NOTIFICATION_LISTENER_PROMPTED = booleanPreferencesKey("notification_listener_prompted")
+    private val ACCENT_COLOR = stringPreferencesKey("accent_color")
+    private val LASTFM_API_KEY = stringPreferencesKey("lastfm_api_key")
+    private val LASTFM_SHARED_SECRET = stringPreferencesKey("lastfm_shared_secret")
+    private val LASTFM_SESSION_KEY = stringPreferencesKey("lastfm_session_key")
+    private val AI_ENABLED = booleanPreferencesKey("ai_enabled")
+    private val AUTOEQ_ENABLED = booleanPreferencesKey("autoeq_enabled")
+    private val SMOOTH_TRANSITIONS = booleanPreferencesKey("smooth_transitions")
+    private val SAFETY_LIMITER = booleanPreferencesKey("safety_limiter")
+    private val SCROBBLING_ENABLED = booleanPreferencesKey("scrobbling_enabled")
+    private val AUTO_PRESET = booleanPreferencesKey("auto_preset")
+    private val NOTIFICATION_LISTENER_PROMPTED = booleanPreferencesKey("notification_listener_prompted")
+    private val SONGS_LEARNED = intPreferencesKey("songs_learned")
+    private val SONGS_VIA_LASTFM = intPreferencesKey("songs_via_lastfm")
+    private val SONGS_VIA_LOCAL = intPreferencesKey("songs_via_local")
+    private val GENRE_STATS = stringPreferencesKey("genre_stats")
 
-        private val SONGS_LEARNED = intPreferencesKey("songs_learned")
-        private val SONGS_VIA_LASTFM = intPreferencesKey("songs_via_lastfm")
-        private val SONGS_VIA_LOCAL = intPreferencesKey("songs_via_local")
-        private val GENRE_STATS = stringPreferencesKey("genre_stats")
-    }
-
-    val accentColorFlow: Flow<AccentColor> = context.dataStore.data.map { prefs ->
-        val name = prefs[ACCENT_COLOR] ?: AccentColor.Amber.name
+    val accentColorFlow: Flow<AccentColor> = context.dataStore.data.map { p ->
+        val name = p[ACCENT_COLOR] ?: AccentColor.Amber.name
         AccentColor.entries.find { it.name == name } ?: AccentColor.Amber
     }
-    suspend fun setAccentColor(color: AccentColor) { context.dataStore.edit { it[ACCENT_COLOR] = color.name } }
+    suspend fun setAccentColor(c: AccentColor) { context.dataStore.edit { it[ACCENT_COLOR] = c.name } }
 
     val lastFmApiKeyFlow: Flow<String> = context.dataStore.data.map { it[LASTFM_API_KEY] ?: "" }
-    suspend fun setLastFmApiKey(key: String) { context.dataStore.edit { it[LASTFM_API_KEY] = key } }
+    suspend fun setLastFmApiKey(k: String) { context.dataStore.edit { it[LASTFM_API_KEY] = k } }
 
     val lastFmSharedSecretFlow: Flow<String> = context.dataStore.data.map { it[LASTFM_SHARED_SECRET] ?: "" }
-    suspend fun setLastFmSharedSecret(secret: String) { context.dataStore.edit { it[LASTFM_SHARED_SECRET] = secret } }
+    suspend fun setLastFmSharedSecret(s: String) { context.dataStore.edit { it[LASTFM_SHARED_SECRET] = s } }
 
     val lastFmSessionKeyFlow: Flow<String> = context.dataStore.data.map { it[LASTFM_SESSION_KEY] ?: "" }
-    suspend fun setLastFmSessionKey(key: String) { context.dataStore.edit { it[LASTFM_SESSION_KEY] = key } }
+    suspend fun setLastFmSessionKey(k: String) { context.dataStore.edit { it[LASTFM_SESSION_KEY] = k } }
 
     val aiEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[AI_ENABLED] ?: true }
-    suspend fun setAiEnabled(enabled: Boolean) { context.dataStore.edit { it[AI_ENABLED] = enabled } }
+    suspend fun setAiEnabled(e: Boolean) { context.dataStore.edit { it[AI_ENABLED] = e } }
 
     val autoEqEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[AUTOEQ_ENABLED] ?: true }
-    suspend fun setAutoEqEnabled(enabled: Boolean) { context.dataStore.edit { it[AUTOEQ_ENABLED] = enabled } }
+    suspend fun setAutoEqEnabled(e: Boolean) { context.dataStore.edit { it[AUTOEQ_ENABLED] = e } }
 
     val smoothTransitionsFlow: Flow<Boolean> = context.dataStore.data.map { it[SMOOTH_TRANSITIONS] ?: true }
-    suspend fun setSmoothTransitions(enabled: Boolean) { context.dataStore.edit { it[SMOOTH_TRANSITIONS] = enabled } }
+    suspend fun setSmoothTransitions(e: Boolean) { context.dataStore.edit { it[SMOOTH_TRANSITIONS] = e } }
 
     val safetyLimiterFlow: Flow<Boolean> = context.dataStore.data.map { it[SAFETY_LIMITER] ?: true }
-    suspend fun setSafetyLimiter(enabled: Boolean) { context.dataStore.edit { it[SAFETY_LIMITER] = enabled } }
+    suspend fun setSafetyLimiter(e: Boolean) { context.dataStore.edit { it[SAFETY_LIMITER] = e } }
 
     val scrobblingEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[SCROBBLING_ENABLED] ?: false }
-    suspend fun setScrobblingEnabled(enabled: Boolean) { context.dataStore.edit { it[SCROBBLING_ENABLED] = enabled } }
+    suspend fun setScrobblingEnabled(e: Boolean) { context.dataStore.edit { it[SCROBBLING_ENABLED] = e } }
 
     val autoPresetFlow: Flow<Boolean> = context.dataStore.data.map { it[AUTO_PRESET] ?: true }
-    suspend fun setAutoPreset(enabled: Boolean) { context.dataStore.edit { it[AUTO_PRESET] = enabled } }
+    suspend fun setAutoPreset(e: Boolean) { context.dataStore.edit { it[AUTO_PRESET] = e } }
 
     val notificationListenerPromptedFlow: Flow<Boolean> = context.dataStore.data.map { it[NOTIFICATION_LISTENER_PROMPTED] ?: false }
-    suspend fun setNotificationListenerPrompted(prompted: Boolean) { context.dataStore.edit { it[NOTIFICATION_LISTENER_PROMPTED] = prompted } }
+    suspend fun setNotificationListenerPrompted(p: Boolean) { context.dataStore.edit { it[NOTIFICATION_LISTENER_PROMPTED] = p } }
 
-    // Learning stats
     val songsLearnedFlow: Flow<Int> = context.dataStore.data.map { it[SONGS_LEARNED] ?: 0 }
     val songsViaLastFmFlow: Flow<Int> = context.dataStore.data.map { it[SONGS_VIA_LASTFM] ?: 0 }
     val songsViaLocalFlow: Flow<Int> = context.dataStore.data.map { it[SONGS_VIA_LOCAL] ?: 0 }
@@ -80,9 +76,8 @@ class SonaraPreferences(private val context: Context) {
     suspend fun incrementSongLearned(source: String, genre: String) {
         context.dataStore.edit { prefs ->
             prefs[SONGS_LEARNED] = (prefs[SONGS_LEARNED] ?: 0) + 1
-            if (source.contains("lastfm")) prefs[SONGS_VIA_LASTFM] = (prefs[SONGS_VIA_LASTFM] ?: 0) + 1
+            if (source.contains("lastfm", ignoreCase = true)) prefs[SONGS_VIA_LASTFM] = (prefs[SONGS_VIA_LASTFM] ?: 0) + 1
             else prefs[SONGS_VIA_LOCAL] = (prefs[SONGS_VIA_LOCAL] ?: 0) + 1
-
             val current = prefs[GENRE_STATS] ?: ""
             val map = parseGenreStats(current).toMutableMap()
             map[genre.lowercase()] = (map[genre.lowercase()] ?: 0) + 1
