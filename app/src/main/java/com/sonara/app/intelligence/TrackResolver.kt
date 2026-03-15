@@ -55,7 +55,7 @@ class TrackResolver(private val lastFmResolver: LastFmResolver, private val loca
             else local
 
         // Don't cache low-confidence "other"
-        if (finalResult.genre != "other" || final.confidence >= 0.4f) trackCache.put(finalResult)
+        if (finalResult.genre != "other" || finalResult.confidence >= 0.4f) trackCache.put(finalResult)
         else Log.d("TrackResolver", "Skip cache for low-conf other")
 
         _result.value = ResolveResult(finalResult, if (finalResult.source.contains("lastfm")) ResolveSource.LASTFM else ResolveSource.LOCAL_AI)
