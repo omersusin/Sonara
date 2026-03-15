@@ -12,6 +12,7 @@ import com.sonara.app.intelligence.TrackResolver
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.intelligence.lastfm.LastFmResolver
 import com.sonara.app.intelligence.local.LocalAudioAnalyzer
+import com.sonara.app.data.preferences.SonaraPreferences
 import com.sonara.app.service.SonaraNotificationListener
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
