@@ -63,7 +63,7 @@ class AudioEngine(private val context: Context) {
     private fun createEffects(sessionId: Int): Boolean {
         return try {
             equalizer = Equalizer(Int.MAX_VALUE, sessionId).apply { enabled = isEnabled }
-            Log.d(TAG, "EQ created: session=$sessionId bands=${numberOfBands} priority=MAX")
+            Log.d(TAG, "EQ created: session=$sessionId bands=${equalizer?.numberOfBands} priority=MAX")
             try { bassBoost = BassBoost(Int.MAX_VALUE, sessionId).apply { enabled = isEnabled } } catch (e: Exception) { Log.w(TAG, "BassBoost: ${e.message}") }
             try { virtualizer = Virtualizer(Int.MAX_VALUE, sessionId).apply { enabled = isEnabled } } catch (e: Exception) { Log.w(TAG, "Virtualizer: ${e.message}") }
             try { loudness = LoudnessEnhancer(sessionId).apply { enabled = isEnabled } } catch (e: Exception) { Log.w(TAG, "Loudness: ${e.message}") }
