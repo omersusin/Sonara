@@ -1,9 +1,13 @@
 package com.sonara.app.ui.screens.settings
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,9 +27,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Launch
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Upload
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -50,11 +58,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonara.app.SonaraApp
 import com.sonara.app.autoeq.AutoEqImporter
+import com.sonara.app.preset.PresetExporter
 import com.sonara.app.ui.components.ChipStatus
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.components.StatusChip
@@ -65,28 +75,20 @@ fun SettingsScreen() {
     val vm: SettingsViewModel = viewModel()
     val state by vm.uiState.collectAsState()
     val ctx = LocalContext.current
-    val p = MaterialTheme.colorScheme.primary
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         item { Text("Settings", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(vertical = 8.dp)) }
 
         if (!state.notificationListenerEnabled) {
-            item {
-                FluentCard {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(Icons.Rounded.Notifications, null, tint = SonaraWarning, modifier = Modifier.size(24.dp))
-                        Column(Modifier.weight(1f)) { Text("Notification Access", style = MaterialTheme.typography.titleMedium); Text("Required to detect playing music", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedButton(onClick = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
-                        Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = p)) { Text("Grant Permission") }
-                }
-            }
+            item { NotificationCard(ctx) }
         }
 
         item { SectionHeader("Last.fm Integration") }
-        item { LastFmCard(state, vm) }
+        item { LastFmCard(state, vm, ctx) }
 
         item { SectionHeader("AutoEQ Import") }
         item { AutoEqImportCard() }
@@ -100,49 +102,73 @@ fun SettingsScreen() {
         item { SectionHeader("Advanced") }
         item { AdvancedCard(state, vm) }
 
+        item { SectionHeader("Presets") }
+        item { PresetExportImportCard(vm) }
+
         item { SectionHeader("Data") }
         item { DataCard(state, vm) }
 
         item { SectionHeader("About") }
-        item { FluentCard { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Column { Text("Sonara", style = MaterialTheme.typography.titleMedium); Text("Personal Sound Engine", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }; Text("v1.0.0", style = MaterialTheme.typography.labelLarge, color = SonaraTextTertiary) } } }
+        item { AboutCard() }
 
         item { Spacer(Modifier.height(16.dp)) }
     }
 }
 
-@Composable private fun SectionHeader(t: String) { Text(t.uppercase(), style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp)) }
+@Composable
+private fun SectionHeader(t: String) {
+    Text(t.uppercase(), style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary,
+        modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp))
+}
 
 @Composable
-private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel) {
-    val ctx = LocalContext.current
+private fun NotificationCard(ctx: Context) {
+    FluentCard {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Rounded.Notifications, null, tint = SonaraWarning, modifier = Modifier.size(24.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Notification Access", style = MaterialTheme.typography.titleMedium)
+                Text("Required to detect playing music", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(
+            onClick = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+            Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+        ) { Text("Grant Permission") }
+    }
+}
+
+@Composable
+private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Context) {
     val p = MaterialTheme.colorScheme.primary
 
     FluentCard {
-        // API Key section
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Last.fm API Key", style = MaterialTheme.typography.titleMedium)
             StatusChip(if (state.isApiKeySet) "Active" else "Required", if (state.isApiKeySet) ChipStatus.Active else ChipStatus.Warning)
         }
-
         Spacer(Modifier.height(8.dp))
 
         if (state.isApiKeySet) {
             Text("Genre detection via Last.fm is active.", style = MaterialTheme.typography.bodySmall, color = SonaraSuccess)
         } else {
-            Text("Required for accurate genre detection via Last.fm. Without this key, Sonara falls back to less accurate local analysis.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+            Text("Required for accurate genre detection. Without this, Sonara uses less accurate local analysis.",
+                style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
             Spacer(Modifier.height(12.dp))
-            Text("How to get your free API key:", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+            Text("How to get your free API key:", style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(6.dp))
-            val steps = listOf(
+            listOf(
                 "Go to last.fm/api/account/create",
                 "Create a Last.fm account (or log in)",
                 "Fill in Application name: Sonara",
                 "Leave other fields empty, click Submit",
                 "Copy the API Key shown on the next page",
                 "Paste it below and tap Save"
-            )
-            steps.forEachIndexed { i, step ->
-                Text("${i + 1}. $step", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
+            ).forEachIndexed { i, step ->
+                Text("${i + 1}. $step", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
             }
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.last.fm/api/account/create"))) }) {
@@ -155,40 +181,48 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel) {
         Spacer(Modifier.height(10.dp))
         Text("API Key", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
         Spacer(Modifier.height(4.dp))
-        OutlinedTextField(value = state.apiKeyInput, onValueChange = { vm.updateApiKeyInput(it) },
-            placeholder = { Text(if (state.isApiKeySet) "••••••••••••" else "Paste your API key here", color = SonaraTextTertiary) },
+        OutlinedTextField(
+            value = state.apiKeyInput, onValueChange = { vm.updateApiKeyInput(it) },
+            placeholder = { Text(if (state.isApiKeySet) "••••••••••••" else "Paste your API key", color = SonaraTextTertiary) },
             visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth(), singleLine = true, shape = MaterialTheme.shapes.small,
-            colors = tfColors())
+            modifier = Modifier.fillMaxWidth(), singleLine = true, shape = MaterialTheme.shapes.small, colors = tfColors()
+        )
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            OutlinedButton(onClick = { vm.saveApiKey() }, enabled = state.apiKeyInput.isNotBlank(), shape = MaterialTheme.shapes.extraLarge,
-                border = BorderStroke(1.dp, if (state.apiKeyInput.isNotBlank()) MaterialTheme.colorScheme.primary else SonaraDivider),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)) { Text("Save API Key") }
+            OutlinedButton(
+                onClick = { vm.saveApiKey() }, enabled = state.apiKeyInput.isNotBlank(),
+                shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, if (state.apiKeyInput.isNotBlank()) p else SonaraDivider),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
+            ) { Text("Save API Key") }
         }
 
-        Div()
+        SettingsDivider()
 
-        // Shared Secret section
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Shared Secret", style = MaterialTheme.typography.titleMedium)
             StatusChip(if (state.isSharedSecretSet) "Set" else "Optional", if (state.isSharedSecretSet) ChipStatus.Active else ChipStatus.Inactive)
         }
         Spacer(Modifier.height(4.dp))
-        Text("Found on the same Last.fm API page alongside your API Key. Required for scrobbling your listening history.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Text("Found on the same Last.fm API page alongside your API Key. Required for scrobbling.",
+            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
         Spacer(Modifier.height(10.dp))
         Text("Shared Secret", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
         Spacer(Modifier.height(4.dp))
-        OutlinedTextField(value = state.sharedSecretInput, onValueChange = { vm.updateSharedSecretInput(it) },
-            placeholder = { Text(if (state.isSharedSecretSet) "••••••••••••" else "Paste shared secret here", color = SonaraTextTertiary) },
+        OutlinedTextField(
+            value = state.sharedSecretInput, onValueChange = { vm.updateSharedSecretInput(it) },
+            placeholder = { Text(if (state.isSharedSecretSet) "••••••••••••" else "Paste shared secret", color = SonaraTextTertiary) },
             visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth(), singleLine = true, shape = MaterialTheme.shapes.small,
-            colors = tfColors())
+            modifier = Modifier.fillMaxWidth(), singleLine = true, shape = MaterialTheme.shapes.small, colors = tfColors()
+        )
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            OutlinedButton(onClick = { vm.saveSharedSecret() }, enabled = state.sharedSecretInput.isNotBlank(), shape = MaterialTheme.shapes.extraLarge,
-                border = BorderStroke(1.dp, if (state.sharedSecretInput.isNotBlank()) MaterialTheme.colorScheme.primary else SonaraDivider),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)) { Text("Save Shared Secret") }
+            OutlinedButton(
+                onClick = { vm.saveSharedSecret() }, enabled = state.sharedSecretInput.isNotBlank(),
+                shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, if (state.sharedSecretInput.isNotBlank()) p else SonaraDivider),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
+            ) { Text("Save Shared Secret") }
         }
     }
 }
@@ -203,34 +237,43 @@ private fun AutoEqImportCard() {
     FluentCard {
         Text("Import AutoEQ Profile", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
-        Text("Paste AutoEQ GraphicEQ data or 10 comma-separated gain values (dB)", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Text("Paste AutoEQ GraphicEQ data or 10 comma-separated gain values (dB)",
+            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
         Spacer(Modifier.height(12.dp))
-        OutlinedTextField(value = input, onValueChange = { input = it; result = null },
+        OutlinedTextField(
+            value = input, onValueChange = { input = it; result = null },
             placeholder = { Text("Paste EQ data here...", color = SonaraTextTertiary) },
             modifier = Modifier.fillMaxWidth().height(120.dp), maxLines = 8, shape = MaterialTheme.shapes.small,
             trailingIcon = { IconButton(onClick = { clipboard.getText()?.text?.let { input = it } }) { Icon(Icons.Rounded.ContentPaste, "Paste", tint = SonaraTextSecondary) } },
-            colors = tfColors())
+            colors = tfColors()
+        )
         Spacer(Modifier.height(10.dp))
         if (result != null) {
-            val r = result!!
-            if (r.success) {
+            if (result!!.success) {
                 StatusChip("Parsed successfully", ChipStatus.Active)
                 Spacer(Modifier.height(4.dp))
-                Text("Values: ${r.bands.joinToString(", ") { "%.1f".format(it) }}", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-            } else StatusChip("Error: ${r.error}", ChipStatus.Error)
+                Text("Values: ${result!!.bands.joinToString(", ") { "%.1f".format(it) }}",
+                    style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+            } else {
+                StatusChip("Error: ${result!!.error}", ChipStatus.Error)
+            }
             Spacer(Modifier.height(8.dp))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { result = AutoEqImporter.parseGraphicEq(input) }, enabled = input.isNotBlank(),
-                Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge,
+            OutlinedButton(
+                onClick = { result = AutoEqImporter.parseGraphicEq(input) },
+                enabled = input.isNotBlank(), modifier = Modifier.weight(1f),
+                shape = MaterialTheme.shapes.extraLarge,
                 border = BorderStroke(1.dp, if (input.isNotBlank()) p else SonaraDivider),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = p)) { Text("Parse") }
-            OutlinedButton(onClick = {
-                result?.let { r -> if (r.success) SonaraApp.instance.applyEq(bands = r.bands, presetName = "AutoEQ Import", manual = true) }
-            }, enabled = result?.success == true,
-                Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
+            ) { Text("Parse") }
+            OutlinedButton(
+                onClick = { result?.let { r -> if (r.success) SonaraApp.instance.applyEq(bands = r.bands, presetName = "AutoEQ Import", manual = true) } },
+                enabled = result?.success == true, modifier = Modifier.weight(1f),
+                shape = MaterialTheme.shapes.extraLarge,
                 border = BorderStroke(1.dp, if (result?.success == true) SonaraSuccess else SonaraDivider),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraSuccess)) { Text("Apply") }
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraSuccess)
+            ) { Text("Apply") }
         }
     }
 }
@@ -240,53 +283,187 @@ private fun AccentColorCard(selected: AccentColor, onSelect: (AccentColor) -> Un
     FluentCard {
         Text("Accent Color", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
-        Text(if (selected == AccentColor.Auto) "Wallpaper colors" else selected.displayName, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Text(if (selected == AccentColor.Auto) "Wallpaper colors" else selected.displayName,
+            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
         Spacer(Modifier.height(16.dp))
         val colors = if (Build.VERSION.SDK_INT >= 31) AccentColor.entries else AccentColor.entries.filter { it != AccentColor.Auto }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             colors.forEach { c ->
                 val sel = c == selected
-                Box(Modifier.size(38.dp).clip(CircleShape)
-                    .then(if (c == AccentColor.Auto) Modifier.background(Brush.sweepGradient(listOf(SonaraInfo, SonaraSuccess, SonaraBandLow, SonaraError, SonaraWarning, SonaraInfo))) else Modifier.background(c.primary))
-                    .then(if (sel) Modifier.border(2.5.dp, SonaraTextPrimary, CircleShape) else Modifier.border(1.dp, SonaraDivider.copy(0.3f), CircleShape))
-                    .clickable { onSelect(c) }, contentAlignment = Alignment.Center
+                Box(
+                    Modifier.size(38.dp).clip(CircleShape)
+                        .then(if (c == AccentColor.Auto) Modifier.background(Brush.sweepGradient(listOf(SonaraInfo, SonaraSuccess, SonaraBandLow, SonaraError, SonaraWarning, SonaraInfo))) else Modifier.background(c.primary))
+                        .then(if (sel) Modifier.border(2.5.dp, SonaraTextPrimary, CircleShape) else Modifier.border(1.dp, SonaraDivider.copy(0.3f), CircleShape))
+                        .clickable { onSelect(c) },
+                    contentAlignment = Alignment.Center
                 ) { if (sel) Icon(Icons.Rounded.Check, null, tint = SonaraBackground, modifier = Modifier.size(18.dp)) }
             }
         }
     }
 }
 
-@Composable private fun SoundEngineCard(s: SettingsUiState, vm: SettingsViewModel) {
-    FluentCard { SR("AI Auto-adjust", "Automatically adjust EQ based on detected genre and mood", s.aiEnabled) { vm.setAiEnabled(it) }; Div(); SR("AutoEQ", "Apply headphone correction", s.autoEqEnabled) { vm.setAutoEqEnabled(it) }; Div(); SR("Auto Preset", "Auto-select preset based on genre", s.autoPreset) { vm.setAutoPreset(it) } }
+@Composable
+private fun SoundEngineCard(s: SettingsUiState, vm: SettingsViewModel) {
+    FluentCard {
+        SwitchRow("AI Auto-adjust", "Automatically adjust EQ based on genre and mood", s.aiEnabled) { vm.setAiEnabled(it) }
+        SettingsDivider()
+        SwitchRow("AutoEQ", "Apply headphone correction", s.autoEqEnabled) { vm.setAutoEqEnabled(it) }
+        SettingsDivider()
+        SwitchRow("Auto Preset", "Auto-select preset based on genre", s.autoPreset) { vm.setAutoPreset(it) }
+    }
 }
 
-@Composable private fun AdvancedCard(s: SettingsUiState, vm: SettingsViewModel) {
-    FluentCard { SR("Smooth Transitions", "Gradual EQ changes between tracks", s.smoothTransitions) { vm.setSmoothTransitions(it) }; Div(); SR("Safety Limiter", "Prevent audio clipping", s.safetyLimiter) { vm.setSafetyLimiter(it) }; Div(); SR("Scrobbling", "Send history to Last.fm", s.scrobblingEnabled) { vm.setScrobblingEnabled(it) } }
+@Composable
+private fun AdvancedCard(s: SettingsUiState, vm: SettingsViewModel) {
+    FluentCard {
+        SwitchRow("Smooth Transitions", "Gradual EQ changes between tracks", s.smoothTransitions) { vm.setSmoothTransitions(it) }
+        SettingsDivider()
+        SwitchRow("Safety Limiter", "Prevent audio clipping", s.safetyLimiter) { vm.setSafetyLimiter(it) }
+        SettingsDivider()
+        SwitchRow("Scrobbling", "Send listening history to Last.fm", s.scrobblingEnabled) { vm.setScrobblingEnabled(it) }
+    }
 }
 
-@Composable private fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
+@Composable
+private fun PresetExportImportCard(vm: SettingsViewModel) {
+    val ctx = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    var showImportDialog by remember { mutableStateOf(false) }
+    var importInput by remember { mutableStateOf("") }
+    var importResult by remember { mutableStateOf("") }
+    val p = MaterialTheme.colorScheme.primary
+
+    FluentCard {
+        Text("Preset Management", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text("Export your custom presets to share or backup, import presets from JSON",
+            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = { vm.exportPresets { json ->
+                    clipboard.setText(AnnotatedString(json))
+                    Toast.makeText(ctx, "Presets copied to clipboard", Toast.LENGTH_SHORT).show()
+                } },
+                modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, p),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
+            ) {
+                Icon(Icons.Rounded.Upload, null, Modifier.size(16.dp))
+                Spacer(Modifier.size(4.dp))
+                Text("Export")
+            }
+            OutlinedButton(
+                onClick = { showImportDialog = true },
+                modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, p),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
+            ) {
+                Icon(Icons.Rounded.Download, null, Modifier.size(16.dp))
+                Spacer(Modifier.size(4.dp))
+                Text("Import")
+            }
+        }
+    }
+
+    if (showImportDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportDialog = false; importInput = ""; importResult = "" },
+            containerColor = SonaraCard,
+            title = { Text("Import Presets") },
+            text = {
+                Column {
+                    Text("Paste exported Sonara preset JSON:", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = importInput, onValueChange = { importInput = it; importResult = "" },
+                        placeholder = { Text("Paste JSON here...", color = SonaraTextTertiary) },
+                        modifier = Modifier.fillMaxWidth().height(150.dp), maxLines = 10,
+                        shape = MaterialTheme.shapes.small,
+                        trailingIcon = { IconButton(onClick = { clipboard.getText()?.text?.let { importInput = it } }) { Icon(Icons.Rounded.ContentPaste, "Paste", tint = SonaraTextSecondary) } },
+                        colors = tfColors()
+                    )
+                    if (importResult.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(importResult, style = MaterialTheme.typography.bodySmall,
+                            color = if (importResult.startsWith("✓")) SonaraSuccess else SonaraError)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.importPresets(importInput) { msg -> importResult = msg }
+                }) { Text("Import", color = p) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportDialog = false; importInput = ""; importResult = "" }) {
+                    Text("Cancel", color = SonaraTextSecondary)
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
     FluentCard {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column { Text("Track Cache", style = MaterialTheme.typography.titleMedium); Text("${s.cacheSize} tracks", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
-            OutlinedButton(onClick = { vm.clearCache() }, shape = MaterialTheme.shapes.extraLarge, border = BorderStroke(1.dp, SonaraDivider), colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)) { Text("Clear") }
+            Column {
+                Text("Track Cache", style = MaterialTheme.typography.titleMedium)
+                Text("${s.cacheSize} tracks", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+            }
+            OutlinedButton(
+                onClick = { vm.clearCache() }, shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, SonaraDivider),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
+            ) { Text("Clear") }
         }
-        Div()
+        SettingsDivider()
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column { Text("Reset All", style = MaterialTheme.typography.titleMedium); Text("Restore defaults", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
-            OutlinedButton(onClick = { vm.clearAllData() }, shape = MaterialTheme.shapes.extraLarge, border = BorderStroke(1.dp, SonaraError.copy(0.5f)), colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)) { Text("Reset") }
+            Column {
+                Text("Reset All", style = MaterialTheme.typography.titleMedium)
+                Text("Restore defaults", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+            }
+            OutlinedButton(
+                onClick = { vm.clearAllData() }, shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, SonaraError.copy(0.5f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
+            ) { Text("Reset") }
         }
     }
 }
 
-@Composable private fun SR(title: String, desc: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+@Composable
+private fun AboutCard() {
+    FluentCard {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text("Sonara", style = MaterialTheme.typography.titleMedium)
+                Text("Personal Sound Engine", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+            }
+            Text("v1.0.0", style = MaterialTheme.typography.labelLarge, color = SonaraTextTertiary)
+        }
+    }
+}
+
+@Composable
+private fun SwitchRow(title: String, desc: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     val p = MaterialTheme.colorScheme.primary
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.titleMedium); Text(desc, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
-        Switch(checked = checked, onCheckedChange = onChange, colors = SwitchDefaults.colors(checkedThumbColor = p, checkedTrackColor = p.copy(0.3f), uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(desc, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        }
+        Switch(checked = checked, onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(checkedThumbColor = p, checkedTrackColor = p.copy(0.3f),
+                uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated))
     }
 }
 
-@Composable private fun Div() { HorizontalDivider(Modifier.padding(vertical = 14.dp), 0.5.dp, SonaraDivider.copy(0.5f)) }
+@Composable
+private fun SettingsDivider() {
+    HorizontalDivider(Modifier.padding(vertical = 14.dp), 0.5.dp, SonaraDivider.copy(0.5f))
+}
 
 @Composable
 private fun tfColors() = OutlinedTextFieldDefaults.colors(
