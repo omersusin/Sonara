@@ -22,6 +22,8 @@ import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.HeadsetOff
 import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -70,25 +72,69 @@ fun DashboardScreen() {
                 }
             }
         }
+
         if (!s.notificationListenerEnabled) { item { PermissionCard(onGrant = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) } }
+
         item { NowPlayingBar(if (s.hasTrack) s.title else "No music playing", s.artist, s.isPlaying, art) }
 
+        // Intelligence Card — shows both genre AND media type
         item {
             FluentCard {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Intelligence", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Spacer(Modifier.height(4.dp))
-                        if (s.isResolving) { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = p); Text("Analyzing...", style = MaterialTheme.typography.bodyLarge) } }
-                        else if (s.hasTrack && s.sourceLabel != "None") Text("${s.genre.replaceFirstChar { it.uppercase() }} · ${s.mood.replaceFirstChar { it.uppercase() }}", style = MaterialTheme.typography.bodyLarge)
-                        else Text("Waiting for music...", style = MaterialTheme.typography.bodyLarge)
+                        Text("Intelligence", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+                        Spacer(Modifier.height(4.dp))
+                        if (s.isResolving) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = p); Text("Analyzing...", style = MaterialTheme.typography.bodyLarge)
+                            }
+                        } else if (s.hasTrack && s.sourceLabel != "None") {
+                            // Show genre + media type
+                            val displayGenre = s.genre.replaceFirstChar { it.uppercase() }
+                            val displayMood = s.mood.replaceFirstChar { it.uppercase() }
+                            Text("$displayGenre · $displayMood", style = MaterialTheme.typography.bodyLarge)
+                            if (s.mediaType != "MUSIC" && s.mediaType != "UNKNOWN") {
+                                Spacer(Modifier.height(2.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Icon(Icons.Rounded.Movie, null, Modifier.size(14.dp), tint = SonaraTextTertiary)
+                                    Text("Media: ${s.mediaType.lowercase().replaceFirstChar { it.uppercase() }}", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                                }
+                            }
+                        } else { Text("Waiting for music...", style = MaterialTheme.typography.bodyLarge) }
                     }
-                    if (s.hasTrack && s.sourceLabel != "None") StatusChip(s.sourceLabel, ChipStatus.Active, if (s.sourceLabel.contains("Last")) Icons.Rounded.Public else Icons.Rounded.Memory)
-                    else StatusChip("Idle", ChipStatus.Inactive)
+                    if (s.hasTrack && s.sourceLabel != "None") {
+                        val icon = when {
+                            s.sourceLabel.contains("Last") -> Icons.Rounded.Public
+                            s.pluginUsed.isNotEmpty() -> Icons.Rounded.Memory
+                            else -> Icons.Rounded.AutoAwesome
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            StatusChip(s.sourceLabel, ChipStatus.Active, icon)
+                            if (s.pluginUsed.isNotBlank() && s.pluginUsed != "lastfm" && s.pluginUsed != "cache") {
+                                Spacer(Modifier.height(4.dp))
+                                Text("via ${s.pluginUsed}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                            }
+                        }
+                    } else StatusChip("Idle", ChipStatus.Inactive)
                 }
-                if (s.hasTrack && s.sourceLabel != "None") { Spacer(Modifier.height(10.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Pill("Energy", "${(s.energy * 100).toInt()}%", Modifier.weight(1f), p); Pill("Confidence", "${(s.confidence * 100).toInt()}%", Modifier.weight(1f), p) } }
+                if (s.hasTrack && s.sourceLabel != "None") {
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Pill("Energy", "${(s.energy * 100).toInt()}%", Modifier.weight(1f), p)
+                        Pill("Confidence", "${(s.confidence * 100).toInt()}%", Modifier.weight(1f), p)
+                    }
+                    if (s.bassBoost > 0 || s.virtualizer > 0) {
+                        Spacer(Modifier.height(6.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (s.bassBoost > 0) Pill("Bass", "${(s.bassBoost / 10f).toInt()}%", Modifier.weight(1f), p)
+                            if (s.virtualizer > 0) Pill("Surround", "${(s.virtualizer / 10f).toInt()}%", Modifier.weight(1f), p)
+                        }
+                    }
+                }
             }
         }
 
+        // Headphone card
         item {
             FluentCard {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -103,6 +149,7 @@ fun DashboardScreen() {
             }
         }
 
+        // Sound Profile card
         item {
             FluentCard {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
