@@ -1,4 +1,5 @@
 package com.sonara.app.ui.screens.insights
+import com.sonara.app.data.preferences.SonaraPreferences
 
 import android.app.Application
 import android.graphics.Bitmap
