@@ -2,19 +2,18 @@ package com.sonara.app.ui.screens.dashboard
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
 import com.sonara.app.autoeq.AutoEqManager
 import com.sonara.app.autoeq.HeadphoneDetector
-import com.sonara.app.intelligence.ResolveResult
 import com.sonara.app.intelligence.ResolveSource
 import com.sonara.app.intelligence.TrackResolver
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.intelligence.lastfm.LastFmResolver
 import com.sonara.app.intelligence.local.AiEqSuggestionEngine
 import com.sonara.app.intelligence.local.LocalAudioAnalyzer
-import com.sonara.app.preset.Preset
 import com.sonara.app.service.SonaraNotificationListener
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,15 +29,16 @@ data class DashboardUiState(
     val headphoneName: String = "", val headphoneConnected: Boolean = false, val headphoneType: String = "",
     val autoEqActive: Boolean = false, val autoEqProfile: String = "", val autoEqConfidence: Float = 0f,
     val currentPresetName: String = "Flat", val isAiEnabled: Boolean = true, val isAutoEqEnabled: Boolean = true,
-    val bands: FloatArray = FloatArray(10), val aiReasoning: String = "",
-    val notificationListenerEnabled: Boolean = false, val eqActive: Boolean = false
+    val bands: FloatArray = FloatArray(10), val bassBoost: Int = 0, val virtualizer: Int = 0,
+    val aiReasoning: String = "", val notificationListenerEnabled: Boolean = false,
+    val eqActive: Boolean = false, val isManualPreset: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true; if (other !is DashboardUiState) return false
         return title == other.title && artist == other.artist && isPlaying == other.isPlaying &&
             genre == other.genre && sourceLabel == other.sourceLabel && bands.contentEquals(other.bands) &&
-            headphoneConnected == other.headphoneConnected && notificationListenerEnabled == other.notificationListenerEnabled &&
-            eqActive == other.eqActive && currentPresetName == other.currentPresetName
+            currentPresetName == other.currentPresetName && bassBoost == other.bassBoost &&
+            notificationListenerEnabled == other.notificationListenerEnabled && isManualPreset == other.isManualPreset
     }
     override fun hashCode() = title.hashCode()
 }
@@ -49,7 +49,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val headphoneDetector = HeadphoneDetector(application)
     private val autoEqManager = AutoEqManager()
     private val trackResolver: TrackResolver
-    private var lastResolvedTitle = ""
+    private var lastProcessedTrack = ""
 
     private val _uiState = MutableStateFlow(DashboardUiState(eqActive = app.audioEngine.isInitialized))
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
@@ -59,54 +59,73 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val cache = TrackCache(app.database.trackCacheDao())
         trackResolver = TrackResolver(LastFmResolver(), LocalAudioAnalyzer(), cache)
 
+        // Observe shared EQ state — keeps Dashboard in sync with EQ/Presets screens
+        viewModelScope.launch {
+            app.eqState.collect { eq ->
+                _uiState.update { it.copy(
+                    bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer,
+                    currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset
+                ) }
+            }
+        }
+
+        // Now playing
         viewModelScope.launch {
             SonaraNotificationListener.nowPlaying.collect { np ->
                 _uiState.update { it.copy(title = np.title, artist = np.artist, isPlaying = np.isPlaying, hasTrack = np.title.isNotBlank()) }
-                if (np.title.isNotBlank() && np.title != lastResolvedTitle) {
-                    lastResolvedTitle = np.title
+                val trackKey = "${np.title}::${np.artist}"
+                if (np.title.isNotBlank() && trackKey != lastProcessedTrack) {
+                    lastProcessedTrack = trackKey
+                    Log.d("Dashboard", "New track: ${np.title} - ${np.artist}")
                     val apiKey = prefs.lastFmApiKeyFlow.first()
                     trackResolver.resolve(np.title, np.artist, apiKey)
                 }
             }
         }
 
+        // Track resolver → AI EQ
         viewModelScope.launch {
             trackResolver.result.collect { result ->
-                if (result.source == ResolveSource.NONE || result.isResolving) {
-                    _uiState.update { it.copy(isResolving = result.isResolving) }
-                    return@collect
-                }
+                if (result.isResolving) { _uiState.update { it.copy(isResolving = true) }; return@collect }
+                if (result.source == ResolveSource.NONE) return@collect
 
                 val ti = result.trackInfo
+                val src = when (result.source) {
+                    ResolveSource.LASTFM -> "Last.fm"; ResolveSource.LASTFM_ARTIST -> "Last.fm (Artist)"
+                    ResolveSource.LOCAL_AI -> "Local AI"; ResolveSource.CACHE -> "Cached"; ResolveSource.NONE -> "None"
+                }
+
                 _uiState.update { it.copy(
                     genre = ti.genre.ifEmpty { "Unknown" }, mood = ti.mood.ifEmpty { "Unknown" },
-                    energy = ti.energy, confidence = ti.confidence, isResolving = false,
-                    sourceLabel = when (result.source) {
-                        ResolveSource.LASTFM -> "Last.fm"; ResolveSource.LASTFM_ARTIST -> "Last.fm (Artist)"
-                        ResolveSource.LOCAL_AI -> "Local AI"; ResolveSource.CACHE -> "Cached"; ResolveSource.NONE -> "None"
-                    }
+                    energy = ti.energy, confidence = ti.confidence, isResolving = false, sourceLabel = src
                 ) }
 
-                // Record learning stats
+                // Record stats
                 if (!result.source.name.contains("CACHE")) {
                     prefs.incrementSongLearned(result.source.name, ti.genre)
                 }
 
-                // AI auto-EQ: ONLY if no manual preset
-                if (!app.isManualPreset) {
-                    val aiEnabled = prefs.aiEnabledFlow.first()
-                    if (aiEnabled) {
-                        val suggestion = AiEqSuggestionEngine.suggest(ti)
-                        app.applyEqBands(suggestion.bands, "AI: ${ti.genre.replaceFirstChar { it.uppercase() }}")
-                        app.applyEffects(suggestion.bassBoost, suggestion.virtualizer)
-                        _uiState.update { it.copy(bands = suggestion.bands, aiReasoning = suggestion.reasoning, currentPresetName = "AI: ${ti.genre.replaceFirstChar { it.uppercase() }}") }
-                    }
-                } else {
-                    _uiState.update { it.copy(bands = app.currentBands, currentPresetName = app.currentPresetName) }
+                // AI auto-EQ: ONLY when no manual preset active
+                val currentEq = app.eqState.value
+                if (!currentEq.isManualPreset && prefs.aiEnabledFlow.first()) {
+                    val suggestion = AiEqSuggestionEngine.suggest(ti)
+                    val presetName = "AI: ${ti.genre.replaceFirstChar { it.uppercase() }}"
+                    Log.d("Dashboard", "AI EQ: $presetName bass=${suggestion.bassBoost} virt=${suggestion.virtualizer}")
+
+                    app.applyEq(
+                        bands = suggestion.bands,
+                        presetName = presetName,
+                        manual = false,
+                        bassBoost = suggestion.bassBoost,
+                        virtualizer = suggestion.virtualizer,
+                        loudness = 0
+                    )
+                    _uiState.update { it.copy(aiReasoning = suggestion.reasoning) }
                 }
             }
         }
 
+        // Headphone
         viewModelScope.launch {
             headphoneDetector.headphone.collect { hp ->
                 _uiState.update { it.copy(headphoneName = hp.name, headphoneConnected = hp.isConnected, headphoneType = hp.type.name) }
@@ -122,13 +141,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun resetToAi() {
-        app.isManualPreset.let {
-            // Use reflection-free approach: just call applyEqBands with AI flag
-            val flat = FloatArray(10)
-            app.applyEqBands(flat, "AI Auto", manual = false)
-            _uiState.update { it.copy(bands = flat, currentPresetName = "AI Auto") }
-            lastResolvedTitle = "" // Force re-resolve
-        }
+        app.resetToAi()
+        lastProcessedTrack = "" // Force re-process current track
+        _uiState.update { it.copy(aiReasoning = "") }
     }
 
     fun checkNotificationListener() {

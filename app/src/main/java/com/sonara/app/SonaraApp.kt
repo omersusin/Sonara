@@ -1,27 +1,31 @@
 package com.sonara.app
 
 import android.app.Application
+import android.util.Log
 import com.sonara.app.audio.engine.AudioEngine
 import com.sonara.app.data.SonaraDatabase
+import com.sonara.app.data.models.SharedEqState
 import com.sonara.app.data.preferences.SonaraPreferences
 import com.sonara.app.preset.PresetRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class SonaraApp : Application() {
     lateinit var preferences: SonaraPreferences private set
     lateinit var database: SonaraDatabase private set
     lateinit var presetRepository: PresetRepository private set
-    lateinit var audioEngine: AudioEngine private set
+    val audioEngine = AudioEngine()
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // Shared EQ state — all screens observe this
-    var currentBands: FloatArray = FloatArray(10); private set
-    var currentPresetName: String = "Flat"; private set
-    var isManualPreset: Boolean = false; private set
+    private val _eqState = MutableStateFlow(SharedEqState())
+    val eqState: StateFlow<SharedEqState> = _eqState.asStateFlow()
 
     override fun onCreate() {
         super.onCreate()
@@ -29,8 +33,9 @@ class SonaraApp : Application() {
         preferences = SonaraPreferences(this)
         database = SonaraDatabase.get(this)
         presetRepository = PresetRepository(database.presetDao())
-        audioEngine = AudioEngine()
-        audioEngine.init()
+
+        val ok = audioEngine.init()
+        Log.d("SonaraApp", "AudioEngine init: $ok")
 
         appScope.launch {
             presetRepository.initBuiltIns()
@@ -38,18 +43,40 @@ class SonaraApp : Application() {
         }
     }
 
-    fun applyEqBands(bands: FloatArray, presetName: String = currentPresetName, manual: Boolean = false) {
-        currentBands = bands.copyOf()
-        currentPresetName = presetName
-        isManualPreset = manual
+    fun applyEq(
+        bands: FloatArray,
+        presetName: String = _eqState.value.presetName,
+        manual: Boolean = _eqState.value.isManualPreset,
+        bassBoost: Int = _eqState.value.bassBoost,
+        virtualizer: Int = _eqState.value.virtualizer,
+        loudness: Int = _eqState.value.loudness
+    ) {
         if (!audioEngine.isInitialized) audioEngine.init()
         audioEngine.applyBands(bands)
+        audioEngine.applyBassBoost(bassBoost)
+        audioEngine.applyVirtualizer(virtualizer)
+        audioEngine.applyLoudness(loudness)
+
+        _eqState.update {
+            it.copy(
+                bands = bands.copyOf(),
+                bassBoost = bassBoost,
+                virtualizer = virtualizer,
+                loudness = loudness,
+                presetName = presetName,
+                isManualPreset = manual
+            )
+        }
+        Log.d("SonaraApp", "Applied EQ: $presetName manual=$manual bass=$bassBoost virt=$virtualizer")
     }
 
-    fun applyEffects(bass: Int = 0, virt: Int = 0, loud: Int = 0) {
-        audioEngine.applyBassBoost(bass)
-        audioEngine.applyVirtualizer(virt)
-        audioEngine.applyLoudness(loud)
+    fun setEqEnabled(enabled: Boolean) {
+        audioEngine.setEnabled(enabled)
+        _eqState.update { it.copy(isEnabled = enabled) }
+    }
+
+    fun resetToAi() {
+        _eqState.update { it.copy(isManualPreset = false, presetName = "AI Auto") }
     }
 
     companion object {

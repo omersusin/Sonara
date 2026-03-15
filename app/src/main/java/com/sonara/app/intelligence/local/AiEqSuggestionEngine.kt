@@ -31,7 +31,7 @@ object AiEqSuggestionEngine {
             (base + mood * 0.5f + energy * 0.3f).coerceIn(-12f, 12f)
         }
 
-        val bassBoost = when (trackInfo.genre) {
+        val bassBoost = when (trackInfo.genre.lowercase()) {
             "hip-hop" -> 400
             "electronic" -> 350
             "r&b" -> 300

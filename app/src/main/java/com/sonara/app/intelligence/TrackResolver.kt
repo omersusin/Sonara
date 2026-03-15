@@ -1,5 +1,6 @@
 package com.sonara.app.intelligence
 
+import android.util.Log
 import com.sonara.app.data.models.TrackInfo
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.intelligence.lastfm.LastFmResolver
@@ -13,8 +14,7 @@ enum class ResolveSource { NONE, CACHE, LASTFM, LASTFM_ARTIST, LOCAL_AI }
 data class ResolveResult(
     val trackInfo: TrackInfo = TrackInfo(),
     val source: ResolveSource = ResolveSource.NONE,
-    val isResolving: Boolean = false,
-    val error: String? = null
+    val isResolving: Boolean = false
 )
 
 class TrackResolver(
@@ -25,60 +25,53 @@ class TrackResolver(
     private val _result = MutableStateFlow(ResolveResult())
     val result: StateFlow<ResolveResult> = _result.asStateFlow()
 
-    private var lastResolvedKey = ""
+    private var lastKey = ""
 
     suspend fun resolve(title: String, artist: String, apiKey: String) {
-        val key = "$title::$artist".lowercase()
-        if (key == lastResolvedKey) return
-        if (title.isBlank()) {
-            _result.value = ResolveResult()
-            lastResolvedKey = ""
-            return
-        }
+        val key = "${title.lowercase().trim()}::${artist.lowercase().trim()}"
+        if (key == lastKey && _result.value.source != ResolveSource.NONE) return
+        if (title.isBlank()) { _result.value = ResolveResult(); lastKey = ""; return }
 
-        lastResolvedKey = key
+        lastKey = key
         _result.value = ResolveResult(isResolving = true)
+        Log.d("TrackResolver", "Resolving: $title - $artist")
 
         // 1. Cache
         val cached = trackCache.get(title, artist)
         if (cached != null) {
-            _result.value = ResolveResult(
-                trackInfo = cached,
-                source = when {
-                    cached.source.contains("lastfm-artist") -> ResolveSource.LASTFM_ARTIST
-                    cached.source.contains("lastfm") -> ResolveSource.LASTFM
-                    cached.source.contains("local") -> ResolveSource.LOCAL_AI
-                    else -> ResolveSource.CACHE
-                }
-            )
+            Log.d("TrackResolver", "Cache hit: ${cached.genre}")
+            val src = when {
+                cached.source.contains("lastfm-artist") -> ResolveSource.LASTFM_ARTIST
+                cached.source.contains("lastfm") -> ResolveSource.LASTFM
+                cached.source.contains("local") -> ResolveSource.LOCAL_AI
+                else -> ResolveSource.CACHE
+            }
+            _result.value = ResolveResult(cached, src)
             return
         }
 
         // 2. Last.fm
         if (apiKey.isNotBlank()) {
             try {
-                val lastFmResult = lastFmResolver.resolve(title, artist, apiKey)
-                if (lastFmResult != null && lastFmResult.genre != "other") {
-                    trackCache.put(lastFmResult)
-                    _result.value = ResolveResult(
-                        trackInfo = lastFmResult,
-                        source = if (lastFmResult.source.contains("artist")) ResolveSource.LASTFM_ARTIST else ResolveSource.LASTFM
-                    )
+                val lfm = lastFmResolver.resolve(title, artist, apiKey)
+                if (lfm != null && lfm.genre != "other" && lfm.genre.isNotBlank()) {
+                    Log.d("TrackResolver", "Last.fm: ${lfm.genre} conf=${lfm.confidence}")
+                    trackCache.put(lfm)
+                    val src = if (lfm.source.contains("artist")) ResolveSource.LASTFM_ARTIST else ResolveSource.LASTFM
+                    _result.value = ResolveResult(lfm, src)
                     return
                 }
             } catch (e: Exception) {
-                // Fall through to local
+                Log.w("TrackResolver", "Last.fm failed: ${e.message}")
             }
         }
 
         // 3. Local AI
-        val localResult = localAnalyzer.analyze(title, artist)
-        trackCache.put(localResult)
-        _result.value = ResolveResult(trackInfo = localResult, source = ResolveSource.LOCAL_AI)
+        val local = localAnalyzer.analyze(title, artist)
+        Log.d("TrackResolver", "Local AI: ${local.genre}")
+        trackCache.put(local)
+        _result.value = ResolveResult(local, ResolveSource.LOCAL_AI)
     }
 
-    fun clear() {
-        _result.value = ResolveResult()
-        lastResolvedKey = ""
-    }
+    fun forceReResolve() { lastKey = "" }
 }
