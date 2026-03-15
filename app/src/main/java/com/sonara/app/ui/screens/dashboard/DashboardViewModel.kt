@@ -45,16 +45,16 @@ data class DashboardUiState(
     val bands: FloatArray = FloatArray(10),
     val aiReasoning: String = "",
     val notificationListenerEnabled: Boolean = false,
-    val eqActive: Boolean = false
+    val eqActive: Boolean = false,
+    val isManualPreset: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is DashboardUiState) return false
         return title == other.title && artist == other.artist && isPlaying == other.isPlaying &&
-            genre == other.genre && sourceLabel == other.sourceLabel &&
-            headphoneConnected == other.headphoneConnected && autoEqActive == other.autoEqActive &&
-            bands.contentEquals(other.bands) && notificationListenerEnabled == other.notificationListenerEnabled &&
-            eqActive == other.eqActive
+            genre == other.genre && sourceLabel == other.sourceLabel && bands.contentEquals(other.bands) &&
+            headphoneConnected == other.headphoneConnected && notificationListenerEnabled == other.notificationListenerEnabled &&
+            eqActive == other.eqActive && isManualPreset == other.isManualPreset
     }
     override fun hashCode() = title.hashCode()
 }
@@ -66,15 +66,16 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val autoEqManager = AutoEqManager()
     private val trackResolver: TrackResolver
 
-    private val _uiState = MutableStateFlow(DashboardUiState())
+    private val _uiState = MutableStateFlow(DashboardUiState(eqActive = app.audioEngine.isInitialized))
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
     val albumArt: StateFlow<Bitmap?> = SonaraNotificationListener.albumArt
+
+    // Track whether user manually selected a preset
+    private var manualPresetActive = false
 
     init {
         val cache = TrackCache(app.database.trackCacheDao())
         trackResolver = TrackResolver(LastFmResolver(), LocalAudioAnalyzer(), cache)
-
-        _uiState.update { it.copy(eqActive = app.audioEngine.isInitialized) }
 
         viewModelScope.launch {
             SonaraNotificationListener.nowPlaying.collect { np ->
@@ -88,9 +89,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch {
             trackResolver.result.collect { result ->
-                val suggestion = if (result.source != ResolveSource.NONE && _uiState.value.isAiEnabled)
-                    AiEqSuggestionEngine.suggest(result.trackInfo) else null
-
                 _uiState.update { it.copy(
                     genre = result.trackInfo.genre.ifEmpty { "Unknown" },
                     mood = result.trackInfo.mood.ifEmpty { "Unknown" },
@@ -101,14 +99,18 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         ResolveSource.LASTFM -> "Last.fm"; ResolveSource.LASTFM_ARTIST -> "Last.fm (Artist)"
                         ResolveSource.LOCAL_AI -> "Local AI"; ResolveSource.CACHE -> "Cached"; ResolveSource.NONE -> "None"
                     },
-                    aiReasoning = suggestion?.reasoning ?: ""
                 ) }
 
-                if (suggestion != null) {
-                    _uiState.update { it.copy(bands = suggestion.bands) }
-                    app.applyEqBands(suggestion.bands)
-                    app.audioEngine.applyBassBoost(suggestion.bassBoost)
-                    app.audioEngine.applyVirtualizer(suggestion.virtualizer)
+                // AI auto-EQ: ONLY if user hasn't manually selected a preset
+                if (!manualPresetActive && result.source != ResolveSource.NONE) {
+                    val aiEnabled = prefs.aiEnabledFlow.first()
+                    if (aiEnabled) {
+                        val suggestion = AiEqSuggestionEngine.suggest(result.trackInfo)
+                        _uiState.update { it.copy(bands = suggestion.bands, aiReasoning = suggestion.reasoning, currentPresetName = "AI Auto") }
+                        app.applyEqBands(suggestion.bands)
+                        app.audioEngine.applyBassBoost(suggestion.bassBoost)
+                        app.audioEngine.applyVirtualizer(suggestion.virtualizer)
+                    }
                 }
             }
         }
@@ -123,7 +125,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             autoEqManager.state.collect { aeq ->
                 _uiState.update { it.copy(autoEqActive = aeq.isActive, autoEqProfile = aeq.profile?.name ?: "", autoEqConfidence = aeq.profile?.matchConfidence ?: 0f) }
-                if (aeq.isActive) app.audioEngine.applyBands(aeq.correctionBands)
             }
         }
 

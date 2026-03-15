@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
+import com.sonara.app.autoeq.HeadphoneDetector
 import com.sonara.app.intelligence.ResolveSource
 import com.sonara.app.intelligence.TrackResolver
 import com.sonara.app.intelligence.cache.TrackCache
@@ -26,10 +27,9 @@ data class InsightsUiState(
     val mood: String = "Unknown",
     val energy: Float = 0.5f,
     val confidence: Float = 0f,
-    val autoEqActive: Boolean = false,
-    val autoEqProfile: String = "",
     val headphoneName: String = "",
     val headphoneConnected: Boolean = false,
+    val autoEqActive: Boolean = false,
     val activePreset: String = "Flat",
     val aiAdjustment: String = "None",
     val isAiEnabled: Boolean = true,
@@ -44,14 +44,15 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
     private val app = application as SonaraApp
     private val prefs = app.preferences
     private val cache = TrackCache(app.database.trackCacheDao())
-    private val trackResolver: TrackResolver
+    private val trackResolver = TrackResolver(LastFmResolver(), LocalAudioAnalyzer(), cache)
+    private val headphoneDetector = HeadphoneDetector(application)
 
-    private val _uiState = MutableStateFlow(InsightsUiState())
+    private val _uiState = MutableStateFlow(InsightsUiState(eqActive = app.audioEngine.isInitialized))
     val uiState: StateFlow<InsightsUiState> = _uiState.asStateFlow()
     val albumArt: StateFlow<Bitmap?> = SonaraNotificationListener.albumArt
 
     init {
-        trackResolver = TrackResolver(LastFmResolver(), LocalAudioAnalyzer(), cache)
+        headphoneDetector.start()
 
         viewModelScope.launch {
             SonaraNotificationListener.nowPlaying.collect { np ->
@@ -72,24 +73,28 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                     confidence = result.trackInfo.confidence,
                     isResolving = result.isResolving,
                     dataSource = when (result.source) {
-                        ResolveSource.LASTFM -> "Last.fm"
-                        ResolveSource.LASTFM_ARTIST -> "Last.fm (Artist)"
-                        ResolveSource.LOCAL_AI -> "Local AI"
-                        ResolveSource.CACHE -> "Cached"
-                        ResolveSource.NONE -> "None"
+                        ResolveSource.LASTFM -> "Last.fm"; ResolveSource.LASTFM_ARTIST -> "Last.fm (Artist)"
+                        ResolveSource.LOCAL_AI -> "Local AI"; ResolveSource.CACHE -> "Cached"; ResolveSource.NONE -> "None"
                     }
                 ) }
+            }
+        }
+
+        viewModelScope.launch {
+            headphoneDetector.headphone.collect { hp ->
+                _uiState.update { it.copy(headphoneName = hp.name, headphoneConnected = hp.isConnected) }
             }
         }
 
         viewModelScope.launch { prefs.aiEnabledFlow.collect { e -> _uiState.update { it.copy(isAiEnabled = e, aiAdjustment = if (e) "Active" else "Disabled") } } }
         viewModelScope.launch { prefs.autoEqEnabledFlow.collect { e -> _uiState.update { it.copy(isAutoEqEnabled = e) } } }
 
-        _uiState.update { it.copy(eqActive = app.audioEngine.isInitialized) }
         refreshCache()
     }
 
     fun refreshCache() {
         viewModelScope.launch { _uiState.update { it.copy(cacheSize = cache.size()) } }
     }
+
+    override fun onCleared() { super.onCleared(); headphoneDetector.stop() }
 }

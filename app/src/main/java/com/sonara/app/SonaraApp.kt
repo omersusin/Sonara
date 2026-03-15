@@ -14,7 +14,7 @@ class SonaraApp : Application() {
     lateinit var preferences: SonaraPreferences private set
     lateinit var database: SonaraDatabase private set
     lateinit var presetRepository: PresetRepository private set
-    val audioEngine = AudioEngine()
+    lateinit var audioEngine: AudioEngine private set
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -24,7 +24,7 @@ class SonaraApp : Application() {
         preferences = SonaraPreferences(this)
         database = SonaraDatabase.get(this)
         presetRepository = PresetRepository(database.presetDao())
-
+        audioEngine = AudioEngine(this)
         audioEngine.init()
 
         appScope.launch {
