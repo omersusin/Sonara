@@ -305,9 +305,9 @@ AudioEngine.applyBands(finalBands)  →  Android System Equalizer
 
 ```
 Table: presets
-─────────────────────────────────────────────
+---------------------------------------------
 Column          Type       Constraints
-─────────────────────────────────────────────
+---------------------------------------------
 id              Long       PK, auto-increment
 name            String     Not null
 bands           String     CSV of 10 float values
@@ -321,27 +321,27 @@ headphoneId     String?    Nullable, linked device
 genre           String?    Nullable
 isFavorite      Boolean    default false
 lastUsed        Long       Epoch millis
-─────────────────────────────────────────────
+---------------------------------------------
 ```
 
 ### 7.2 Track Cache Entity
 
 ```
 Table: track_cache
-─────────────────────────────────────────────
+---------------------------------------------
 Column          Type       Constraints
-─────────────────────────────────────────────
+---------------------------------------------
 cacheKey        String     PK (hash of title::artist)
 title           String     Not null
 artist          String     Not null
-album           String     Not null
+album           String     Not null (empty string if unavailable)
 genre           String     Not null
 mood            String     Not null
 energy          Float      0.0 to 1.0
 confidence      Float      0.0 to 1.0
 source          String     "lastfm", "local-ai", etc.
 timestamp       Long       Insert time for TTL
-─────────────────────────────────────────────
+---------------------------------------------
 TTL: 30 days
 ```
 
