@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 
 data class InsightsUiState(
     val trackTitle: String = "", val trackArtist: String = "",
-    val dataSource: String = "None", val genre: String = "Unknown", val mood: String = "Unknown",
+    val dataSource: String = "None", val pluginUsed: String = "", val genre: String = "Unknown", val mood: String = "Unknown",
     val energy: Float = 0.5f, val confidence: Float = 0f,
     val headphoneName: String = "", val headphoneConnected: Boolean = false,
     val isAiEnabled: Boolean = true, val isAutoEqEnabled: Boolean = true,

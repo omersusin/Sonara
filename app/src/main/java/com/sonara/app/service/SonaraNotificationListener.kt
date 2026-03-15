@@ -10,6 +10,7 @@ import android.media.session.PlaybackState
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import com.sonara.app.media.ArtworkResolver
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -51,13 +52,13 @@ class SonaraNotificationListener : NotificationListenerService() {
         try {
             val cn = ComponentName(this, SonaraNotificationListener::class.java)
             if (!sessionListenerRegistered) { sessionManager?.addOnActiveSessionsChangedListener(sessionListener, cn); sessionListenerRegistered = true }
-            val sessions = sessionManager?.getActiveSessions(cn) ?: return; pickBest(sessions)
+            pickBest(sessionManager?.getActiveSessions(cn) ?: return)
         } catch (_: SecurityException) {}
     }
 
     private fun pickBest(controllers: List<MediaController>) {
-        val playing = controllers.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-        val target = playing ?: controllers.firstOrNull() ?: return; attachTo(target)
+        val target = controllers.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING } ?: controllers.firstOrNull() ?: return
+        attachTo(target)
     }
 
     private fun attachTo(controller: MediaController) {
@@ -68,9 +69,10 @@ class SonaraNotificationListener : NotificationListenerService() {
     }
 
     private fun extractMetadata(metadata: MediaMetadata) {
-        // NO bitmap.recycle() — multiple collectors use this bitmap
-        val newArt = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_ART)
-        _albumArt.value = newArt
+        // Use ArtworkResolver with URI fallback
+        val artwork = ArtworkResolver.extract(metadata, contentResolver)
+        _albumArt.value = artwork
+
         _nowPlaying.value = _nowPlaying.value.copy(
             title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "",
             artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: metadata.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST) ?: "",
