@@ -80,7 +80,7 @@ object AiEqSuggestionEngine {
         "blues" to floatArrayOf(2.5f, 2f, 1f, 0.5f, -0.5f, 0f, 1f, 1.5f, 2f, 2f),
         "reggae" to floatArrayOf(3f, 3.5f, 2f, 0f, -1.5f, -1f, 0.5f, 1.5f, 2f, 1f),
         "latin" to floatArrayOf(2f, 2.5f, 2f, 1f, 0f, 0.5f, 1f, 1.5f, 2f, 2f),
-        "other" to floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
+        "other" to floatArrayOf(1f, 0.5f, 0.5f, 0.5f, 0f, 0f, 0.5f, 1f, 1.5f, 1f)
     )
 
     private fun moodModifier(mood: String): FloatArray = when (mood) {
@@ -122,6 +122,11 @@ object AiEqSuggestionEngine {
             "metal" -> parts.add("V-curve for aggressive sound")
             "r&b" -> parts.add("Warm bass with smooth vocal range")
             "folk" -> parts.add("Natural tone with gentle presence boost")
+            "country" -> parts.add("Balanced warmth with vocal and string clarity")
+            "blues" -> parts.add("Warm tone with rich midrange emphasis")
+            "reggae" -> parts.add("Deep bass with laid-back rhythmic balance")
+            "latin" -> parts.add("Rhythmic bass with warm mids for percussion")
+            "other" -> parts.add("Balanced enhancement for overall clarity")
         }
 
         when (info.mood) {

@@ -66,6 +66,23 @@ class TrackResolver(
                     )
                     return
                 }
+
+                // Last.fm returned "other" — try local AI genre detection and merge
+                if (lastFmResult != null && lastFmResult.genre == "other") {
+                    val localResult = localAnalyzer.analyze(title, artist)
+                    if (localResult.genre != "other") {
+                        val merged = lastFmResult.copy(
+                            genre = localResult.genre,
+                            source = lastFmResult.source
+                        )
+                        trackCache.put(merged)
+                        _result.value = ResolveResult(
+                            trackInfo = merged,
+                            source = if (merged.source.contains("artist")) ResolveSource.LASTFM_ARTIST else ResolveSource.LASTFM
+                        )
+                        return
+                    }
+                }
             } catch (e: Exception) {
                 // Fall through to local
             }
