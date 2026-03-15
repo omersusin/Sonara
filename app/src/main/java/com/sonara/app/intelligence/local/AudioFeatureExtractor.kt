@@ -16,12 +16,32 @@ class AudioFeatureExtractor {
     private val genreKeywords = mapOf(
         "hip-hop" to listOf("feat", "ft.", "lil ", "dj ", "mc ", "young ", "big ", "yung"),
         "electronic" to listOf("remix", "mix", "dj ", "bass", "beat", "drop", "synth"),
-        "classical" to listOf("symphony", "concerto", "opus", "sonata", "orchestra", "quartet", "prelude", "nocturne", "etude"),
+        "classical" to listOf("symphony", "concerto", "opus", "sonata", "orchestra", "quartet", "prelude",
+            "nocturne", "etude", "overture", "requiem", "cantata", "fugue", "minuet", "waltz",
+            "serenade", "adagio", "allegro", "andante", "scherzo", "rondo", "aria", "opera",
+            "philharmonic", "chamber", "baroque", "concertino", "intermezzo", "rhapsody",
+            "ballade", "impromptu", "polonaise", "mazurka", "variations"),
         "jazz" to listOf("swing", "bop", "blues", "trio", "quartet", "standard"),
         "metal" to listOf("death", "blood", "dark", "demon", "hell", "war", "chaos", "rage"),
         "rock" to listOf("rock", "guitar", "band", "live", "electric"),
         "folk" to listOf("acoustic", "folk", "unplugged", "traditional"),
-        "r&b" to listOf("love", "baby", "heart", "soul", "groove")
+        "r&b" to listOf("love", "baby", "heart", "soul", "groove"),
+        "pop" to listOf("pop", "dance", "radio", "hit", "single"),
+        "country" to listOf("country", "nashville", "honky", "cowboy", "rodeo", "bluegrass")
+    )
+
+    private val classicalArtists = listOf(
+        "beethoven", "mozart", "bach", "chopin", "tchaikovsky", "brahms", "schubert",
+        "haydn", "handel", "vivaldi", "liszt", "schumann", "mendelssohn", "dvorak",
+        "debussy", "ravel", "rachmaninoff", "rachmaninov", "stravinsky", "prokofiev",
+        "mahler", "strauss", "wagner", "verdi", "puccini", "sibelius", "grieg",
+        "elgar", "bartok", "shostakovich", "bernstein", "copland", "satie",
+        "paganini", "rossini", "saint-saens", "faure", "bruckner", "rimsky-korsakov",
+        "mussorgsky", "borodin", "janacek", "holst", "vaughan williams",
+        "palestrina", "monteverdi", "purcell", "telemann", "corelli", "scarlatti",
+        "yo-yo ma", "itzhak perlman", "lang lang", "martha argerich", "vladimir horowitz",
+        "arthur rubinstein", "jascha heifetz", "herbert von karajan", "leonard bernstein",
+        "andre rieu", "andre previn", "zubin mehta", "gustavo dudamel"
     )
 
     private val moodKeywords = mapOf(
@@ -52,6 +72,11 @@ class AudioFeatureExtractor {
     }
 
     private fun detectGenre(text: String): String {
+        // Check for well-known classical artists/composers first
+        if (classicalArtists.any { text.contains(it) }) {
+            return "classical"
+        }
+
         var best = "other"
         var bestScore = 0
         genreKeywords.forEach { (genre, keywords) ->
