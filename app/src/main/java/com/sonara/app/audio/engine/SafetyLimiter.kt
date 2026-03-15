@@ -7,7 +7,7 @@ object SafetyLimiter {
     private const val CLIP_THRESHOLD = 10f
 
     fun limit(bands: FloatArray, preamp: Float): Pair<FloatArray, Float> {
-        val maxGain = bands.max() + preamp
+        val maxGain = (bands.maxOrNull() ?: 0f) + preamp
         if (maxGain <= CLIP_THRESHOLD) return bands to preamp
 
         val reduction = maxGain - CLIP_THRESHOLD
@@ -17,6 +17,6 @@ object SafetyLimiter {
     }
 
     fun wouldClip(bands: FloatArray, preamp: Float): Boolean {
-        return (bands.max() + preamp) > CLIP_THRESHOLD
+        return ((bands.maxOrNull() ?: 0f) + preamp) > CLIP_THRESHOLD
     }
 }
