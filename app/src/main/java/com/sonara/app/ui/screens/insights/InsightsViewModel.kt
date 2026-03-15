@@ -1,12 +1,11 @@
 package com.sonara.app.ui.screens.insights
-import com.sonara.app.data.preferences.SonaraPreferences
 
+import com.sonara.app.data.preferences.SonaraPreferences
 import android.app.Application
 import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
-import com.sonara.app.data.preferences.SonaraPreferences
 import com.sonara.app.autoeq.HeadphoneDetector
 import com.sonara.app.intelligence.ResolveSource
 import com.sonara.app.intelligence.TrackResolver
