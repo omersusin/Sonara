@@ -3,9 +3,15 @@ package com.sonara.app
 import android.app.Application
 import android.util.Log
 import com.sonara.app.audio.engine.AudioEngine
+import com.sonara.app.audio.equalizer.TenBandEqualizer
+import com.sonara.app.autoeq.HeadphoneDetector
 import com.sonara.app.data.SonaraDatabase
 import com.sonara.app.data.models.SharedEqState
 import com.sonara.app.data.preferences.SonaraPreferences
+import com.sonara.app.intelligence.TrackResolver
+import com.sonara.app.intelligence.cache.TrackCache
+import com.sonara.app.intelligence.lastfm.LastFmResolver
+import com.sonara.app.intelligence.local.LocalAudioAnalyzer
 import com.sonara.app.preset.PresetRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,10 +26,15 @@ class SonaraApp : Application() {
     lateinit var preferences: SonaraPreferences private set
     lateinit var database: SonaraDatabase private set
     lateinit var presetRepository: PresetRepository private set
-    val audioEngine = AudioEngine()
+    lateinit var audioEngine: AudioEngine private set
+
+    // Singletons — shared across all ViewModels
+    val trackResolver: TrackResolver by lazy {
+        TrackResolver(LastFmResolver(), LocalAudioAnalyzer(), TrackCache(database.trackCacheDao()))
+    }
+    val headphoneDetector: HeadphoneDetector by lazy { HeadphoneDetector(this) }
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     private val _eqState = MutableStateFlow(SharedEqState())
     val eqState: StateFlow<SharedEqState> = _eqState.asStateFlow()
 
@@ -33,13 +44,16 @@ class SonaraApp : Application() {
         preferences = SonaraPreferences(this)
         database = SonaraDatabase.get(this)
         presetRepository = PresetRepository(database.presetDao())
+        audioEngine = AudioEngine(this)
 
         val ok = audioEngine.init()
-        Log.d("SonaraApp", "AudioEngine init: $ok")
+        Log.d("SonaraApp", "AudioEngine init: $ok (priority=MAX)")
+
+        headphoneDetector.start()
 
         appScope.launch {
             presetRepository.initBuiltIns()
-            com.sonara.app.intelligence.cache.TrackCache(database.trackCacheDao()).cleanup()
+            TrackCache(database.trackCacheDao()).cleanup()
         }
     }
 
@@ -49,25 +63,26 @@ class SonaraApp : Application() {
         manual: Boolean = _eqState.value.isManualPreset,
         bassBoost: Int = _eqState.value.bassBoost,
         virtualizer: Int = _eqState.value.virtualizer,
-        loudness: Int = _eqState.value.loudness
+        loudness: Int = _eqState.value.loudness,
+        preamp: Float = 0f
     ) {
         if (!audioEngine.isInitialized) audioEngine.init()
-        audioEngine.applyBands(bands)
+
+        // Apply preamp as offset to all bands
+        val finalBands = if (preamp != 0f) {
+            FloatArray(bands.size) { i -> TenBandEqualizer.clamp(bands[i] + preamp) }
+        } else bands
+
+        audioEngine.applyBands(finalBands)
         audioEngine.applyBassBoost(bassBoost)
         audioEngine.applyVirtualizer(virtualizer)
         audioEngine.applyLoudness(loudness)
 
         _eqState.update {
-            it.copy(
-                bands = bands.copyOf(),
-                bassBoost = bassBoost,
-                virtualizer = virtualizer,
-                loudness = loudness,
-                presetName = presetName,
-                isManualPreset = manual
-            )
+            it.copy(bands = finalBands.copyOf(), bassBoost = bassBoost, virtualizer = virtualizer,
+                loudness = loudness, presetName = presetName, isManualPreset = manual)
         }
-        Log.d("SonaraApp", "Applied EQ: $presetName manual=$manual bass=$bassBoost virt=$virtualizer")
+        Log.d("SonaraApp", "EQ applied: $presetName manual=$manual bass=$bassBoost virt=$virtualizer loud=$loudness")
     }
 
     fun setEqEnabled(enabled: Boolean) {
@@ -77,6 +92,7 @@ class SonaraApp : Application() {
 
     fun resetToAi() {
         _eqState.update { it.copy(isManualPreset = false, presetName = "AI Auto") }
+        trackResolver.forceReResolve()
     }
 
     companion object {

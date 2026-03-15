@@ -1,40 +1,77 @@
 package com.sonara.app.audio.engine
 
+import android.content.Context
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.Virtualizer
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 
-class AudioEngine {
+class AudioEngine(private val context: Context) {
     private val TAG = "SonaraEQ"
     private var equalizer: Equalizer? = null
     private var bassBoost: BassBoost? = null
     private var virtualizer: Virtualizer? = null
     private var loudness: LoudnessEnhancer? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
-    var isInitialized: Boolean = false
-        private set
-
+    var isInitialized: Boolean = false; private set
+    private var currentSessionId: Int = 0
     private var lastBands: FloatArray = FloatArray(10)
     private var lastBass: Int = 0
     private var lastVirt: Int = 0
     private var lastLoud: Int = 0
     private var isEnabled: Boolean = true
 
-    fun init(): Boolean {
-        if (isInitialized) return true
+    private val routeCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) {
+            Log.d(TAG, "Audio device added — scheduling re-init")
+            scheduleReinit()
+        }
+        override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) {
+            Log.d(TAG, "Audio device removed — scheduling re-init")
+            scheduleReinit()
+        }
+    }
+
+    private fun scheduleReinit() {
+        handler.removeCallbacksAndMessages("reinit")
+        handler.postDelayed({
+            Log.d(TAG, "Re-initializing effects for new route")
+            releaseEffects()
+            createEffects(currentSessionId)
+        }, 800)
+    }
+
+    fun init(audioSessionId: Int = 0): Boolean {
+        if (isInitialized && currentSessionId == audioSessionId) return true
+        if (isInitialized) releaseEffects()
+        currentSessionId = audioSessionId
+        val ok = createEffects(audioSessionId)
+        if (ok) {
+            try { audioManager.registerAudioDeviceCallback(routeCallback, handler) } catch (_: Exception) {}
+        }
+        return ok
+    }
+
+    private fun createEffects(sessionId: Int): Boolean {
         return try {
-            equalizer = Equalizer(0, 0).apply { enabled = isEnabled }
-            Log.d(TAG, "EQ created: ${equalizer?.numberOfBands} bands")
-            try { bassBoost = BassBoost(0, 0).apply { enabled = isEnabled } } catch (e: Exception) { Log.w(TAG, "BassBoost failed: ${e.message}") }
-            try { virtualizer = Virtualizer(0, 0).apply { enabled = isEnabled } } catch (e: Exception) { Log.w(TAG, "Virtualizer failed: ${e.message}") }
-            try { loudness = LoudnessEnhancer(0).apply { enabled = isEnabled } } catch (e: Exception) { Log.w(TAG, "Loudness failed: ${e.message}") }
+            equalizer = Equalizer(Int.MAX_VALUE, sessionId).apply { enabled = isEnabled }
+            Log.d(TAG, "EQ created: session=$sessionId bands=${numberOfBands} priority=MAX")
+            try { bassBoost = BassBoost(Int.MAX_VALUE, sessionId).apply { enabled = isEnabled } } catch (e: Exception) { Log.w(TAG, "BassBoost: ${e.message}") }
+            try { virtualizer = Virtualizer(Int.MAX_VALUE, sessionId).apply { enabled = isEnabled } } catch (e: Exception) { Log.w(TAG, "Virtualizer: ${e.message}") }
+            try { loudness = LoudnessEnhancer(sessionId).apply { enabled = isEnabled } } catch (e: Exception) { Log.w(TAG, "Loudness: ${e.message}") }
             isInitialized = true
             reapply()
             true
         } catch (e: Exception) {
-            Log.e(TAG, "EQ init failed: ${e.message}")
+            Log.e(TAG, "Init failed: ${e.message}")
             isInitialized = false
             false
         }
@@ -47,32 +84,17 @@ class AudioEngine {
             val count = eq.numberOfBands.toInt()
             if (count == 0) return
             val range = eq.bandLevelRange
-            val min = range[0]; val max = range[1]
             val freqs = IntArray(count) { eq.getCenterFreq(it.toShort()) / 1000 }
             val mapped = BandMapper.mapToDevice(tenBands, count, freqs)
             for (i in 0 until count) {
-                eq.setBandLevel(i.toShort(), mapped[i].coerceIn(min, max))
+                eq.setBandLevel(i.toShort(), mapped[i].coerceIn(range[0], range[1]))
             }
-            Log.d(TAG, "Applied bands: ${tenBands.take(5).map { "%.1f".format(it) }}...")
-        } catch (e: Exception) {
-            Log.e(TAG, "Apply bands failed: ${e.message}")
-        }
+        } catch (e: Exception) { Log.e(TAG, "applyBands: ${e.message}") }
     }
 
-    fun applyBassBoost(strength: Int) {
-        lastBass = strength
-        try { bassBoost?.setStrength(strength.coerceIn(0, 1000).toShort()) } catch (_: Exception) {}
-    }
-
-    fun applyVirtualizer(strength: Int) {
-        lastVirt = strength
-        try { virtualizer?.setStrength(strength.coerceIn(0, 1000).toShort()) } catch (_: Exception) {}
-    }
-
-    fun applyLoudness(gain: Int) {
-        lastLoud = gain
-        try { loudness?.setTargetGain(gain) } catch (_: Exception) {}
-    }
+    fun applyBassBoost(s: Int) { lastBass = s; try { bassBoost?.setStrength(s.coerceIn(0, 1000).toShort()) } catch (_: Exception) {} }
+    fun applyVirtualizer(s: Int) { lastVirt = s; try { virtualizer?.setStrength(s.coerceIn(0, 1000).toShort()) } catch (_: Exception) {} }
+    fun applyLoudness(g: Int) { lastLoud = g; try { loudness?.setTargetGain(g) } catch (_: Exception) {} }
 
     fun setEnabled(on: Boolean) {
         isEnabled = on
@@ -90,6 +112,11 @@ class AudioEngine {
     }
 
     fun release() {
+        try { audioManager.unregisterAudioDeviceCallback(routeCallback) } catch (_: Exception) {}
+        releaseEffects()
+    }
+
+    private fun releaseEffects() {
         try { equalizer?.release() } catch (_: Exception) {}
         try { bassBoost?.release() } catch (_: Exception) {}
         try { virtualizer?.release() } catch (_: Exception) {}

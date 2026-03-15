@@ -12,11 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-data class PresetsUiState(
-    val presets: List<Preset> = emptyList(),
-    val selectedFilter: String = "all",
-    val activePresetName: String = "Flat"
-)
+data class PresetsUiState(val presets: List<Preset> = emptyList(), val selectedFilter: String = "all", val activePresetName: String = "Flat")
 
 class PresetsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
@@ -25,33 +21,15 @@ class PresetsViewModel(application: Application) : AndroidViewModel(application)
     val uiState: StateFlow<PresetsUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            repo.allPresets().collect { list ->
-                _uiState.update { it.copy(presets = list) }
-            }
-        }
-        // Observe shared state for active preset name
-        viewModelScope.launch {
-            app.eqState.collect { eq ->
-                _uiState.update { it.copy(activePresetName = eq.presetName) }
-            }
-        }
+        viewModelScope.launch { repo.allPresets().collect { l -> _uiState.update { it.copy(presets = l) } } }
+        viewModelScope.launch { app.eqState.collect { eq -> _uiState.update { it.copy(activePresetName = eq.presetName) } } }
     }
 
     fun setFilter(f: String) { _uiState.update { it.copy(selectedFilter = f) } }
-
-    // Apply preset to SHARED state — EQ screen will see it immediately
-    fun applyPreset(preset: Preset) {
-        app.applyEq(
-            bands = preset.bandsArray(), presetName = preset.name, manual = true,
-            bassBoost = preset.bassBoost, virtualizer = preset.virtualizer, loudness = preset.loudness
-        )
-        viewModelScope.launch { repo.markUsed(preset.id) }
-    }
-
-    fun toggleFavorite(preset: Preset) { viewModelScope.launch { repo.toggleFavorite(preset.id, preset.isFavorite) } }
-    fun duplicatePreset(preset: Preset) { viewModelScope.launch { repo.duplicate(preset) } }
-    fun deletePreset(preset: Preset) { viewModelScope.launch { repo.delete(preset) } }
+    fun applyPreset(p: Preset) { app.applyEq(p.bandsArray(), p.name, true, p.bassBoost, p.virtualizer, p.loudness); viewModelScope.launch { repo.markUsed(p.id) } }
+    fun toggleFavorite(p: Preset) { viewModelScope.launch { repo.toggleFavorite(p.id, p.isFavorite) } }
+    fun duplicatePreset(p: Preset) { viewModelScope.launch { repo.duplicate(p) } }
+    fun deletePreset(p: Preset) { viewModelScope.launch { repo.delete(p) } }
 
     fun filteredPresets(): List<Preset> {
         val all = _uiState.value.presets
@@ -61,6 +39,6 @@ class PresetsViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    val filterTabs: List<Pair<String, String>> = listOf("all" to "All", "favorites" to "Favorites", "custom" to "Custom") +
+    val filterTabs = listOf("all" to "All", "favorites" to "Favorites", "custom" to "Custom") +
         BuiltInPresets.CATEGORIES.filter { it.key != "custom" }.map { it.key to it.value }
 }

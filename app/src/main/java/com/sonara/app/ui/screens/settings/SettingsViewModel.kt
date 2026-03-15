@@ -50,17 +50,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun updateApiKeyInput(v: String) { _uiState.update { it.copy(apiKeyInput = v) } }
     fun updateSharedSecretInput(v: String) { _uiState.update { it.copy(sharedSecretInput = v) } }
-
-    fun saveApiKey() { viewModelScope.launch {
-        val k = _uiState.value.apiKeyInput
-        if (k.isNotBlank()) { prefs.setLastFmApiKey(k); _uiState.update { it.copy(apiKeyInput = "", isApiKeySet = true) } }
-    } }
-
-    fun saveSharedSecret() { viewModelScope.launch {
-        val s = _uiState.value.sharedSecretInput
-        if (s.isNotBlank()) { prefs.setLastFmSharedSecret(s); _uiState.update { it.copy(sharedSecretInput = "", isSharedSecretSet = true) } }
-    } }
-
+    fun saveApiKey() { viewModelScope.launch { val k = _uiState.value.apiKeyInput; if (k.isNotBlank()) { prefs.setLastFmApiKey(k); _uiState.update { it.copy(apiKeyInput = "", isApiKeySet = true) } } } }
+    fun saveSharedSecret() { viewModelScope.launch { val s = _uiState.value.sharedSecretInput; if (s.isNotBlank()) { prefs.setLastFmSharedSecret(s); _uiState.update { it.copy(sharedSecretInput = "", isSharedSecretSet = true) } } } }
     fun setAccentColor(c: AccentColor) { viewModelScope.launch { prefs.setAccentColor(c) } }
     fun setAiEnabled(e: Boolean) { viewModelScope.launch { prefs.setAiEnabled(e) } }
     fun setAutoEqEnabled(e: Boolean) { viewModelScope.launch { prefs.setAutoEqEnabled(e) } }
@@ -68,45 +59,32 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setSafetyLimiter(e: Boolean) { viewModelScope.launch { prefs.setSafetyLimiter(e) } }
     fun setScrobblingEnabled(e: Boolean) { viewModelScope.launch { prefs.setScrobblingEnabled(e) } }
     fun setAutoPreset(e: Boolean) { viewModelScope.launch { prefs.setAutoPreset(e) } }
-
     fun clearCache() { viewModelScope.launch { cache.clear(); refreshCacheSize() } }
     fun clearAllData() { viewModelScope.launch { cache.clear(); prefs.resetAll(); refreshCacheSize() } }
-
-    fun checkNotificationListener() {
-        _uiState.update { it.copy(notificationListenerEnabled = SonaraNotificationListener.isEnabled(getApplication())) }
-    }
-
+    fun checkNotificationListener() { _uiState.update { it.copy(notificationListenerEnabled = SonaraNotificationListener.isEnabled(getApplication())) } }
     private fun refreshCacheSize() { viewModelScope.launch { _uiState.update { it.copy(cacheSize = cache.size()) } } }
 
     fun exportPresets(onResult: (String) -> Unit) {
         viewModelScope.launch {
-            val presets = app.presetRepository.allPresets().first()
-            val customPresets = presets.filter { !it.isBuiltIn }
-            if (customPresets.isEmpty()) {
-                val allJson = PresetExporter.exportToJson(presets)
-                onResult(allJson)
-            } else {
-                val json = PresetExporter.exportToJson(customPresets)
-                onResult(json)
-            }
+            val all = app.presetRepository.allPresets().first()
+            val custom = all.filter { !it.isBuiltIn }
+            val toExport = custom.ifEmpty { all }
+            if (toExport.isEmpty()) { onResult(""); return@launch }
+            onResult(PresetExporter.exportToJson(toExport))
         }
     }
 
     fun importPresets(json: String, onResult: (String) -> Unit) {
         viewModelScope.launch {
-            if (!PresetExporter.validateJson(json)) {
-                onResult("✗ Invalid format. Must be a Sonara preset JSON.")
-                return@launch
-            }
+            if (!PresetExporter.validateJson(json)) { onResult("✗ Invalid format."); return@launch }
             val imported = PresetExporter.importFromJson(json)
-            if (imported == null || imported.isEmpty()) {
-                onResult("✗ No valid presets found in the data.")
-                return@launch
+            if (imported.isNullOrEmpty()) { onResult("✗ No presets found."); return@launch }
+            val existing = app.presetRepository.allPresets().first().map { it.name }.toSet()
+            var count = 0; var skipped = 0
+            imported.forEach { p ->
+                if (p.name in existing) skipped++ else { app.presetRepository.save(p); count++ }
             }
-            imported.forEach { preset ->
-                app.presetRepository.save(preset)
-            }
-            onResult("✓ Imported ${imported.size} preset(s) successfully!")
+            onResult("✓ $count imported" + if (skipped > 0) ", $skipped skipped (exist)" else "")
         }
     }
 }

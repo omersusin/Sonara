@@ -62,7 +62,7 @@ class LastFmResolver {
     private fun classifyGenre(tags: List<LastFmTag>): String {
         val genreMap = mapOf(
             "rock" to listOf("rock", "alternative", "indie rock", "punk", "grunge", "hard rock", "classic rock"),
-            "pop" to listOf("pop", "synth-pop", "electropop", "indie pop", "dream pop", "k-pop"),
+            "pop" to listOf("pop", "synth-pop", "pop rock", "electropop", "indie pop", "dream pop", "k-pop"),
             "hip-hop" to listOf("hip-hop", "hip hop", "rap", "trap", "boom bap", "drill"),
             "electronic" to listOf("electronic", "edm", "house", "techno", "trance", "dubstep", "dnb", "drum and bass"),
             "r&b" to listOf("r&b", "rnb", "soul", "neo-soul", "funk"),
