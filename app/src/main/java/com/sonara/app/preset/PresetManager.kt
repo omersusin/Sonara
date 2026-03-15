@@ -36,11 +36,15 @@ data class ActiveSoundState(
     }
     override fun hashCode(): Int {
         var result = presetName.hashCode()
+        result = 31 * result + presetBands.contentHashCode()
+        result = 31 * result + autoEqBands.contentHashCode()
+        result = 31 * result + aiBands.contentHashCode()
         result = 31 * result + finalBands.contentHashCode()
         result = 31 * result + preamp.hashCode()
         result = 31 * result + bassBoost
         result = 31 * result + virtualizer
         result = 31 * result + loudness
+        result = 31 * result + isClipping.hashCode()
         return result
     }
 }
