@@ -22,7 +22,7 @@ data class EqualizerUiState(
     val currentPresetName: String = "Flat",
     val availablePresets: List<Preset> = emptyList(),
     val showPresetPicker: Boolean = false,
-    val eqSessionActive: Boolean = false
+    val eqActive: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -30,73 +30,70 @@ data class EqualizerUiState(
         return bands.contentEquals(other.bands) && preamp == other.preamp &&
             bassBoost == other.bassBoost && virtualizer == other.virtualizer &&
             loudness == other.loudness && isEnabled == other.isEnabled &&
-            currentPresetName == other.currentPresetName && eqSessionActive == other.eqSessionActive
+            currentPresetName == other.currentPresetName && eqActive == other.eqActive
     }
     override fun hashCode() = bands.contentHashCode()
 }
 
 class EqualizerViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
-    private val _uiState = MutableStateFlow(EqualizerUiState())
+    private val engine = app.audioEngine
+
+    private val _uiState = MutableStateFlow(EqualizerUiState(eqActive = engine.isInitialized))
     val uiState: StateFlow<EqualizerUiState> = _uiState.asStateFlow()
 
     init {
+        if (!engine.isInitialized) engine.init()
+        _uiState.update { it.copy(eqActive = engine.isInitialized) }
+
         viewModelScope.launch {
             app.presetRepository.allPresets().collect { presets ->
                 _uiState.update { it.copy(availablePresets = presets) }
             }
         }
-        viewModelScope.launch {
-            app.activeSessionId.collect { sid ->
-                _uiState.update { it.copy(eqSessionActive = sid > 0) }
-            }
-        }
     }
 
-    private fun applyToEngine() {
-        val state = _uiState.value
-        if (!state.isEnabled) return
-        app.applyEqBands(state.bands)
-        app.audioEngine.applyBassBoost(state.bassBoost)
-        app.audioEngine.applyVirtualizer(state.virtualizer)
-        app.audioEngine.applyLoudness(state.loudness)
+    private fun apply() {
+        val s = _uiState.value
+        if (!s.isEnabled) return
+        if (!engine.isInitialized) { engine.init(); _uiState.update { it.copy(eqActive = engine.isInitialized) } }
+        engine.applyBands(s.bands)
+        engine.applyBassBoost(s.bassBoost)
+        engine.applyVirtualizer(s.virtualizer)
+        engine.applyLoudness(s.loudness)
     }
 
-    fun setBand(index: Int, value: Float) {
-        _uiState.update { s ->
-            val newBands = s.bands.copyOf()
-            newBands[index] = TenBandEqualizer.clamp(value)
-            s.copy(bands = newBands, currentPresetName = "Custom")
-        }
-        applyToEngine()
+    fun setBand(i: Int, v: Float) {
+        _uiState.update { s -> val b = s.bands.copyOf(); b[i] = TenBandEqualizer.clamp(v); s.copy(bands = b, currentPresetName = "Custom") }
+        apply()
     }
 
-    fun setPreamp(value: Float) { _uiState.update { it.copy(preamp = TenBandEqualizer.clamp(value)) }; applyToEngine() }
-    fun setBassBoost(value: Int) { _uiState.update { it.copy(bassBoost = value.coerceIn(0, 1000)) }; applyToEngine() }
-    fun setVirtualizer(value: Int) { _uiState.update { it.copy(virtualizer = value.coerceIn(0, 1000)) }; applyToEngine() }
-    fun setLoudness(value: Int) { _uiState.update { it.copy(loudness = value.coerceIn(0, 1000)) }; applyToEngine() }
+    fun setPreamp(v: Float) { _uiState.update { it.copy(preamp = TenBandEqualizer.clamp(v)) }; apply() }
+    fun setBassBoost(v: Int) { _uiState.update { it.copy(bassBoost = v.coerceIn(0, 1000)) }; apply() }
+    fun setVirtualizer(v: Int) { _uiState.update { it.copy(virtualizer = v.coerceIn(0, 1000)) }; apply() }
+    fun setLoudness(v: Int) { _uiState.update { it.copy(loudness = v.coerceIn(0, 1000)) }; apply() }
 
     fun setEnabled(enabled: Boolean) {
         _uiState.update { it.copy(isEnabled = enabled) }
-        app.audioEngine.setEnabled(enabled)
-        if (enabled) applyToEngine()
+        engine.setEnabled(enabled)
+        if (enabled) apply()
     }
 
     fun resetBands() {
         _uiState.update { it.copy(bands = TenBandEqualizer.defaultBands(), preamp = 0f, bassBoost = 0, virtualizer = 0, loudness = 0, currentPresetName = "Flat") }
-        applyToEngine()
+        apply()
     }
 
     fun applyPreset(preset: Preset) {
-        _uiState.update { it.copy(bands = preset.bandsArray(), preamp = preset.preamp, bassBoost = preset.bassBoost, virtualizer = preset.virtualizer, loudness = preset.loudness, currentPresetName = preset.name, showPresetPicker = false) }
+        _uiState.update { it.copy(bands = preset.bandsArray(), preamp = preset.preamp, bassBoost = preset.bassBoost, virtualizer = preset.virtualizer, loudness = preset.loudness, currentPresetName = preset.name) }
         viewModelScope.launch { app.presetRepository.markUsed(preset.id) }
-        applyToEngine()
+        apply()
     }
 
     fun saveCurrentAsPreset(name: String) {
         viewModelScope.launch {
-            val state = _uiState.value
-            app.presetRepository.save(Preset(name = name, bands = Preset.fromArray(state.bands), preamp = state.preamp, bassBoost = state.bassBoost, virtualizer = state.virtualizer, loudness = state.loudness))
+            val s = _uiState.value
+            app.presetRepository.save(Preset(name = name, bands = Preset.fromArray(s.bands), preamp = s.preamp, bassBoost = s.bassBoost, virtualizer = s.virtualizer, loudness = s.loudness))
             _uiState.update { it.copy(currentPresetName = name) }
         }
     }

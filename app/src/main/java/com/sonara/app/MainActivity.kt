@@ -1,6 +1,5 @@
 package com.sonara.app
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,7 +16,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        startService(Intent(this, SonaraService::class.java))
+        SonaraService.start(this)
+        (application as SonaraApp).audioEngine.init()
 
         setContent {
             val prefs = (application as SonaraApp).preferences
@@ -30,6 +30,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        startService(Intent(this, SonaraService::class.java))
+        (application as SonaraApp).audioEngine.let {
+            if (!it.isInitialized) it.init()
+        }
     }
 }

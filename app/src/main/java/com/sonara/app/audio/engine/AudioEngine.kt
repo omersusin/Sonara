@@ -10,22 +10,19 @@ class AudioEngine {
     private var bassBoost: BassBoost? = null
     private var virtualizer: Virtualizer? = null
     private var loudness: LoudnessEnhancer? = null
-    private var currentSessionId: Int = -1
 
-    val isInitialized: Boolean get() = equalizer != null
-    val sessionId: Int get() = currentSessionId
+    var isInitialized: Boolean = false
+        private set
 
-    fun init(audioSessionId: Int): Boolean {
-        if (audioSessionId <= 0) return false
-        if (audioSessionId == currentSessionId && isInitialized) return true
-
+    fun init(): Boolean {
+        if (isInitialized) return true
         release()
         return try {
-            currentSessionId = audioSessionId
-            equalizer = Equalizer(Int.MAX_VALUE, audioSessionId).apply { enabled = true }
-            try { bassBoost = BassBoost(Int.MAX_VALUE, audioSessionId).apply { enabled = true } } catch (_: Exception) {}
-            try { virtualizer = Virtualizer(Int.MAX_VALUE, audioSessionId).apply { enabled = true } } catch (_: Exception) {}
-            try { loudness = LoudnessEnhancer(audioSessionId).apply { enabled = true } } catch (_: Exception) {}
+            equalizer = Equalizer(0, 0).apply { enabled = true }
+            try { bassBoost = BassBoost(0, 0).apply { enabled = true } } catch (_: Exception) {}
+            try { virtualizer = Virtualizer(0, 0).apply { enabled = true } } catch (_: Exception) {}
+            try { loudness = LoudnessEnhancer(0).apply { enabled = true } } catch (_: Exception) {}
+            isInitialized = true
             true
         } catch (e: Exception) {
             release()
@@ -35,21 +32,17 @@ class AudioEngine {
 
     fun applyBands(tenBands: FloatArray) {
         val eq = equalizer ?: return
-        val deviceBandCount = eq.numberOfBands.toInt()
-        if (deviceBandCount == 0) return
+        val count = eq.numberOfBands.toInt()
+        if (count == 0) return
 
         val range = eq.bandLevelRange
-        val minLevel = range[0]
-        val maxLevel = range[1]
+        val min = range[0]
+        val max = range[1]
+        val freqs = IntArray(count) { eq.getCenterFreq(it.toShort()) / 1000 }
+        val mapped = BandMapper.mapToDevice(tenBands, count, freqs)
 
-        val deviceFreqs = IntArray(deviceBandCount) { eq.getCenterFreq(it.toShort()) / 1000 }
-        val mapped = BandMapper.mapToDevice(tenBands, deviceBandCount, deviceFreqs)
-
-        for (i in 0 until deviceBandCount) {
-            try {
-                val level = mapped[i].coerceIn(minLevel, maxLevel)
-                eq.setBandLevel(i.toShort(), level)
-            } catch (_: Exception) {}
+        for (i in 0 until count) {
+            try { eq.setBandLevel(i.toShort(), mapped[i].coerceIn(min, max)) } catch (_: Exception) {}
         }
     }
 
@@ -78,6 +71,6 @@ class AudioEngine {
         try { virtualizer?.release() } catch (_: Exception) {}
         try { loudness?.release() } catch (_: Exception) {}
         equalizer = null; bassBoost = null; virtualizer = null; loudness = null
-        currentSessionId = -1
+        isInitialized = false
     }
 }

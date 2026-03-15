@@ -5,8 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
 import android.os.IBinder
 import com.sonara.app.MainActivity
 import kotlinx.coroutines.CoroutineScope
@@ -21,23 +21,26 @@ class SonaraService : Service() {
         const val CHANNEL_ID = "sonara_engine"
         const val NOTIFICATION_ID = 1
         const val ACTION_STOP = "com.sonara.app.STOP"
+
+        fun start(context: Context) {
+            val intent = Intent(context, SonaraService::class.java)
+            context.startForegroundService(intent)
+        }
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private var notificationManager: NotificationManager? = null
 
     override fun onCreate() {
         super.onCreate()
         createChannel()
-        notificationManager = getSystemService(NotificationManager::class.java)
 
         scope.launch {
             combine(
                 SonaraNotificationListener.nowPlaying,
                 SonaraNotificationListener.albumArt
             ) { np, art -> np to art }.collect { (np, art) ->
-                val notification = buildNotification(np.title, np.artist, np.isPlaying, art)
-                notificationManager?.notify(NOTIFICATION_ID, notification)
+                val n = buildNotification(np.title.ifBlank { "Sonara" }, np.artist, np.isPlaying, art)
+                getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, n)
             }
         }
     }
@@ -48,54 +51,43 @@ class SonaraService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-
-        val notification = buildNotification("Sonara", "Sound engine starting...", false, null)
-        startForeground(NOTIFICATION_ID, notification)
+        startForeground(NOTIFICATION_ID, buildNotification("Sonara", "Sound engine active", false, null))
         return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+    override fun onDestroy() { scope.cancel(); super.onDestroy() }
 
-    override fun onDestroy() {
-        scope.cancel()
-        super.onDestroy()
-    }
+    private fun buildNotification(title: String, artist: String, isPlaying: Boolean, art: android.graphics.Bitmap?): Notification {
+        val open = PendingIntent.getActivity(this, 0,
+            Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP },
+            PendingIntent.FLAG_IMMUTABLE)
+        val stop = PendingIntent.getService(this, 1,
+            Intent(this, SonaraService::class.java).apply { action = ACTION_STOP },
+            PendingIntent.FLAG_IMMUTABLE)
 
-    private fun buildNotification(title: String, artist: String, isPlaying: Boolean, art: Bitmap?): Notification {
-        val openIntent = Intent(this, MainActivity::class.java).apply {
-            this.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        val sub = when {
+            artist.isNotBlank() && isPlaying -> "$artist · Playing"
+            artist.isNotBlank() -> artist
+            isPlaying -> "Playing"
+            else -> "Sound engine active"
         }
-        val pendingOpen = PendingIntent.getActivity(this, 0, openIntent, PendingIntent.FLAG_IMMUTABLE)
 
-        val stopIntent = Intent(this, SonaraService::class.java).apply { action = ACTION_STOP }
-        val pendingStop = PendingIntent.getService(this, 1, stopIntent, PendingIntent.FLAG_IMMUTABLE)
-
-        val displayTitle = title.ifBlank { "Sonara" }
-        val displayText = if (artist.isNotBlank()) "$artist${if (isPlaying) " · Playing" else ""}"
-                          else if (isPlaying) "Playing" else "Sound engine active"
-
-        val builder = Notification.Builder(this, CHANNEL_ID)
+        return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle(displayTitle)
-            .setContentText(displayText)
-            .setContentIntent(pendingOpen)
-            .addAction(Notification.Action.Builder(null, "Stop", pendingStop).build())
+            .setContentTitle(title)
+            .setContentText(sub)
+            .setContentIntent(open)
+            .addAction(Notification.Action.Builder(null, "Stop", stop).build())
             .setOngoing(true)
             .setShowWhen(false)
-
-        if (art != null) {
-            builder.setLargeIcon(art)
-        }
-
-        return builder.build()
+            .apply { if (art != null) setLargeIcon(art) }
+            .build()
     }
 
     private fun createChannel() {
-        val channel = NotificationChannel(CHANNEL_ID, "Sonara Engine", NotificationManager.IMPORTANCE_LOW).apply {
-            description = "Sound processing service"
-            setShowBadge(false)
-            setSound(null, null)
-        }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val ch = NotificationChannel(CHANNEL_ID, "Sonara Engine", NotificationManager.IMPORTANCE_LOW)
+        ch.description = "Sound processing"; ch.setShowBadge(false); ch.setSound(null, null)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(ch)
     }
 }
