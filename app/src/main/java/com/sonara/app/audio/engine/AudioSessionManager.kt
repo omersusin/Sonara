@@ -135,7 +135,7 @@ class AudioSessionManager(private val context: Context) {
         forAllSessions { effects ->
             val eq = effects.equalizer ?: return@forAllSessions
             val count = eq.numberOfBands.toInt()
-            val deviceMapped = if (mapped.size != count) BandMapper.interpolate(mapped, count) else mapped
+            val deviceMapped = if (mapped.size != count) BandMapper.mapToDevice(tenBands, count, freqs) else mapped
             val range = eq.bandLevelRange ?: shortArrayOf(-1500, 1500)
             for (i in 0 until count) eq.setBandLevel(i.toShort(), deviceMapped[i].coerceIn(range[0], range[1]))
         }
@@ -213,7 +213,7 @@ class AudioSessionManager(private val context: Context) {
         effects.equalizer?.let { eq ->
             val count = eq.numberOfBands.toInt()
             if (currentBands.isNotEmpty()) {
-                val mapped = if (currentBands.size != count) BandMapper.interpolate(currentBands, count) else currentBands
+                val mapped = if (currentBands.size != count) BandMapper.mapToDevice(shortArrayToFloat(currentBands), count, freqs) else currentBands
                 val range = eq.bandLevelRange ?: shortArrayOf(-1500, 1500)
                 for (i in 0 until count) eq.setBandLevel(i.toShort(), mapped[i].coerceIn(range[0], range[1]))
             }
