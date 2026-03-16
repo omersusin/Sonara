@@ -26,20 +26,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
         ensureNotificationPermission()
-        (application as SonaraApp).
 
         setContent {
             val prefs = (application as SonaraApp).preferences
             val accent by prefs.accentColorFlow.collectAsState(initial = AccentColor.Amber)
-            SonaraTheme(accentColor = accent) { SonaraNavigation() }
+            SonaraTheme(accentColor = accent) {
+                SonaraNavigation()
+            }
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        (application as SonaraApp).
     }
 
     private fun ensureNotificationPermission() {
