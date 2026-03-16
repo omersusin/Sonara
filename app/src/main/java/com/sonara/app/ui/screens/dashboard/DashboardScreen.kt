@@ -65,7 +65,7 @@ fun DashboardScreen() {
                             if (s.isComparing) {
                                 FilledTonalButton(onClick = {}, colors = ButtonDefaults.filledTonalButtonColors(
                                     containerColor = if (s.isOriginalSound) SonaraError.copy(0.2f) else SonaraSuccess.copy(0.2f))) {
-                                    Text(if (s.isOriginalSound) "🔇 Original" else "🔊 Sonara",
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) { Icon(if (s.isOriginalSound) Icons.Rounded.VolumeOff else Icons.Rounded.VolumeUp, null, Modifier.size(16.dp), tint = if (s.isOriginalSound) SonaraError else SonaraSuccess); Text(if (s.isOriginalSound) "Original" else "Sonara",
                                         color = if (s.isOriginalSound) SonaraError else SonaraSuccess)
                                 }
                             } else {
