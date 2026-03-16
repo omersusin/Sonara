@@ -1,4 +1,5 @@
 package com.sonara.app.autoeq
+import com.sonara.app.data.SonaraLogger
 
 import android.bluetooth.BluetoothA2dp
 import android.bluetooth.BluetoothAdapter

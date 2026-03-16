@@ -1,4 +1,5 @@
 package com.sonara.app.ui.screens.dashboard
+import com.sonara.app.data.SonaraLogger
 
 import android.app.Application
 import android.graphics.Bitmap
