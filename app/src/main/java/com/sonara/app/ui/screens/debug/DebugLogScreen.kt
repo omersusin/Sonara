@@ -12,9 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -46,7 +43,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonara.app.data.LogLevel
 import com.sonara.app.data.SonaraLogger
-import com.sonara.app.ui.theme.*
+import com.sonara.app.ui.theme.SonaraCard
+import com.sonara.app.ui.theme.SonaraCardElevated
+import com.sonara.app.ui.theme.SonaraError
+import com.sonara.app.ui.theme.SonaraInfo
+import com.sonara.app.ui.theme.SonaraTextPrimary
+import com.sonara.app.ui.theme.SonaraTextSecondary
+import com.sonara.app.ui.theme.SonaraTextTertiary
+import com.sonara.app.ui.theme.SonaraWarning
 
 @Composable
 fun DebugLogScreen(onBack: () -> Unit) {
@@ -59,9 +63,10 @@ fun DebugLogScreen(onBack: () -> Unit) {
     var selectedFilter by remember { mutableStateOf<LogLevel?>(null) }
     val filteredLogs = if (selectedFilter != null) logs.filter { it.level == selectedFilter } else logs
 
-    // Auto-scroll to bottom
     LaunchedEffect(logs.size) {
-        if (logs.isNotEmpty()) listState.animateScrollToItem(filteredLogs.size - 1)
+        if (filteredLogs.isNotEmpty()) {
+            listState.animateScrollToItem(filteredLogs.size - 1)
+        }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -72,7 +77,9 @@ fun DebugLogScreen(onBack: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back", tint = SonaraTextPrimary) }
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Rounded.ArrowBack, "Back", tint = SonaraTextPrimary)
+                }
                 Column {
                     Text("Debug Log", style = MaterialTheme.typography.titleLarge)
                     Text("${logs.size} entries", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
@@ -81,9 +88,10 @@ fun DebugLogScreen(onBack: () -> Unit) {
             Row {
                 IconButton(onClick = {
                     clipboard.setText(AnnotatedString(SonaraLogger.exportAsText()))
-                    Toast.makeText(context, "Log copied to clipboard (${logs.size} entries)", Toast.LENGTH_SHORT).show()
-                }) { Icon(Icons.Rounded.ContentCopy, "Copy", tint = p) }
-
+                    Toast.makeText(context, "Log copied (${logs.size} entries)", Toast.LENGTH_SHORT).show()
+                }) {
+                    Icon(Icons.Rounded.ContentCopy, "Copy", tint = p)
+                }
                 IconButton(onClick = { SonaraLogger.clear() }) {
                     Icon(Icons.Rounded.Delete, "Clear", tint = SonaraError)
                 }
@@ -122,20 +130,21 @@ fun DebugLogScreen(onBack: () -> Unit) {
 
         Spacer(Modifier.height(8.dp))
 
-        // Log entries
+        // Log entries — use index to avoid duplicate key crash
         LazyColumn(
             Modifier.fillMaxSize(),
             state = listState,
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            items(filteredLogs.size) { index -> val entry = filteredLogs[index] { entry ->
+            items(filteredLogs.size) { index ->
+                val entry = filteredLogs[index]
                 val bgColor = when (entry.level) {
                     LogLevel.ERROR -> SonaraError.copy(0.1f)
                     LogLevel.WARN -> SonaraWarning.copy(0.08f)
-                    LogLevel.EQ -> MaterialTheme.colorScheme.primary.copy(0.06f)
+                    LogLevel.EQ -> p.copy(0.06f)
                     LogLevel.AI -> SonaraInfo.copy(0.06f)
-                    else -> SonaraCard.copy(0.3f)
+                    else -> SonaraCardElevated.copy(0.3f)
                 }
                 val textColor = when (entry.level) {
                     LogLevel.ERROR -> SonaraError
