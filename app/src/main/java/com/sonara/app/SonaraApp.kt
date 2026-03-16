@@ -3,6 +3,7 @@ package com.sonara.app
 import android.app.Application
 import android.util.Log
 import com.sonara.app.audio.engine.AudioEngine
+import com.sonara.app.audio.engine.CompareManager
 import com.sonara.app.audio.equalizer.TenBandEqualizer
 import com.sonara.app.autoeq.HeadphoneDetector
 import com.sonara.app.data.SonaraDatabase
@@ -13,6 +14,7 @@ import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.intelligence.lastfm.LastFmResolver
 import com.sonara.app.intelligence.local.LocalInferencePlugin
 import com.sonara.app.intelligence.local.MetadataHeuristicPlugin
+import com.sonara.app.intelligence.local.SmartMediaClassifier
 import com.sonara.app.intelligence.local.WaveformGenrePlugin
 import com.sonara.app.preset.PresetRepository
 import kotlinx.coroutines.CoroutineScope
@@ -30,21 +32,15 @@ class SonaraApp : Application() {
     lateinit var presetRepository: PresetRepository private set
     lateinit var audioEngine: AudioEngine private set
 
-    // Singletons
     val trackResolver: TrackResolver by lazy {
-        val plugins = mutableListOf<LocalInferencePlugin>()
-        plugins.add(MetadataHeuristicPlugin())
-
-        val waveformPlugin = WaveformGenrePlugin(this)
-        waveformPlugin.init()
-        plugins.add(waveformPlugin)
-
-        Log.d("SonaraApp", "Registered ${plugins.size} AI plugins: ${plugins.map { it.name }}")
-
+        val plugins = mutableListOf<LocalInferencePlugin>(MetadataHeuristicPlugin())
+        val wfp = WaveformGenrePlugin(this); wfp.init(); plugins.add(wfp)
         TrackResolver(LastFmResolver(), plugins, TrackCache(database.trackCacheDao()))
     }
 
     val headphoneDetector: HeadphoneDetector by lazy { HeadphoneDetector(this) }
+    val compareManager: CompareManager by lazy { CompareManager(audioEngine) }
+    val mediaClassifier: SmartMediaClassifier by lazy { SmartMediaClassifier() }
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _eqState = MutableStateFlow(SharedEqState())
@@ -57,39 +53,23 @@ class SonaraApp : Application() {
         database = SonaraDatabase.get(this)
         presetRepository = PresetRepository(database.presetDao())
         audioEngine = AudioEngine(this)
-
-        val ok = audioEngine.init()
-        Log.d("SonaraApp", "AudioEngine init: $ok")
-
+        audioEngine.init()
         headphoneDetector.start()
-
-        appScope.launch {
-            presetRepository.initBuiltIns()
-            TrackCache(database.trackCacheDao()).cleanup()
-        }
+        appScope.launch { presetRepository.initBuiltIns(); TrackCache(database.trackCacheDao()).cleanup() }
     }
 
-    fun applyEq(
-        bands: FloatArray,
-        presetName: String = _eqState.value.presetName,
-        manual: Boolean = _eqState.value.isManualPreset,
-        bassBoost: Int = _eqState.value.bassBoost,
-        virtualizer: Int = _eqState.value.virtualizer,
-        loudness: Int = _eqState.value.loudness,
-        preamp: Float = 0f
-    ) {
+    fun applyEq(bands: FloatArray, presetName: String = _eqState.value.presetName, manual: Boolean = _eqState.value.isManualPreset,
+        bassBoost: Int = _eqState.value.bassBoost, virtualizer: Int = _eqState.value.virtualizer,
+        loudness: Int = _eqState.value.loudness, preamp: Float = 0f) {
         if (!audioEngine.isInitialized) audioEngine.init()
         val finalBands = if (preamp != 0f) FloatArray(bands.size) { i -> TenBandEqualizer.clamp(bands[i] + preamp) } else bands
-        audioEngine.applyBands(finalBands)
-        audioEngine.applyBassBoost(bassBoost)
-        audioEngine.applyVirtualizer(virtualizer)
-        audioEngine.applyLoudness(loudness)
+        audioEngine.applyBands(finalBands); audioEngine.applyBassBoost(bassBoost)
+        audioEngine.applyVirtualizer(virtualizer); audioEngine.applyLoudness(loudness)
         _eqState.update { it.copy(bands = finalBands.copyOf(), bassBoost = bassBoost, virtualizer = virtualizer, loudness = loudness, presetName = presetName, isManualPreset = manual) }
     }
 
     fun setEqEnabled(enabled: Boolean) { audioEngine.setEnabled(enabled); _eqState.update { it.copy(isEnabled = enabled) } }
     fun resetToAi() { _eqState.update { it.copy(isManualPreset = false, presetName = "AI Auto") }; trackResolver.forceReResolve() }
-
     override fun onTerminate() { super.onTerminate(); headphoneDetector.stop(); audioEngine.release() }
 
     companion object { lateinit var instance: SonaraApp private set }
