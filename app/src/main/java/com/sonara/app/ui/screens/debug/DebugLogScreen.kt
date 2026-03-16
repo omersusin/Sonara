@@ -129,7 +129,7 @@ fun DebugLogScreen(onBack: () -> Unit) {
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            items(filteredLogs, key = { it.timestamp }) { entry ->
+            items(filteredLogs.size) { index -> val entry = filteredLogs[index] { entry ->
                 val bgColor = when (entry.level) {
                     LogLevel.ERROR -> SonaraError.copy(0.1f)
                     LogLevel.WARN -> SonaraWarning.copy(0.08f)
