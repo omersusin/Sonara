@@ -1,5 +1,7 @@
 package com.sonara.app.ui.screens.onboarding
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +44,7 @@ import kotlinx.coroutines.launch
 data class OnboardingPage(val icon: ImageVector, val title: String, val description: String)
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun OnboardingScreen(onComplete: () -> Unit) {
     val pages = listOf(
         OnboardingPage(Icons.Rounded.MusicNote, "Sonara understands your music", "AI-powered genre detection analyzes every song and automatically adjusts your equalizer for the best sound."),
