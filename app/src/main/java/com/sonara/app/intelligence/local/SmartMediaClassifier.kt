@@ -1,6 +1,7 @@
 package com.sonara.app.intelligence.local
 
 import android.util.Log
+import com.sonara.app.data.SonaraLogger
 
 /**
  * Sonara Smart Media Classifier
@@ -294,8 +295,8 @@ class SmartMediaClassifier {
             reasoning = reasons
         )
 
-        Log.d(TAG, "═══ Classification: ${winner.key.label} (${(confidence * 100).toInt()}%) ═══")
-        reasons.forEach { Log.d(TAG, "  → $it") }
+        SonaraLogger.ai( "═══ Classification: ${winner.key.label} (${(confidence * 100).toInt()}%) ═══")
+        reasons.forEach { SonaraLogger.ai( "  → $it") }
 
         return result
     }
@@ -306,7 +307,7 @@ class SmartMediaClassifier {
     fun recordUserCorrection(title: String, packageName: String, correctedType: SmartMediaType) {
         val key = buildMemoryKey(title.lowercase(), packageName.lowercase())
         behaviorMemory[key] = correctedType
-        Log.d(TAG, "Behavior learned: $key → ${correctedType.label}")
+        SonaraLogger.ai( "Behavior learned: $key → ${correctedType.label}")
     }
 
     private fun buildMemoryKey(title: String, pkg: String): String {

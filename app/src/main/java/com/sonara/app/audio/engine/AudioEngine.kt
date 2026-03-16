@@ -24,42 +24,42 @@ class AudioEngine(private val context: Context) {
 
     fun init(): Boolean {
         if (isInitialized) {
-            Log.d(TAG, "Already initialized")
+            SonaraLogger.eq( "Already initialized")
             return true
         }
         return try {
             equalizer = Equalizer(Int.MAX_VALUE, 0).apply { enabled = true }
             val bands = equalizer?.numberOfBands ?: 0
             val range = equalizer?.bandLevelRange
-            Log.d(TAG, "╔══ EQ CREATED ══╗")
-            Log.d(TAG, "║ Session: 0 (global)")
-            Log.d(TAG, "║ Priority: MAX")
-            Log.d(TAG, "║ Bands: $bands")
-            Log.d(TAG, "║ Range: ${range?.get(0)} to ${range?.get(1)}")
-            Log.d(TAG, "║ Enabled: true")
+            SonaraLogger.eq( "╔══ EQ CREATED ══╗")
+            SonaraLogger.eq( "║ Session: 0 (global)")
+            SonaraLogger.eq( "║ Priority: MAX")
+            SonaraLogger.eq( "║ Bands: $bands")
+            SonaraLogger.eq( "║ Range: ${range?.get(0)} to ${range?.get(1)}")
+            SonaraLogger.eq( "║ Enabled: true")
 
             try {
                 bassBoost = BassBoost(Int.MAX_VALUE, 0).apply { enabled = true }
-                Log.d(TAG, "║ BassBoost: ✓")
-            } catch (e: Exception) { Log.w(TAG, "║ BassBoost: ✗ ${e.message}") }
+                SonaraLogger.eq( "║ BassBoost: ✓")
+            } catch (e: Exception) { SonaraLogger.w("EQ", "║ BassBoost: ✗ ${e.message}") }
 
             try {
                 virtualizer = Virtualizer(Int.MAX_VALUE, 0).apply { enabled = true }
-                Log.d(TAG, "║ Virtualizer: ✓")
-            } catch (e: Exception) { Log.w(TAG, "║ Virtualizer: ✗ ${e.message}") }
+                SonaraLogger.eq( "║ Virtualizer: ✓")
+            } catch (e: Exception) { SonaraLogger.w("EQ", "║ Virtualizer: ✗ ${e.message}") }
 
             try {
                 loudness = LoudnessEnhancer(0).apply { enabled = true }
-                Log.d(TAG, "║ Loudness: ✓")
-            } catch (e: Exception) { Log.w(TAG, "║ Loudness: ✗ ${e.message}") }
+                SonaraLogger.eq( "║ Loudness: ✓")
+            } catch (e: Exception) { SonaraLogger.w("EQ", "║ Loudness: ✗ ${e.message}") }
 
-            Log.d(TAG, "╚════════════════╝")
+            SonaraLogger.eq( "╚════════════════╝")
             isInitialized = true
             true
         } catch (e: Exception) {
-            Log.e(TAG, "╔══ EQ FAILED ══╗")
-            Log.e(TAG, "║ ${e.message}")
-            Log.e(TAG, "╚════════════════╝")
+            SonaraLogger.e("EQ", "╔══ EQ FAILED ══╗")
+            SonaraLogger.e("EQ", "║ ${e.message}")
+            SonaraLogger.e("EQ", "╚════════════════╝")
             isInitialized = false
             false
         }
@@ -68,11 +68,11 @@ class AudioEngine(private val context: Context) {
     fun applyBands(tenBands: FloatArray) {
         lastBands = tenBands.copyOf()
         val eq = equalizer
-        if (eq == null) { Log.e(TAG, "applyBands: Equalizer is NULL!"); return }
+        if (eq == null) { SonaraLogger.e("EQ", "applyBands: Equalizer is NULL!"); return }
 
         try {
             val count = eq.numberOfBands.toInt()
-            if (count == 0) { Log.e(TAG, "applyBands: 0 bands!"); return }
+            if (count == 0) { SonaraLogger.e("EQ", "applyBands: 0 bands!"); return }
 
             val range = eq.bandLevelRange
             val freqs = IntArray(count) { eq.getCenterFreq(it.toShort()) / 1000 }
@@ -85,10 +85,10 @@ class AudioEngine(private val context: Context) {
 
             // Verify by reading back
             val readBack = ShortArray(count) { eq.getBandLevel(it.toShort()) }
-            Log.d(TAG, "Bands applied: ${readBack.toList()}")
-            Log.d(TAG, "EQ enabled: ${eq.enabled}, hasControl: ${eq.hasControl()}")
+            SonaraLogger.eq( "Bands applied: ${readBack.toList()}")
+            SonaraLogger.eq( "EQ enabled: ${eq.enabled}, hasControl: ${eq.hasControl()}")
         } catch (e: Exception) {
-            Log.e(TAG, "applyBands FAILED: ${e.message}")
+            SonaraLogger.e("EQ", "applyBands FAILED: ${e.message}")
         }
     }
 
@@ -98,9 +98,9 @@ class AudioEngine(private val context: Context) {
             val bb = bassBoost
             if (bb != null) {
                 bb.setStrength(s.coerceIn(0, 1000).toShort())
-                Log.d(TAG, "Bass: requested=$s actual=${bb.roundedStrength} enabled=${bb.enabled} hasControl=${bb.hasControl()}")
-            } else Log.w(TAG, "BassBoost is NULL")
-        } catch (e: Exception) { Log.e(TAG, "Bass FAILED: ${e.message}") }
+                SonaraLogger.eq( "Bass: requested=$s actual=${bb.roundedStrength} enabled=${bb.enabled} hasControl=${bb.hasControl()}")
+            } else SonaraLogger.w("EQ", "BassBoost is NULL")
+        } catch (e: Exception) { SonaraLogger.e("EQ", "Bass FAILED: ${e.message}") }
     }
 
     fun applyVirtualizer(s: Int) {
@@ -109,9 +109,9 @@ class AudioEngine(private val context: Context) {
             val vr = virtualizer
             if (vr != null) {
                 vr.setStrength(s.coerceIn(0, 1000).toShort())
-                Log.d(TAG, "Virt: requested=$s actual=${vr.roundedStrength} enabled=${vr.enabled} hasControl=${vr.hasControl()}")
-            } else Log.w(TAG, "Virtualizer is NULL")
-        } catch (e: Exception) { Log.e(TAG, "Virt FAILED: ${e.message}") }
+                SonaraLogger.eq( "Virt: requested=$s actual=${vr.roundedStrength} enabled=${vr.enabled} hasControl=${vr.hasControl()}")
+            } else SonaraLogger.w("EQ", "Virtualizer is NULL")
+        } catch (e: Exception) { SonaraLogger.e("EQ", "Virt FAILED: ${e.message}") }
     }
 
     fun applyLoudness(g: Int) {
@@ -121,9 +121,9 @@ class AudioEngine(private val context: Context) {
             if (le != null) {
                 le.setTargetGain(g)
                 le.enabled = isEnabled && g > 0
-                Log.d(TAG, "Loud: ${g}mB (${g / 100f}dB) enabled=${le.enabled}")
-            } else Log.w(TAG, "LoudnessEnhancer is NULL")
-        } catch (e: Exception) { Log.e(TAG, "Loud FAILED: ${e.message}") }
+                SonaraLogger.eq( "Loud: ${g}mB (${g / 100f}dB) enabled=${le.enabled}")
+            } else SonaraLogger.w("EQ", "LoudnessEnhancer is NULL")
+        } catch (e: Exception) { SonaraLogger.e("EQ", "Loud FAILED: ${e.message}") }
     }
 
     fun setEnabled(on: Boolean) {
@@ -132,11 +132,11 @@ class AudioEngine(private val context: Context) {
         try { bassBoost?.enabled = on } catch (_: Exception) {}
         try { virtualizer?.enabled = on } catch (_: Exception) {}
         try { loudness?.enabled = on && lastLoud > 0 } catch (_: Exception) {}
-        Log.d(TAG, "All effects enabled=$on")
+        SonaraLogger.eq( "All effects enabled=$on")
     }
 
     fun release() {
-        Log.d(TAG, "Releasing all effects")
+        SonaraLogger.eq( "Releasing all effects")
         try { equalizer?.release() } catch (_: Exception) {}
         try { bassBoost?.release() } catch (_: Exception) {}
         try { virtualizer?.release() } catch (_: Exception) {}

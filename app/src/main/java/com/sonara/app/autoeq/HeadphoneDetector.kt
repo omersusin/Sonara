@@ -35,7 +35,7 @@ class HeadphoneDetector(private val context: Context) {
         override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
             if (profile == BluetoothProfile.A2DP) {
                 a2dpProxy = proxy as BluetoothA2dp
-                Log.d(TAG, "A2DP proxy connected")
+                SonaraLogger.bt( "A2DP proxy connected")
                 scan()
             }
         }
@@ -51,7 +51,7 @@ class HeadphoneDetector(private val context: Context) {
             val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
             btManager?.adapter?.getProfileProxy(context, btProfileListener, BluetoothProfile.A2DP)
         } catch (e: SecurityException) {
-            Log.w(TAG, "BT permission denied: ${e.message}")
+            SonaraLogger.w("BT", "BT permission denied: ${e.message}")
         }
         scan()
     }
@@ -90,7 +90,7 @@ class HeadphoneDetector(private val context: Context) {
                 else -> ConnectionType.UNKNOWN
             }
 
-            Log.d(TAG, "Detected: $name (${type.name})")
+            SonaraLogger.bt( "Detected: $name (${type.name})")
             _headphone.value = HeadphoneInfo(name = name, type = type, isConnected = true)
         } else {
             _headphone.value = HeadphoneInfo()
@@ -115,9 +115,9 @@ class HeadphoneDetector(private val context: Context) {
             val proxy = a2dpProxy ?: return null
             val connected = proxy.connectedDevices
             val device = connected.firstOrNull()
-            device?.name?.also { Log.d(TAG, "A2DP connected: $it") }
+            device?.name?.also { SonaraLogger.bt( "A2DP connected: $it") }
         } catch (e: SecurityException) {
-            Log.w(TAG, "A2DP permission denied")
+            SonaraLogger.w("BT", "A2DP permission denied")
             null
         }
     }

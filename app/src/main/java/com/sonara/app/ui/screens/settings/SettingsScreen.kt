@@ -71,7 +71,7 @@ import com.sonara.app.ui.components.StatusChip
 import com.sonara.app.ui.theme.*
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onOpenDebugLog: () -> Unit = {}) {
     val vm: SettingsViewModel = viewModel()
     val state by vm.uiState.collectAsState()
     val ctx = LocalContext.current
@@ -108,6 +108,20 @@ fun SettingsScreen() {
         item { SectionHeader("Data") }
         item { DataCard(state, vm) }
 
+        item { SectionHeader("Developer") }
+        item {
+            FluentCard {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text("Debug Log", style = MaterialTheme.typography.titleMedium)
+                        Text("View real-time app logs", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    }
+                    OutlinedButton(onClick = onOpenDebugLog, shape = MaterialTheme.shapes.extraLarge,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                    ) { Text("Open") }
+                }
+            }
+        }
         item { SectionHeader("About") }
         item { AboutCard() }
 

@@ -1,6 +1,7 @@
 package com.sonara.app.intelligence
 
 import android.util.Log
+import com.sonara.app.data.SonaraLogger
 import com.sonara.app.data.models.TrackInfo
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.intelligence.lastfm.LastFmResolver
@@ -39,12 +40,12 @@ class TrackResolver(
 
         lastKey = key
         _result.value = ResolveResult(isResolving = true)
-        Log.d(TAG, "═══ Resolving: $title - $artist ═══")
+        SonaraLogger.ai( "═══ Resolving: $title - $artist ═══")
 
         // ── 1. Cache (skip stale "other") ──
         val cached = trackCache.get(title, artist)
         if (cached != null && cached.genre != "other" && cached.genre.isNotBlank()) {
-            Log.d(TAG, "✓ Cache hit: ${cached.genre} (conf=${cached.confidence})")
+            SonaraLogger.ai( "✓ Cache hit: ${cached.genre} (conf=${cached.confidence})")
             val src = when {
                 cached.source.contains("lastfm-artist") -> ResolveSource.LASTFM_ARTIST
                 cached.source.contains("lastfm") -> ResolveSource.LASTFM
@@ -60,35 +61,35 @@ class TrackResolver(
             try {
                 lastFmResult = lastFmResolver.resolve(title, artist, apiKey)
                 if (lastFmResult != null && lastFmResult.genre != "other" && lastFmResult.genre.isNotBlank()) {
-                    Log.d(TAG, "✓ Last.fm: ${lastFmResult.genre} (conf=${lastFmResult.confidence})")
+                    SonaraLogger.ai( "✓ Last.fm: ${lastFmResult.genre} (conf=${lastFmResult.confidence})")
                     trackCache.put(lastFmResult)
                     val src = if (lastFmResult.source.contains("artist")) ResolveSource.LASTFM_ARTIST else ResolveSource.LASTFM
                     _result.value = ResolveResult(lastFmResult, src, pluginUsed = "lastfm")
                     return
                 } else {
-                    Log.d(TAG, "✗ Last.fm returned 'other' or empty")
+                    SonaraLogger.ai( "✗ Last.fm returned 'other' or empty")
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "✗ Last.fm error: ${e.message}")
+                SonaraLogger.w("Resolver", "✗ Last.fm error: ${e.message}")
             }
         } else {
-            Log.d(TAG, "✗ No API key — skipping Last.fm")
+            SonaraLogger.ai( "✗ No API key — skipping Last.fm")
         }
 
         // ── 3. Local AI plugins (sorted by priority) ──
         val sortedPlugins = localPlugins.sortedBy { it.priority }
         for (plugin in sortedPlugins) {
             try {
-                Log.d(TAG, "→ Trying plugin: ${plugin.name}")
+                SonaraLogger.ai( "→ Trying plugin: ${plugin.name}")
                 val pluginResult = plugin.resolve(title, artist, audioContext)
                 if (pluginResult != null && pluginResult.genre != "other" && pluginResult.confidence >= 0.25f) {
-                    Log.d(TAG, "✓ ${plugin.name}: ${pluginResult.genre} (conf=${pluginResult.confidence})")
+                    SonaraLogger.ai( "✓ ${plugin.name}: ${pluginResult.genre} (conf=${pluginResult.confidence})")
                     trackCache.put(pluginResult)
                     _result.value = ResolveResult(pluginResult, ResolveSource.LOCAL_AI, pluginUsed = plugin.name)
                     return
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "✗ ${plugin.name} error: ${e.message}")
+                SonaraLogger.w("Resolver", "✗ ${plugin.name} error: ${e.message}")
             }
         }
 
@@ -97,7 +98,7 @@ class TrackResolver(
             ?: localPlugins.firstOrNull()?.resolve(title, artist, audioContext)
             ?: TrackInfo(title = title, artist = artist, genre = "other", confidence = 0.1f, source = "fallback")
 
-        Log.d(TAG, "⚠ Fallback: ${fallbackResult.genre}")
+        SonaraLogger.ai( "⚠ Fallback: ${fallbackResult.genre}")
 
         // Don't cache low-confidence "other"
         if (fallbackResult.genre != "other" || fallbackResult.confidence >= 0.4f) {

@@ -14,6 +14,7 @@ import androidx.navigation.compose.rememberNavController
 import com.sonara.app.SonaraApp
 import com.sonara.app.ui.components.SonaraBottomBar
 import com.sonara.app.ui.screens.dashboard.DashboardScreen
+import com.sonara.app.ui.screens.debug.DebugLogScreen
 import com.sonara.app.ui.screens.equalizer.EqualizerScreen
 import com.sonara.app.ui.screens.insights.InsightsScreen
 import com.sonara.app.ui.screens.onboarding.OnboardingScreen
@@ -29,6 +30,7 @@ sealed class Screen(val route: String, val label: String) {
     data object Presets : Screen("presets", "Presets")
     data object Insights : Screen("insights", "Insights")
     data object Settings : Screen("settings", "Settings")
+    data object DebugLog : Screen("debug_log", "Debug")
 }
 
 @Composable
@@ -37,18 +39,11 @@ fun SonaraNavigation() {
     val prefs = SonaraApp.instance.preferences
     val prompted by prefs.notificationListenerPromptedFlow.collectAsState(initial = true)
     val startDest = if (!prompted) Screen.Onboarding.route else Screen.Dashboard.route
-
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
+    val hideBottomBar = currentRoute == Screen.Onboarding.route || currentRoute == Screen.DebugLog.route
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            if (currentRoute != Screen.Onboarding.route) {
-                SonaraBottomBar(navController)
-            }
-        }
-    ) { padding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = { if (!hideBottomBar) SonaraBottomBar(navController) }) { padding ->
         NavHost(navController, startDestination = startDest, Modifier.padding(padding)) {
             composable(Screen.Onboarding.route) {
                 OnboardingScreen(onComplete = {
@@ -60,7 +55,8 @@ fun SonaraNavigation() {
             composable(Screen.Equalizer.route) { EqualizerScreen() }
             composable(Screen.Presets.route) { PresetsScreen() }
             composable(Screen.Insights.route) { InsightsScreen() }
-            composable(Screen.Settings.route) { SettingsScreen() }
+            composable(Screen.Settings.route) { SettingsScreen(onOpenDebugLog = { navController.navigate(Screen.DebugLog.route) }) }
+            composable(Screen.DebugLog.route) { DebugLogScreen(onBack = { navController.popBackStack() }) }
         }
     }
 }

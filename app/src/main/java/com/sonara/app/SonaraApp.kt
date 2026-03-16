@@ -54,7 +54,9 @@ class SonaraApp : Application() {
         audioEngine = AudioEngine(this)
 
         val initOk = audioEngine.init()
-        Log.d("SonaraApp", "════ AudioEngine init: $initOk ════")
+        SonaraLogger.i("App", "═══ Sonara started ═══")
+        SonaraLogger.i("App", "Engine: ${if (audioEngine.isInitialized) "OK" else "FAILED"}")
+        SonaraLogger.i("App", "════ AudioEngine init: $initOk ════")
 
         headphoneDetector.start()
         appScope.launch { presetRepository.initBuiltIns(); TrackCache(database.trackCacheDao()).cleanup() }
@@ -72,7 +74,9 @@ class SonaraApp : Application() {
         // ENSURE engine is initialized
         if (!audioEngine.isInitialized) {
             val reinit = audioEngine.init()
-            Log.d("SonaraApp", "Engine was dead, reinit=$reinit")
+        SonaraLogger.i("App", "═══ Sonara started ═══")
+        SonaraLogger.i("App", "Engine: ${if (audioEngine.isInitialized) "OK" else "FAILED"}")
+            SonaraLogger.i("App", "Engine was dead, reinit=$reinit")
         }
 
         val finalBands = if (preamp != 0f) {
@@ -85,11 +89,11 @@ class SonaraApp : Application() {
         audioEngine.applyVirtualizer(virtualizer)
         audioEngine.applyLoudness(loudness)
 
-        Log.d("SonaraApp", "════ EQ APPLIED ════")
-        Log.d("SonaraApp", "  Preset: $presetName")
-        Log.d("SonaraApp", "  Bands: ${finalBands.take(5).map { "%.1f".format(it) }}...")
-        Log.d("SonaraApp", "  Bass=$bassBoost Virt=$virtualizer Loud=$loudness")
-        Log.d("SonaraApp", "  Engine initialized: ${audioEngine.isInitialized}")
+        SonaraLogger.i("App", "════ EQ APPLIED ════")
+        SonaraLogger.i("App", "  Preset: $presetName")
+        SonaraLogger.i("App", "  Bands: ${finalBands.take(5).map { "%.1f".format(it) }}...")
+        SonaraLogger.i("App", "  Bass=$bassBoost Virt=$virtualizer Loud=$loudness")
+        SonaraLogger.i("App", "  Engine initialized: ${audioEngine.isInitialized}")
 
         // Update shared state
         _eqState.update {
@@ -107,13 +111,13 @@ class SonaraApp : Application() {
     fun setEqEnabled(enabled: Boolean) {
         audioEngine.setEnabled(enabled)
         _eqState.update { it.copy(isEnabled = enabled) }
-        Log.d("SonaraApp", "EQ enabled=$enabled")
+        SonaraLogger.i("App", "EQ enabled=$enabled")
     }
 
     fun resetToAi() {
         _eqState.update { it.copy(isManualPreset = false, presetName = "AI Auto") }
         trackResolver.forceReResolve()
-        Log.d("SonaraApp", "Reset to AI Auto")
+        SonaraLogger.i("App", "Reset to AI Auto")
     }
 
     override fun onTerminate() {
