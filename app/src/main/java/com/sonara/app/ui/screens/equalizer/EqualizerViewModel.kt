@@ -21,7 +21,7 @@ data class EqualizerUiState(
     val preamp: Float = 0f, val bassBoost: Int = 0, val virtualizer: Int = 0, val loudness: Int = 0,
     val isEnabled: Boolean = true, val currentPresetName: String = "Flat",
     val availablePresets: List<Preset> = emptyList(), val eqActive: Boolean = false,
-    val isClipping: Boolean = false, val bassSimulated: Boolean = false
+    val isClipping: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true; if (other !is EqualizerUiState) return false
@@ -39,7 +39,6 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val _uiState = MutableStateFlow(EqualizerUiState(
         eqActive = app.sessionManager.isInitialized,
-        bassSimulated = app.sessionManager.hardwareReport?.bassWorks == false
     ))
     val uiState: StateFlow<EqualizerUiState> = _uiState.asStateFlow()
 

@@ -14,7 +14,7 @@ object BandMapper {
         return result
     }
 
-    private fun interpolate(bands: FloatArray, targetFreq: Int): Float {
+    fun interpolate(bands: FloatArray, targetFreq: Int): Float {
         val freqs = TenBandEqualizer.FREQUENCIES
         if (targetFreq <= freqs.first()) return bands.first()
         if (targetFreq >= freqs.last()) return bands.last()
