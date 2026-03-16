@@ -66,7 +66,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private var transitionJob: Job? = null     // Cancellable transition
     private var scrobbleJob: Job? = null
 
-    private val _uiState = MutableStateFlow(DashboardUiState(eqActive = app.audioEngine.isInitialized))
+    private val _uiState = MutableStateFlow(DashboardUiState(eqActive = app.sessionManager.isInitialized))
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
     val albumArt: StateFlow<Bitmap?> = SonaraNotificationListener.albumArt
 
@@ -165,7 +165,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     if (prefs.smoothTransitionsFlow.first()) {
                         transitionJob = viewModelScope.launch {
                             val currentBands = eq.bands
-                            smoothEngine.transition(currentBands, finalBands) { step -> app.audioEngine.applyBands(step) }
+                            smoothEngine.transition(currentBands, finalBands) { step -> app.sessionManager.applyBands(step) }
                             // After transition completes, set final state
                             app.applyEq(bands = finalBands, presetName = name, manual = false, bassBoost = suggestion.bassBoost, virtualizer = suggestion.virtualizer, loudness = currentLoudness)
                         }

@@ -33,7 +33,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
     private val headphoneDetector = app.headphoneDetector
     private val cache = TrackCache(app.database.trackCacheDao())
 
-    private val _uiState = MutableStateFlow(InsightsUiState(eqActive = app.audioEngine.isInitialized))
+    private val _uiState = MutableStateFlow(InsightsUiState(eqActive = app.sessionManager.isInitialized))
     val uiState: StateFlow<InsightsUiState> = _uiState.asStateFlow()
     val albumArt: StateFlow<Bitmap?> = SonaraNotificationListener.albumArt
 

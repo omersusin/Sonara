@@ -38,8 +38,8 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
     private val DEBOUNCE_MS = 50L
 
     private val _uiState = MutableStateFlow(EqualizerUiState(
-        eqActive = app.audioEngine.isInitialized,
-        bassSimulated = app.audioEngine.hardwareReport?.bassWorks == false
+        eqActive = app.sessionManager.isInitialized,
+        bassSimulated = app.sessionManager.hardwareReport?.bassWorks == false
     ))
     val uiState: StateFlow<EqualizerUiState> = _uiState.asStateFlow()
 

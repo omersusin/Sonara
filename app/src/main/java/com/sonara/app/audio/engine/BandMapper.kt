@@ -27,3 +27,16 @@ object BandMapper {
         return 0f
     }
 }
+
+    fun interpolate(source: ShortArray, targetSize: Int): ShortArray {
+        if (source.size == targetSize) return source
+        if (source.isEmpty()) return ShortArray(targetSize)
+        return ShortArray(targetSize) { i ->
+            val ratio = i.toFloat() / (targetSize - 1).coerceAtLeast(1)
+            val srcIdx = ratio * (source.size - 1)
+            val lo = srcIdx.toInt().coerceIn(0, source.size - 1)
+            val hi = (lo + 1).coerceIn(0, source.size - 1)
+            val frac = srcIdx - lo
+            (source[lo] * (1 - frac) + source[hi] * frac).toInt().toShort()
+        }
+    }

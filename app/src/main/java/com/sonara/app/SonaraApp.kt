@@ -1,7 +1,7 @@
 package com.sonara.app
 
 import android.app.Application
-import com.sonara.app.audio.engine.AudioEngine
+import com.sonara.app.audio.engine.AudioSessionManager
 import com.sonara.app.audio.engine.CompareManager
 import com.sonara.app.audio.equalizer.TenBandEqualizer
 import com.sonara.app.autoeq.HeadphoneDetector
@@ -32,7 +32,7 @@ class SonaraApp : Application() {
     lateinit var preferences: SonaraPreferences private set
     lateinit var database: SonaraDatabase private set
     lateinit var presetRepository: PresetRepository private set
-    lateinit var audioEngine: AudioEngine private set
+    lateinit var sessionManager: AudioSessionManager private set
 
     val trackResolver: TrackResolver by lazy {
         val plugins = mutableListOf<LocalInferencePlugin>(MetadataHeuristicPlugin())
@@ -40,11 +40,11 @@ class SonaraApp : Application() {
         TrackResolver(LastFmResolver(), plugins, TrackCache(database.trackCacheDao()))
     }
     val headphoneDetector: HeadphoneDetector by lazy { HeadphoneDetector(this) }
-    val compareManager: CompareManager by lazy { CompareManager(audioEngine) }
+    val compareManager: CompareManager by lazy { CompareManager(sessionManager) }
     val mediaClassifier: SmartMediaClassifier by lazy { SmartMediaClassifier() }
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val eqMutex = Mutex() // Thread-safe EQ access
+    private val eqMutex = Mutex()
     private val _eqState = MutableStateFlow(SharedEqState())
     val eqState: StateFlow<SharedEqState> = _eqState.asStateFlow()
 
@@ -54,43 +54,45 @@ class SonaraApp : Application() {
         preferences = SonaraPreferences(this)
         database = SonaraDatabase.get(this)
         presetRepository = PresetRepository(database.presetDao())
-        audioEngine = AudioEngine(this)
-        audioEngine.init()
+
+        sessionManager = AudioSessionManager(this)
+        sessionManager.initialize()
+
         SonaraLogger.i("App", "═══ Sonara started ═══")
-        SonaraLogger.i("App", "Engine: ${if (audioEngine.isInitialized) "OK" else "FAILED"}")
-        audioEngine.hardwareReport?.let { hw ->
-            SonaraLogger.i("App", "HW: EQ=${hw.eqWorks} Bass=${hw.bassWorks} Virt=${hw.virtWorks} Loud=${hw.loudWorks}")
-        }
+        SonaraLogger.i("App", "SessionManager: ${if (sessionManager.isInitialized) "OK" else "FAILED"}")
+
         headphoneDetector.start()
         appScope.launch { presetRepository.initBuiltIns(); TrackCache(database.trackCacheDao()).cleanup() }
     }
 
-    fun applyEq(bands: FloatArray, presetName: String = _eqState.value.presetName, manual: Boolean = _eqState.value.isManualPreset,
+    fun applyEq(
+        bands: FloatArray, presetName: String = _eqState.value.presetName,
+        manual: Boolean = _eqState.value.isManualPreset,
         bassBoost: Int = _eqState.value.bassBoost, virtualizer: Int = _eqState.value.virtualizer,
-        loudness: Int = _eqState.value.loudness, preamp: Float = 0f) {
-
-        if (!audioEngine.isInitialized) audioEngine.init()
-
+        loudness: Int = _eqState.value.loudness, preamp: Float = 0f
+    ) {
         val finalBands = if (preamp != 0f) FloatArray(bands.size) { i -> TenBandEqualizer.clamp(bands[i] + preamp) } else bands
 
-        // Thread-safe engine access
-        audioEngine.applyBands(finalBands)
-        audioEngine.applyBassBoost(bassBoost)
-        audioEngine.applyVirtualizer(virtualizer)
-        audioEngine.applyLoudness(loudness)
+        sessionManager.applyBands(finalBands)
+        sessionManager.applyBass(bassBoost)
+        sessionManager.applyVirt(virtualizer)
+        sessionManager.applyLoudness(loudness)
 
         _eqState.update { it.copy(bands = finalBands.copyOf(), bassBoost = bassBoost, virtualizer = virtualizer, loudness = loudness, presetName = presetName, isManualPreset = manual) }
-        SonaraLogger.i("App", "EQ: $presetName manual=$manual bass=$bassBoost virt=$virtualizer loud=$loudness")
+        SonaraLogger.i("App", "EQ: $presetName bass=$bassBoost virt=$virtualizer loud=$loudness")
     }
 
-    fun setEqEnabled(enabled: Boolean) { audioEngine.setEnabled(enabled); _eqState.update { it.copy(isEnabled = enabled) } }
+    fun setEqEnabled(enabled: Boolean) {
+        sessionManager.setEnabled(enabled)
+        _eqState.update { it.copy(isEnabled = enabled) }
+        SonaraLogger.i("App", "EQ enabled=$enabled")
+    }
 
     fun resetToAi() {
         _eqState.update { it.copy(isManualPreset = false, presetName = "AI Auto") }
         trackResolver.forceReResolve()
-        SonaraLogger.i("App", "Reset to AI Auto")
     }
 
-    override fun onTerminate() { super.onTerminate(); headphoneDetector.stop(); audioEngine.release() }
+    override fun onTerminate() { super.onTerminate(); headphoneDetector.stop(); sessionManager.release() }
     companion object { lateinit var instance: SonaraApp private set }
 }

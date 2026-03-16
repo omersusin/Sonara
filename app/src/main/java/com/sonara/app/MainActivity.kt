@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         ensureNotificationPermission()
-        (application as SonaraApp).audioEngine.let { if (!it.isInitialized) it.init() }
+        (application as SonaraApp).sessionManager.let { if (!it.isInitialized) it.initialize() }
 
         setContent {
             val prefs = (application as SonaraApp).preferences
@@ -39,7 +39,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        (application as SonaraApp).audioEngine.let { if (!it.isInitialized) it.init() }
+        (application as SonaraApp).sessionManager.let { if (!it.isInitialized) it.initialize() }
     }
 
     private fun ensureNotificationPermission() {

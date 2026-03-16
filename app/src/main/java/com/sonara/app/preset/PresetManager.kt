@@ -1,6 +1,5 @@
 package com.sonara.app.preset
 
-import com.sonara.app.audio.engine.AudioEngine
 import com.sonara.app.audio.engine.SafetyLimiter
 import com.sonara.app.audio.engine.SmoothTransitionEngine
 import com.sonara.app.audio.equalizer.ProfileComposer

@@ -81,7 +81,8 @@ fun DashboardScreen() {
                     Text("Personal Sound Engine", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (s.eqActive) StatusChip("EQ Active", ChipStatus.Active)
+                    val eqEnabled = s.bands.any { it != 0f } || s.currentPresetName != "Flat"
+                    if (eqEnabled) StatusChip("EQ Active", ChipStatus.Active)
                     StatusChip(if (s.isAiEnabled) "AI On" else "AI Off", if (s.isAiEnabled) ChipStatus.Active else ChipStatus.Inactive, Icons.Rounded.AutoAwesome)
                 }
             }
