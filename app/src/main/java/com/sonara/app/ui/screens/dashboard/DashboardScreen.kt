@@ -2,6 +2,7 @@ package com.sonara.app.ui.screens.dashboard
 
 import android.content.Intent
 import android.provider.Settings
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,11 +21,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bluetooth
-import androidx.compose.material.icons.rounded.Compare
+import androidx.compose.material.icons.rounded.CompareArrows
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.HeadsetOff
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.VolumeUp
@@ -76,14 +78,18 @@ fun DashboardScreen() {
     ) {
         // Header
         item {
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column {
                     Text("Sonara", style = MaterialTheme.typography.headlineLarge, color = p)
                     Text("Personal Sound Engine", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     StatusChip(
-                        if (s.eqActive) "EQ Active" else "EQ Off",
+                        if (s.eqActive) "EQ On" else "EQ Off",
                         if (s.eqActive) ChipStatus.Active else ChipStatus.Inactive
                     )
                     StatusChip(
@@ -97,22 +103,32 @@ fun DashboardScreen() {
 
         // Permission
         if (!s.notificationListenerEnabled) {
-            item { PermissionCard(onGrant = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) }
+            item {
+                PermissionCard(onGrant = {
+                    ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                })
+            }
         }
 
         // Now Playing
-        item { NowPlayingBar(if (s.hasTrack) s.title else "No music playing", s.artist, s.isPlaying, art) }
+        item {
+            NowPlayingBar(
+                title = if (s.hasTrack) s.title else "No music playing",
+                artist = s.artist,
+                isPlaying = s.isPlaying,
+                albumArt = art
+            )
+        }
 
-        // Intelligence + MoodRing (combined clean card)
+        // Intelligence Card
         if (s.hasTrack) {
             item {
                 FluentCard {
-                    // Top row: MoodRing left, info right
+                    // Top section: MoodRing + Info
                     Row(
                         Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Top
                     ) {
-                        // MoodRing
                         MoodRing(
                             mood = s.mood,
                             energy = s.energy,
@@ -122,66 +138,80 @@ fun DashboardScreen() {
 
                         Spacer(Modifier.width(16.dp))
 
-                        // Info column
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            // Source
+                        Column(
+                            Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
                             if (s.sourceLabel != "None") {
                                 StatusChip(
-                                    s.sourceLabel,
-                                    ChipStatus.Active,
-                                    if (s.sourceLabel.contains("Last")) Icons.Rounded.Public else Icons.Rounded.Memory
+                                    label = s.sourceLabel,
+                                    status = ChipStatus.Active,
+                                    icon = if (s.sourceLabel.contains("Last")) Icons.Rounded.Public else Icons.Rounded.Memory
                                 )
                             }
 
-                            // Media type (only if non-music)
                             if (s.smartMediaType != "Music" && s.smartMediaType != "Unknown") {
-                                StatusChip(s.smartMediaType, ChipStatus.Warning, Icons.Rounded.Movie)
-                            }
-
-                            // Genre + Mood text
-                            if (s.sourceLabel != "None") {
-                                Text(
-                                    "${s.genre.replaceFirstChar { it.uppercase() }} · ${s.mood.replaceFirstChar { it.uppercase() }}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = SonaraTextPrimary
+                                StatusChip(
+                                    label = s.smartMediaType,
+                                    status = ChipStatus.Warning,
+                                    icon = Icons.Rounded.Movie
                                 )
                             }
 
-                            // Confidence
+                            Spacer(Modifier.height(2.dp))
+
                             Text(
-                                "Confidence: ${(s.confidence * 100).toInt()}%",
+                                text = "${s.genre.replaceFirstChar { it.uppercase() }} · ${s.mood.replaceFirstChar { it.uppercase() }}",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = SonaraTextPrimary
+                            )
+
+                            Text(
+                                text = "Confidence ${(s.confidence * 100).toInt()}%",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = SonaraTextTertiary
                             )
                         }
                     }
 
-                    // Stats row
+                    // Stats
                     Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Pill("Energy", "${(s.energy * 100).toInt()}%", Modifier.weight(1f), p)
-                        if (s.bassBoost > 0) Pill("Bass", "${(s.bassBoost / 10f).toInt()}%", Modifier.weight(1f), p)
-                        if (s.virtualizer > 0) Pill("Surround", "${(s.virtualizer / 10f).toInt()}%", Modifier.weight(1f), p)
+                        if (s.bassBoost > 0) {
+                            Pill("Bass", "${(s.bassBoost / 10f).toInt()}%", Modifier.weight(1f), p)
+                        }
+                        if (s.virtualizer > 0) {
+                            Pill("Surround", "${(s.virtualizer / 10f).toInt()}%", Modifier.weight(1f), p)
+                        }
                     }
 
-                    // Compare button
+                    // A/B Compare
                     Spacer(Modifier.height(12.dp))
                     if (s.isComparing) {
                         FilledTonalButton(
-                            onClick = {},
+                            onClick = { /* comparing in progress */ },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = if (s.isOriginalSound) SonaraError.copy(0.15f) else SonaraSuccess.copy(0.15f)
+                                containerColor = if (s.isOriginalSound) SonaraError.copy(alpha = 0.15f)
+                                else SonaraSuccess.copy(alpha = 0.15f)
                             )
                         ) {
                             Icon(
-                                if (s.isOriginalSound) Icons.Rounded.VolumeOff else Icons.Rounded.VolumeUp,
-                                null, Modifier.size(18.dp),
+                                imageVector = if (s.isOriginalSound) Icons.Rounded.VolumeOff
+                                else Icons.Rounded.VolumeUp,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
                                 tint = if (s.isOriginalSound) SonaraError else SonaraSuccess
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                if (s.isOriginalSound) "Original Sound" else "Sonara Enhanced",
+                                text = if (s.isOriginalSound) "Original Sound (EQ Off)"
+                                else "Sonara Enhanced (EQ On)",
+                                style = MaterialTheme.typography.labelLarge,
                                 color = if (s.isOriginalSound) SonaraError else SonaraSuccess
                             )
                         }
@@ -189,27 +219,51 @@ fun DashboardScreen() {
                         OutlinedButton(
                             onClick = { vm.quickCompare() },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium
+                            shape = MaterialTheme.shapes.medium,
+                            border = BorderStroke(1.dp, SonaraDivider)
                         ) {
-                            Icon(Icons.Rounded.Compare, null, Modifier.size(18.dp), tint = p)
+                            Icon(
+                                imageVector = Icons.Rounded.CompareArrows,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = p
+                            )
                             Spacer(Modifier.width(8.dp))
-                            Text("Hear the Difference", color = p)
+                            Text(
+                                text = "Hear the Difference",
+                                color = p
+                            )
                         }
                     }
                 }
             }
         } else {
-            // No track — simple intelligence card
             item {
                 FluentCard {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         if (s.isResolving) {
-                            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = p)
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                                color = p
+                            )
                             Spacer(Modifier.width(8.dp))
-                            Text("Analyzing...", style = MaterialTheme.typography.bodyLarge)
-                        } else {
-                            Text("Waiting for music...", style = MaterialTheme.typography.bodyLarge, color = SonaraTextSecondary)
                         }
+                        Icon(
+                            imageVector = Icons.Rounded.MusicNote,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = SonaraTextTertiary
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = if (s.isResolving) "Analyzing..." else "Play some music to start",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = SonaraTextSecondary
+                        )
                     }
                 }
             }
@@ -218,20 +272,45 @@ fun DashboardScreen() {
         // Headphone
         item {
             FluentCard {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        val ic = if (s.headphoneConnected) {
-                            if (s.headphoneType.contains("BLUETOOTH")) Icons.Rounded.Bluetooth else Icons.Rounded.Headphones
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val hpIcon = if (s.headphoneConnected) {
+                            if (s.headphoneType.contains("BLUETOOTH")) Icons.Rounded.Bluetooth
+                            else Icons.Rounded.Headphones
                         } else Icons.Rounded.HeadsetOff
-                        Icon(ic, null, tint = if (s.headphoneConnected) p else SonaraTextTertiary, modifier = Modifier.size(20.dp))
+
+                        Icon(
+                            imageVector = hpIcon,
+                            contentDescription = null,
+                            tint = if (s.headphoneConnected) p else SonaraTextTertiary,
+                            modifier = Modifier.size(20.dp)
+                        )
                         Column {
                             Text("Headphone", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-                            Text(if (s.headphoneConnected) s.headphoneName else "No device", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                text = if (s.headphoneConnected) s.headphoneName else "No device",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
                         }
                     }
                     StatusChip(
-                        when { !s.headphoneConnected -> "No Device"; s.autoEqActive -> "AutoEQ"; else -> "Connected" },
-                        when { !s.headphoneConnected -> ChipStatus.Inactive; s.autoEqActive -> ChipStatus.Active; else -> ChipStatus.Warning }
+                        label = when {
+                            !s.headphoneConnected -> "No Device"
+                            s.autoEqActive -> "AutoEQ"
+                            else -> "Connected"
+                        },
+                        status = when {
+                            !s.headphoneConnected -> ChipStatus.Inactive
+                            s.autoEqActive -> ChipStatus.Active
+                            else -> ChipStatus.Warning
+                        }
                     )
                 }
             }
@@ -240,24 +319,49 @@ fun DashboardScreen() {
         // Sound Profile
         item {
             FluentCard {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Text("Sound Profile", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
                     Text(s.currentPresetName, style = MaterialTheme.typography.labelLarge, color = p)
                 }
                 Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth().height(36.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom) {
+                Row(
+                    Modifier.fillMaxWidth().height(36.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    verticalAlignment = Alignment.Bottom
+                ) {
                     s.bands.forEach { v ->
                         val n = ((v + 12f) / 24f).coerceIn(0.08f, 1f)
-                        Box(Modifier.weight(1f).height((n * 36).dp).background(p.copy(alpha = 0.2f + n * 0.5f), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)))
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .height((n * 36).dp)
+                                .background(
+                                    p.copy(alpha = 0.2f + n * 0.5f),
+                                    RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)
+                                )
+                        )
                     }
                 }
                 if (s.aiReasoning.isNotEmpty()) {
                     Spacer(Modifier.height(6.dp))
-                    Text(s.aiReasoning, style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary, maxLines = 2)
+                    Text(
+                        text = s.aiReasoning,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SonaraTextTertiary,
+                        maxLines = 2
+                    )
                 }
                 Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { vm.resetToAi() }) { Text("Reset to AI Auto", color = p) }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = { vm.resetToAi() }) {
+                        Text("Reset to AI Auto", color = p)
+                    }
                 }
             }
         }
@@ -269,9 +373,22 @@ fun DashboardScreen() {
 }
 
 @Composable
-private fun Pill(label: String, value: String, modifier: Modifier, p: androidx.compose.ui.graphics.Color) {
-    Surface(modifier, shape = RoundedCornerShape(8.dp), color = SonaraCardElevated) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+private fun Pill(
+    label: String,
+    value: String,
+    modifier: Modifier,
+    p: androidx.compose.ui.graphics.Color
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        color = SonaraCardElevated
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
             Text(value, style = MaterialTheme.typography.labelLarge, color = p)
         }

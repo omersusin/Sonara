@@ -13,16 +13,16 @@ import com.sonara.app.data.SonaraLogger
  * Confidence üretir. Geçmişten öğrenir.
  */
 
-enum class SmartMediaType(val label: String, val emoji: String) {
-    MUSIC("Music", "🎵"),
-    FILM("Film", "🎬"),
-    SERIES("Series", "📺"),
-    VIDEO("Video", "▶️"),
-    PODCAST("Podcast", "🎙️"),
-    AUDIOBOOK("Audiobook", "📖"),
-    GAME("Game", "🎮"),
-    CALL("Call", "📞"),
-    UNKNOWN("Unknown", "❓")
+enum class SmartMediaType(val label: String, ) {
+    MUSIC("Music"),
+    FILM("Film"),
+    SERIES("Series"),
+    VIDEO("Video"),
+    PODCAST("Podcast"),
+    AUDIOBOOK("Audiobook"),
+    GAME("Game"),
+    CALL("Call"),
+    UNKNOWN("Unknown")
 }
 
 data class ClassificationResult(

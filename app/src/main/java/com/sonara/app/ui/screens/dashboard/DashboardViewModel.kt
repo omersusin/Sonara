@@ -110,7 +110,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                             }
                         )
                         SonaraLogger.ai("Non-music → applying ${preset.name} preset")
-                        app.applyEq(bands = preset.bands, presetName = "${classification.type.emoji} ${classification.type.label}",
+                        app.applyEq(bands = preset.bands, presetName = "${classification.type.label}",
                             manual = false, bassBoost = preset.bassBoost, virtualizer = preset.virtualizer, loudness = preset.loudness)
                         _uiState.update { it.copy(aiReasoning = preset.reasoning, genre = classification.type.label, mood = "N/A", sourceLabel = "Classifier") }
                         // DO NOT start TrackResolver — we're done
