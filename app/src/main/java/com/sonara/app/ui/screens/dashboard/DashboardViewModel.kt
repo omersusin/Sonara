@@ -26,7 +26,8 @@ data class DashboardUiState(
         if (this === other) return true; if (other !is DashboardUiState) return false
         return title == other.title && artist == other.artist && isPlaying == other.isPlaying &&
             genre == other.genre && bands.contentEquals(other.bands) && currentPresetName == other.currentPresetName &&
-            notificationListenerEnabled == other.notificationListenerEnabled && eqStrategy == other.eqStrategy
+            notificationListenerEnabled == other.notificationListenerEnabled && eqStrategy == other.eqStrategy &&
+            confidence == other.confidence && sourceLabel == other.sourceLabel
     }
     override fun hashCode() = title.hashCode()
 }
@@ -44,38 +45,25 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     init {
         // EQ state
-        viewModelScope.launch {
-            app.eqState.collect { eq -> _uiState.update { it.copy(
-                bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer,
-                currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset
-            ) } }
-        }
+        viewModelScope.launch { app.eqState.collect { eq -> _uiState.update { it.copy(bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer, currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset) } } }
 
         // Now playing
-        viewModelScope.launch {
-            SonaraNotificationListener.nowPlaying.collect { np ->
-                _uiState.update { it.copy(title = np.title, artist = np.artist, isPlaying = np.isPlaying, hasTrack = np.title.isNotBlank()) }
+        viewModelScope.launch { SonaraNotificationListener.nowPlaying.collect { np -> _uiState.update { it.copy(title = np.title, artist = np.artist, isPlaying = np.isPlaying, hasTrack = np.title.isNotBlank()) } } }
 
-                // Update genre from classifier
-                if (np.title.isNotBlank()) {
-                    val (genre, conf) = app.adaptiveClassifier.classify(np.title, np.artist, np.album)
-                    _uiState.update { it.copy(genre = genre.replaceFirstChar { c -> c.uppercase() }, confidence = conf, sourceLabel = if (conf > 0.5f) "AI" else "Local") }
-                }
-            }
-        }
+        // Genre info — FROM NotificationListener (which has the resolver result)
+        viewModelScope.launch { SonaraNotificationListener.currentGenre.collect { g -> if (g.isNotBlank()) _uiState.update { it.copy(genre = g.replaceFirstChar { c -> c.uppercase() }) } } }
+        viewModelScope.launch { SonaraNotificationListener.currentMood.collect { m -> if (m.isNotBlank()) _uiState.update { it.copy(mood = m.replaceFirstChar { c -> c.uppercase() }) } } }
+        viewModelScope.launch { SonaraNotificationListener.currentEnergy.collect { e -> _uiState.update { it.copy(energy = e) } } }
+        viewModelScope.launch { SonaraNotificationListener.currentConfidence.collect { c -> _uiState.update { it.copy(confidence = c) } } }
+        viewModelScope.launch { SonaraNotificationListener.currentSource.collect { s -> if (s.isNotBlank()) _uiState.update { it.copy(sourceLabel = s) } } }
 
-        // Strategy
+        // EQ strategy
         viewModelScope.launch { app.audioSessionManager.activeStrategy.collect { s -> _uiState.update { it.copy(eqStrategy = s, eqActive = s != "none") } } }
 
         // Stats
         viewModelScope.launch { prefs.songsLearnedFlow.collect { n -> _uiState.update { it.copy(songsLearned = n) } } }
         viewModelScope.launch { prefs.aiEnabledFlow.collect { e -> _uiState.update { it.copy(isAiEnabled = e) } } }
-
-        // AI model stats
-        viewModelScope.launch {
-            val stats = app.adaptiveClassifier.getStats()
-            _uiState.update { it.copy(aiModelGenres = stats["genres"] as? Int ?: 0) }
-        }
+        viewModelScope.launch { _uiState.update { it.copy(aiModelGenres = (app.adaptiveClassifier.getStats()["genres"] as? Int) ?: 0) } }
 
         checkNotificationListener()
     }
