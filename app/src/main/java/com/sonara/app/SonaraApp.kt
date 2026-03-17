@@ -98,7 +98,7 @@ class SonaraApp : Application() {
             appScope.launch {
                 sessionBridge.learner.onBandsManuallyAdjusted(
                     genre = state.genre, mood = state.mood,
-                    route = state.route, newBands = shortBands, energy = state.energy
+                    route = state.route, bands = shortBands, energy = state.energy
                 )
             }
         }
