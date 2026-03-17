@@ -86,7 +86,7 @@ fun DashboardScreen() {
                             if (s.sourceLabel != "None") StatusChip(s.sourceLabel, ChipStatus.Active, if (s.sourceLabel.contains("Last")) Icons.Rounded.Public else Icons.Rounded.Memory)
                             Text("${s.genre} / ${s.mood}", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
                             Text("Confidence ${(s.confidence * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                            Text("Route: ${s.engineRoute}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                            Text("Route: ${s.eqStrategy}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                             if (s.songsLearned > 0) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Icon(Icons.Rounded.School, null, Modifier.size(14.dp), tint = p)

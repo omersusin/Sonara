@@ -10,7 +10,10 @@ import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import java.util.concurrent.atomic.AtomicBoolean
 
 class EqSessionController(private val context: Context) {
@@ -20,7 +23,7 @@ class EqSessionController(private val context: Context) {
     private var safeEq: SafeEqualizer? = null
     private var currentSessionId: Int = 0
     private var currentRoute: AudioRoute = AudioRoute.SPEAKER
-    private var savedBands: ShortArray? = null
+    private var savedBandsMb: IntArray? = null
     private var eqEnabled = true
     private val initialized = AtomicBoolean(false)
     private val lock = Any()
@@ -44,10 +47,25 @@ class EqSessionController(private val context: Context) {
         }
     }
 
-    fun applyBands(bands: ShortArray) { synchronized(lock) { savedBands = bands.copyOf(); safeEq?.applyAllBands(bands) } }
+    fun applyBands(bands: ShortArray) {
+        synchronized(lock) {
+            savedBandsMb = IntArray(bands.size) { bands[it].toInt() }
+            safeEq?.setBands(savedBandsMb!!)
+        }
+    }
+
+    fun applyBandsDb(bandsDb: FloatArray) {
+        val mb = IntArray(bandsDb.size) { (bandsDb[it] * 100).toInt() }
+        synchronized(lock) {
+            savedBandsMb = mb
+            safeEq?.setBands(mb)
+        }
+    }
+
     fun reapplyCurrentEq() { synchronized(lock) { if (currentSessionId > 0) rebuildEq() } }
     fun updateSessionId(newId: Int) { synchronized(lock) { if (newId > 0 && newId != currentSessionId) { currentSessionId = newId; rebuildEq() } } }
     fun setEnabled(on: Boolean) { synchronized(lock) { eqEnabled = on; safeEq?.setEnabled(on) } }
+
     fun detectRoute(): AudioRoute {
         return try {
             val outputs = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
@@ -58,8 +76,6 @@ class EqSessionController(private val context: Context) {
             }
         } catch (_: Exception) { AudioRoute.SPEAKER }
     }
-    fun getNumberOfBands(): Int = safeEq?.getNumberOfBands() ?: 5
-    fun getBandRange(): Pair<Short, Short> { val r = safeEq?.getBandLevelRange() ?: shortArrayOf(-1500, 1500); return Pair(r[0], r[1]) }
 
     fun release() { synchronized(lock) { initialized.set(false); handler.removeCallbacksAndMessages(null); try { context.unregisterReceiver(routeReceiver) } catch (_: Exception) {}; safeEq?.release(); scope.cancel() } }
 
@@ -67,15 +83,15 @@ class EqSessionController(private val context: Context) {
         safeEq?.release()
         safeEq = SafeEqualizer.create(PRIORITY, currentSessionId) ?: if (currentRoute == AudioRoute.SPEAKER) SafeEqualizer.create(PRIORITY, 0) else null
         safeEq?.setEnabled(eqEnabled)
-        savedBands?.let { safeEq?.applyAllBands(it) }
+        savedBandsMb?.let { safeEq?.setBands(it) }
         Log.d(TAG, "Rebuilt: session=$currentSessionId route=$currentRoute eq=${safeEq != null}")
     }
 
-    private fun onRouteChanged() { synchronized(lock) { val nr = detectRoute(); if (nr != currentRoute) { Log.d(TAG, "Route: $currentRoute->$nr"); currentRoute = nr; rebuildEq() } } }
+    private fun onRouteChanged() { synchronized(lock) { val nr = detectRoute(); if (nr != currentRoute) { currentRoute = nr; rebuildEq() } } }
 
     private fun registerRouteReceiver() {
         try {
-            val f = IntentFilter().apply { addAction(AudioManager.ACTION_HEADSET_PLUG); addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY); addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED); addAction(AudioManager.ACTION_SCO_AUDIO_STATE_UPDATED) }
+            val f = IntentFilter().apply { addAction(AudioManager.ACTION_HEADSET_PLUG); addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY); addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED) }
             context.registerReceiver(routeReceiver, f)
         } catch (e: Exception) { Log.e(TAG, "Receiver: ${e.message}") }
     }
