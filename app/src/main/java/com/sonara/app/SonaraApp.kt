@@ -1,13 +1,20 @@
 package com.sonara.app
 
 import android.app.Application
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import com.sonara.app.audio.equalizer.TenBandEqualizer
 import com.sonara.app.data.SonaraDatabase
 import com.sonara.app.data.SonaraLogger
 import com.sonara.app.data.models.SharedEqState
 import com.sonara.app.data.preferences.SonaraPreferences
+import com.sonara.app.engine.classifier.AdaptiveGenreClassifier
+import com.sonara.app.engine.eq.AudioSessionManager
 import com.sonara.app.engine.eq.AudioSessionBridge
-import com.sonara.app.engine.eq.EqSessionController
 import com.sonara.app.intelligence.TrackResolver
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.intelligence.lastfm.LastFmResolver
@@ -30,10 +37,15 @@ class SonaraApp : Application() {
     lateinit var database: SonaraDatabase private set
     lateinit var presetRepository: PresetRepository private set
 
-    // New engine
+    // NEW: DynamicsProcessing-based EQ manager
+    lateinit var audioSessionManager: AudioSessionManager private set
+
+    // NEW: Self-training AI classifier
+    lateinit var adaptiveClassifier: AdaptiveGenreClassifier private set
+
+    // Legacy bridge (for NotificationListener integration)
     lateinit var sessionBridge: AudioSessionBridge private set
 
-    // Legacy compatibility — ViewModels use these
     val trackResolver: TrackResolver by lazy {
         val plugins = mutableListOf<LocalInferencePlugin>(MetadataHeuristicPlugin())
         val wfp = WaveformGenrePlugin(this); wfp.init(); plugins.add(wfp)
@@ -52,62 +64,59 @@ class SonaraApp : Application() {
         database = SonaraDatabase.get(this)
         presetRepository = PresetRepository(database.presetDao())
 
-        // Initialize new engine
+        // Initialize new EQ engine
+        audioSessionManager = AudioSessionManager(this)
+        audioSessionManager.start()
+
+        // Initialize self-training classifier
+        adaptiveClassifier = AdaptiveGenreClassifier(this)
+
+        // Legacy bridge
         sessionBridge = AudioSessionBridge(this)
-        SonaraLogger.i("App", "Sonara started - new engine active")
 
-        // Bridge callback -> update shared state for UI
-        sessionBridge.onTrackAnalyzed = { state ->
-            _eqState.update {
-                it.copy(
-                    bands = FloatArray(state.appliedBands.size) { i -> state.appliedBands[i] / 100f },
-                    presetName = "AI: ${state.genre.replaceFirstChar { c -> c.uppercase() }}",
-                    isManualPreset = false
-                )
+        // Route change handling
+        val am = getSystemService(AUDIO_SERVICE) as AudioManager
+        am.registerAudioDeviceCallback(object : AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) {
+                Handler(Looper.getMainLooper()).postDelayed({ audioSessionManager.reinitialize() }, 300)
             }
-            SonaraLogger.ai("Track analyzed: ${state.genre}/${state.mood} c=${state.confidence} r=${state.route}")
-        }
+            override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) {
+                Handler(Looper.getMainLooper()).postDelayed({ audioSessionManager.reinitialize() }, 300)
+            }
+        }, Handler(Looper.getMainLooper()))
 
-        // Restore AI weights
-        appScope.launch {
-            sessionBridge.learner.restoreWeights()
-            presetRepository.initBuiltIns()
-            TrackCache(database.trackCacheDao()).cleanup()
-        }
+        SonaraLogger.i("App", "Sonara started. Strategy: ${audioSessionManager.activeStrategy.value}")
+
+        appScope.launch { presetRepository.initBuiltIns(); TrackCache(database.trackCacheDao()).cleanup() }
     }
 
-    // Called by ViewModels when user changes EQ
     fun applyEq(
         bands: FloatArray, presetName: String = _eqState.value.presetName,
         manual: Boolean = _eqState.value.isManualPreset,
         bassBoost: Int = _eqState.value.bassBoost, virtualizer: Int = _eqState.value.virtualizer,
         loudness: Int = _eqState.value.loudness, preamp: Float = 0f
     ) {
-        // Convert 10-band float dB to 5-band short millibel for new engine
-        val shortBands = convertTo5Band(bands, preamp)
-        sessionBridge.eqController.applyBands(shortBands)
+        val finalBands = if (preamp != 0f) FloatArray(bands.size) { TenBandEqualizer.clamp(bands[it] + preamp) } else bands
 
-        _eqState.update {
-            it.copy(bands = bands.copyOf(), bassBoost = bassBoost, virtualizer = virtualizer,
-                loudness = loudness, presetName = presetName, isManualPreset = manual)
-        }
+        // Apply through new DynamicsProcessing-based manager
+        audioSessionManager.applyBands(finalBands)
 
-        // Learn from manual changes
-        if (manual) {
+        _eqState.update { it.copy(bands = finalBands.copyOf(), bassBoost = bassBoost, virtualizer = virtualizer, loudness = loudness, presetName = presetName, isManualPreset = manual) }
+        SonaraLogger.i("App", "EQ: $presetName [${finalBands.take(3).map { "%.1f".format(it) }}...] strategy=${audioSessionManager.activeStrategy.value}")
+
+        // Self-training: if this was from AI, train the adaptive classifier
+        if (!manual) {
             val state = sessionBridge.currentState
-            appScope.launch {
-                sessionBridge.learner.onBandsManuallyAdjusted(
-                    genre = state.genre, mood = state.mood,
-                    route = state.route, bands = shortBands, energy = state.energy
-                )
+            if (state.title?.isNotBlank() == true && state.genre != "other") {
+                appScope.launch {
+                    adaptiveClassifier.train(state.genre, state.title ?: "", state.artist ?: "", state.album ?: "", weight = 1f)
+                }
             }
         }
-
-        SonaraLogger.eq("EQ applied: $presetName manual=$manual")
     }
 
     fun setEqEnabled(enabled: Boolean) {
-        sessionBridge.eqController.setEnabled(enabled)
+        audioSessionManager.setEnabled(enabled)
         _eqState.update { it.copy(isEnabled = enabled) }
     }
 
@@ -116,22 +125,11 @@ class SonaraApp : Application() {
         trackResolver.forceReResolve()
     }
 
-    private fun convertTo5Band(tenBands: FloatArray, preamp: Float): ShortArray {
-        // 10-band (31,62,125,250,500,1k,2k,4k,8k,16k) -> 5-band (60,230,910,3.6k,14k)
-        // Average neighboring bands and convert dB to millibel
-        val b = FloatArray(tenBands.size) { (tenBands[it] + preamp).coerceIn(-12f, 12f) }
-        return shortArrayOf(
-            ((b.getOrElse(0) { 0f } + b.getOrElse(1) { 0f }) / 2f * 100).toInt().toShort(),  // 60Hz
-            ((b.getOrElse(2) { 0f } + b.getOrElse(3) { 0f }) / 2f * 100).toInt().toShort(),  // 230Hz
-            ((b.getOrElse(4) { 0f } + b.getOrElse(5) { 0f }) / 2f * 100).toInt().toShort(),  // 910Hz
-            ((b.getOrElse(6) { 0f } + b.getOrElse(7) { 0f }) / 2f * 100).toInt().toShort(),  // 3.6kHz
-            ((b.getOrElse(8) { 0f } + b.getOrElse(9) { 0f }) / 2f * 100).toInt().toShort()   // 14kHz
-        )
-    }
-
     override fun onTerminate() {
         super.onTerminate()
+        audioSessionManager.stop()
         sessionBridge.release()
+        adaptiveClassifier.save()
     }
 
     companion object { lateinit var instance: SonaraApp private set }
