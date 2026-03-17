@@ -20,13 +20,13 @@ data class EqualizerUiState(
     val preamp: Float = 0f, val bassBoost: Int = 0, val virtualizer: Int = 0, val loudness: Int = 0,
     val isEnabled: Boolean = true, val currentPresetName: String = "Flat",
     val availablePresets: List<Preset> = emptyList(), val eqActive: Boolean = false,
-    val isClipping: Boolean = false, val engineRoute: String = "SPEAKER"
+    val eqStrategy: String = "none"
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true; if (other !is EqualizerUiState) return false
         return bands.contentEquals(other.bands) && preamp == other.preamp && bassBoost == other.bassBoost &&
             virtualizer == other.virtualizer && loudness == other.loudness && isEnabled == other.isEnabled &&
-            currentPresetName == other.currentPresetName && eqActive == other.eqActive
+            currentPresetName == other.currentPresetName && eqStrategy == other.eqStrategy
     }
     override fun hashCode() = bands.contentHashCode()
 }
@@ -35,10 +35,14 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
     private val app = application as SonaraApp
     private var applyJob: Job? = null
 
-    private val _uiState = MutableStateFlow(EqualizerUiState(eqActive = true))
+    private val _uiState = MutableStateFlow(EqualizerUiState(
+        eqActive = app.audioSessionManager.isInitialized,
+        eqStrategy = app.audioSessionManager.activeStrategy.value
+    ))
     val uiState: StateFlow<EqualizerUiState> = _uiState.asStateFlow()
 
     init {
+        // Observe shared EQ state — single source of truth
         viewModelScope.launch {
             app.eqState.collect { eq ->
                 _uiState.update { it.copy(
@@ -48,25 +52,19 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
         viewModelScope.launch { app.presetRepository.allPresets().collect { p -> _uiState.update { it.copy(availablePresets = p) } } }
-
-        // Show current route
+        // Strategy updates
         viewModelScope.launch {
-            while (true) {
-                val route = app.sessionBridge.eqController.detectRoute()
-                _uiState.update { it.copy(engineRoute = route.name) }
-                delay(5000)
-            }
+            app.audioSessionManager.activeStrategy.collect { s -> _uiState.update { it.copy(eqStrategy = s, eqActive = s != "none") } }
         }
     }
 
     private fun c() = _uiState.value
 
-    private fun debouncedApply(bands: FloatArray, presetName: String, bass: Int, virt: Int, loud: Int, preamp: Float = 0f) {
+    private fun debouncedApply(bands: FloatArray, name: String, bass: Int, virt: Int, loud: Int, preamp: Float = 0f) {
         applyJob?.cancel()
         applyJob = viewModelScope.launch {
             delay(80)
-            app.applyEq(bands, presetName, manual = true, bass, virt, loud, preamp)
-            SonaraLogger.eq("Debounced apply: $presetName route=${app.sessionBridge.eqController.detectRoute()}")
+            app.applyEq(bands, name, manual = true, bass, virt, loud, preamp)
         }
     }
 
@@ -77,22 +75,12 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
         debouncedApply(bands, "Custom", c().bassBoost, c().virtualizer, c().loudness, c().preamp)
     }
 
-    fun setPreamp(v: Float) {
-        val clamped = TenBandEqualizer.clamp(v)
-        _uiState.update { it.copy(preamp = clamped) }
-        debouncedApply(c().bands, c().currentPresetName, c().bassBoost, c().virtualizer, c().loudness, clamped)
-    }
-
+    fun setPreamp(v: Float) { val cl = TenBandEqualizer.clamp(v); _uiState.update { it.copy(preamp = cl) }; debouncedApply(c().bands, c().currentPresetName, c().bassBoost, c().virtualizer, c().loudness, cl) }
     fun setBassBoost(v: Int) { _uiState.update { it.copy(bassBoost = v.coerceIn(0, 1000)) }; debouncedApply(c().bands, c().currentPresetName, v.coerceIn(0, 1000), c().virtualizer, c().loudness) }
     fun setVirtualizer(v: Int) { _uiState.update { it.copy(virtualizer = v.coerceIn(0, 1000)) }; debouncedApply(c().bands, c().currentPresetName, c().bassBoost, v.coerceIn(0, 1000), c().loudness) }
     fun setLoudness(v: Int) { _uiState.update { it.copy(loudness = v.coerceIn(0, 3000)) }; debouncedApply(c().bands, c().currentPresetName, c().bassBoost, c().virtualizer, v.coerceIn(0, 3000)) }
     fun setEnabled(on: Boolean) { app.setEqEnabled(on) }
-
-    fun resetBands() {
-        applyJob?.cancel()
-        app.applyEq(FloatArray(10), "Flat", false, 0, 0, 0)
-        _uiState.update { it.copy(preamp = 0f) }
-    }
+    fun resetBands() { applyJob?.cancel(); app.applyEq(FloatArray(10), "Flat", false, 0, 0, 0); _uiState.update { it.copy(preamp = 0f) } }
 
     fun applyPreset(preset: Preset) {
         applyJob?.cancel()

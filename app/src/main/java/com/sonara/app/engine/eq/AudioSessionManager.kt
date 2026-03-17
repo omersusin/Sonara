@@ -91,6 +91,7 @@ class AudioSessionManager(private val context: Context) {
         fallbackEqualizer?.setEnabled(enabled)
     }
 
+    fun onSessionOpened(sessionId: Int) { attachToSession(sessionId) }
     fun reinitialize() {
         val saved = currentBandsDb.copyOf(); val en = eqEnabled
         dpEq?.release(); dpEq = null; sessionEqualizers.values.forEach { it.release() }; sessionEqualizers.clear(); fallbackEqualizer?.release(); fallbackEqualizer = null
