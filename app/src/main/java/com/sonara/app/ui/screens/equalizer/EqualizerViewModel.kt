@@ -20,13 +20,14 @@ data class EqualizerUiState(
     val preamp: Float = 0f, val bassBoost: Int = 0, val virtualizer: Int = 0, val loudness: Int = 0,
     val isEnabled: Boolean = true, val currentPresetName: String = "Flat",
     val availablePresets: List<Preset> = emptyList(), val eqActive: Boolean = false,
-    val eqStrategy: String = "none"
+    val eqStrategy: String = "none",
+    val isClipping: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true; if (other !is EqualizerUiState) return false
         return bands.contentEquals(other.bands) && preamp == other.preamp && bassBoost == other.bassBoost &&
             virtualizer == other.virtualizer && loudness == other.loudness && isEnabled == other.isEnabled &&
-            currentPresetName == other.currentPresetName && eqStrategy == other.eqStrategy
+            currentPresetName == other.currentPresetName && eqStrategy == other.eqStrategy && isClipping == other.isClipping
     }
     override fun hashCode() = bands.contentHashCode()
 }
