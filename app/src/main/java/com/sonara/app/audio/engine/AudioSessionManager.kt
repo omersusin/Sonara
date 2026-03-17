@@ -81,7 +81,7 @@ class AudioSessionManager(private val context: Context) {
             addAction(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION)
             addAction(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION)
         }
-        context.registerReceiver(sessionReceiver, filter)
+        context.registerReceiver(sessionReceiver, filter, Context.RECEIVER_EXPORTED)
 
         globalSession = createEffects(0)
         SonaraLogger.eq("╔══ SESSION MANAGER INIT ══╗")
