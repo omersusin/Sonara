@@ -4,13 +4,18 @@ import android.content.ComponentName
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadata
+import android.media.audiofx.AudioEffect
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Log
+import com.sonara.app.SonaraApp
+import com.sonara.app.data.SonaraLogger
 import com.sonara.app.media.ArtworkResolver
+import com.sonara.app.receiver.AudioEffectSessionReceiver
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,9 +26,10 @@ data class ListenerNowPlaying(
 )
 
 class SonaraNotificationListener : NotificationListenerService() {
-    private var activeController: MediaController? = null
     private var sessionManager: MediaSessionManager? = null
     private var sessionListenerRegistered = false
+    private var activeController: MediaController? = null
+    private var metaCb: MediaController.Callback? = null
 
     private val controllerCallback = object : MediaController.Callback() {
         override fun onMetadataChanged(metadata: MediaMetadata?) { metadata?.let { extractMetadata(it) } }
@@ -38,41 +44,71 @@ class SonaraNotificationListener : NotificationListenerService() {
     }
 
     override fun onCreate() { super.onCreate(); instance = this; sessionManager = getSystemService(MEDIA_SESSION_SERVICE) as? MediaSessionManager }
-    override fun onListenerConnected() { super.onListenerConnected(); refreshSessions() }
-    override fun onNotificationPosted(sbn: StatusBarNotification?) { refreshSessions() }
+
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        SonaraLogger.i("NLS", "Connected")
+
+        // Register session listener
+        try {
+            val cn = ComponentName(this, SonaraNotificationListener::class.java)
+            if (!sessionListenerRegistered) { sessionManager?.addOnActiveSessionsChangedListener(sessionListener, cn); sessionListenerRegistered = true }
+            val sessions = sessionManager?.getActiveSessions(cn) ?: return
+            pickBest(sessions)
+        } catch (e: Exception) { SonaraLogger.e("NLS", "Setup: ${e.message}") }
+
+        // Wire broadcast receiver to bridge
+        AudioEffectSessionReceiver.bridgeCallback = { action, sessionId, pkg ->
+            if (action == AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION) {
+                SonaraLogger.eq("Broadcast session: $sessionId ($pkg)")
+                try { (application as SonaraApp).sessionBridge.onExternalSessionId(sessionId, pkg) } catch (_: Exception) {}
+            }
+        }
+    }
+
+    override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        // Check for new sessions
+        try {
+            val cn = ComponentName(this, SonaraNotificationListener::class.java)
+            val sessions = sessionManager?.getActiveSessions(cn) ?: return
+            pickBest(sessions)
+        } catch (_: Exception) {}
+    }
+
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {}
 
     override fun onDestroy() {
         super.onDestroy()
         if (sessionListenerRegistered) { try { sessionManager?.removeOnActiveSessionsChangedListener(sessionListener) } catch (_: Exception) {}; sessionListenerRegistered = false }
-        activeController?.unregisterCallback(controllerCallback); activeController = null; _albumArt.value = null; instance = null
-    }
-
-    private fun refreshSessions() {
-        try {
-            val cn = ComponentName(this, SonaraNotificationListener::class.java)
-            if (!sessionListenerRegistered) { sessionManager?.addOnActiveSessionsChangedListener(sessionListener, cn); sessionListenerRegistered = true }
-            pickBest(sessionManager?.getActiveSessions(cn) ?: return)
-        } catch (_: SecurityException) {}
+        activeController?.let { try { it.unregisterCallback(controllerCallback) } catch (_: Exception) {} }
+        AudioEffectSessionReceiver.bridgeCallback = null
+        _albumArt.value = null; instance = null
     }
 
     private fun pickBest(controllers: List<MediaController>) {
-        val target = controllers.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING } ?: controllers.firstOrNull() ?: return
+        val playing = controllers.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+        val target = playing ?: controllers.firstOrNull() ?: return
         attachTo(target)
     }
 
     private fun attachTo(controller: MediaController) {
-        if (activeController?.sessionToken == controller.sessionToken) { controller.metadata?.let { extractMetadata(it) }; return }
-        activeController?.unregisterCallback(controllerCallback); activeController = controller
-        controller.registerCallback(controllerCallback); controller.metadata?.let { extractMetadata(it) }
+        if (activeController?.sessionToken == controller.sessionToken) {
+            controller.metadata?.let { extractMetadata(it) }
+            return
+        }
+        activeController?.let { try { it.unregisterCallback(controllerCallback) } catch (_: Exception) {} }
+        activeController = controller
+        controller.registerCallback(controllerCallback)
+        controller.metadata?.let { extractMetadata(it) }
         _nowPlaying.value = _nowPlaying.value.copy(isPlaying = controller.playbackState?.state == PlaybackState.STATE_PLAYING, packageName = controller.packageName ?: "")
+
+        // Feed new controller to bridge
+        try { (application as SonaraApp).sessionBridge.onActiveSessionChanged(controller) } catch (_: Exception) {}
     }
 
     private fun extractMetadata(metadata: MediaMetadata) {
-        // Use ArtworkResolver with URI fallback
-        val artwork = ArtworkResolver.extract(metadata, contentResolver)
+        val artwork = try { ArtworkResolver.extract(metadata, contentResolver) } catch (_: Exception) { null }
         _albumArt.value = artwork
-
         _nowPlaying.value = _nowPlaying.value.copy(
             title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "",
             artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: metadata.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST) ?: "",
