@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -81,9 +82,15 @@ fun DashboardScreen() {
                     Text("Personal Sound Engine", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    val eqEnabled = s.bands.any { it != 0f } || s.currentPresetName != "Flat"
-                    if (eqEnabled) StatusChip("EQ Active", ChipStatus.Active)
-                    StatusChip(if (s.isAiEnabled) "AI On" else "AI Off", if (s.isAiEnabled) ChipStatus.Active else ChipStatus.Inactive, Icons.Rounded.AutoAwesome)
+                    StatusChip(
+                        if (s.eqActive) "EQ Active" else "EQ Off",
+                        if (s.eqActive) ChipStatus.Active else ChipStatus.Inactive
+                    )
+                    StatusChip(
+                        if (s.isAiEnabled) "AI On" else "AI Off",
+                        if (s.isAiEnabled) ChipStatus.Active else ChipStatus.Inactive,
+                        Icons.Rounded.AutoAwesome
+                    )
                 }
             }
         }
@@ -96,81 +103,113 @@ fun DashboardScreen() {
         // Now Playing
         item { NowPlayingBar(if (s.hasTrack) s.title else "No music playing", s.artist, s.isPlaying, art) }
 
-        // Mood Ring + Compare
-        if (s.hasTrack && s.sourceLabel != "None") {
+        // Intelligence + MoodRing (combined clean card)
+        if (s.hasTrack) {
             item {
                 FluentCard {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                        MoodRing(mood = s.mood, energy = s.energy, genre = s.genre)
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StatusChip(s.sourceLabel, ChipStatus.Active, if (s.sourceLabel.contains("Last")) Icons.Rounded.Public else Icons.Rounded.Memory)
-                            if (s.smartMediaType != "Music") {
+                    // Top row: MoodRing left, info right
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // MoodRing
+                        MoodRing(
+                            mood = s.mood,
+                            energy = s.energy,
+                            genre = s.genre,
+                            modifier = Modifier.size(120.dp)
+                        )
+
+                        Spacer(Modifier.width(16.dp))
+
+                        // Info column
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            // Source
+                            if (s.sourceLabel != "None") {
+                                StatusChip(
+                                    s.sourceLabel,
+                                    ChipStatus.Active,
+                                    if (s.sourceLabel.contains("Last")) Icons.Rounded.Public else Icons.Rounded.Memory
+                                )
+                            }
+
+                            // Media type (only if non-music)
+                            if (s.smartMediaType != "Music" && s.smartMediaType != "Unknown") {
                                 StatusChip(s.smartMediaType, ChipStatus.Warning, Icons.Rounded.Movie)
                             }
-                            Spacer(Modifier.height(4.dp))
-                            // A/B Compare
-                            if (s.isComparing) {
-                                FilledTonalButton(
-                                    onClick = {},
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = if (s.isOriginalSound) SonaraError.copy(0.2f) else SonaraSuccess.copy(0.2f)
-                                    )
-                                ) {
-                                    Icon(
-                                        if (s.isOriginalSound) Icons.Rounded.VolumeOff else Icons.Rounded.VolumeUp,
-                                        null, Modifier.size(16.dp),
-                                        tint = if (s.isOriginalSound) SonaraError else SonaraSuccess
-                                    )
-                                    Spacer(Modifier.size(4.dp))
-                                    Text(
-                                        if (s.isOriginalSound) "Original" else "Sonara",
-                                        color = if (s.isOriginalSound) SonaraError else SonaraSuccess
-                                    )
-                                }
-                            } else {
-                                OutlinedButton(
-                                    onClick = { vm.quickCompare() },
-                                    shape = MaterialTheme.shapes.extraLarge
-                                ) {
-                                    Icon(Icons.Rounded.Compare, null, Modifier.size(16.dp))
-                                    Spacer(Modifier.size(4.dp))
-                                    Text("Hear the Difference", color = p)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
 
-        // Intelligence
-        item {
-            FluentCard {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Intelligence", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-                        Spacer(Modifier.height(4.dp))
-                        if (s.isResolving) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = p)
-                                Text("Analyzing...", style = MaterialTheme.typography.bodyLarge)
+                            // Genre + Mood text
+                            if (s.sourceLabel != "None") {
+                                Text(
+                                    "${s.genre.replaceFirstChar { it.uppercase() }} · ${s.mood.replaceFirstChar { it.uppercase() }}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = SonaraTextPrimary
+                                )
                             }
-                        } else if (s.hasTrack && s.sourceLabel != "None") {
-                            Text("${s.genre.replaceFirstChar { it.uppercase() }} · ${s.mood.replaceFirstChar { it.uppercase() }}", style = MaterialTheme.typography.bodyLarge)
-                        } else {
-                            Text("Waiting for music...", style = MaterialTheme.typography.bodyLarge)
+
+                            // Confidence
+                            Text(
+                                "Confidence: ${(s.confidence * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SonaraTextTertiary
+                            )
                         }
                     }
-                    if (s.hasTrack) {
-                        Text("${(s.confidence * 100).toInt()}%", style = MaterialTheme.typography.headlineMedium, color = p.copy(alpha = 0.7f))
-                    }
-                }
-                if (s.hasTrack && s.sourceLabel != "None") {
-                    Spacer(Modifier.height(8.dp))
+
+                    // Stats row
+                    Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Pill("Energy", "${(s.energy * 100).toInt()}%", Modifier.weight(1f), p)
                         if (s.bassBoost > 0) Pill("Bass", "${(s.bassBoost / 10f).toInt()}%", Modifier.weight(1f), p)
                         if (s.virtualizer > 0) Pill("Surround", "${(s.virtualizer / 10f).toInt()}%", Modifier.weight(1f), p)
+                    }
+
+                    // Compare button
+                    Spacer(Modifier.height(12.dp))
+                    if (s.isComparing) {
+                        FilledTonalButton(
+                            onClick = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = if (s.isOriginalSound) SonaraError.copy(0.15f) else SonaraSuccess.copy(0.15f)
+                            )
+                        ) {
+                            Icon(
+                                if (s.isOriginalSound) Icons.Rounded.VolumeOff else Icons.Rounded.VolumeUp,
+                                null, Modifier.size(18.dp),
+                                tint = if (s.isOriginalSound) SonaraError else SonaraSuccess
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                if (s.isOriginalSound) "Original Sound" else "Sonara Enhanced",
+                                color = if (s.isOriginalSound) SonaraError else SonaraSuccess
+                            )
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { vm.quickCompare() },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium
+                        ) {
+                            Icon(Icons.Rounded.Compare, null, Modifier.size(18.dp), tint = p)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Hear the Difference", color = p)
+                        }
+                    }
+                }
+            }
+        } else {
+            // No track — simple intelligence card
+            item {
+                FluentCard {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        if (s.isResolving) {
+                            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = p)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Analyzing...", style = MaterialTheme.typography.bodyLarge)
+                        } else {
+                            Text("Waiting for music...", style = MaterialTheme.typography.bodyLarge, color = SonaraTextSecondary)
+                        }
                     }
                 }
             }
