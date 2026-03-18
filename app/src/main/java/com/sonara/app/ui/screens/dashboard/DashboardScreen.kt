@@ -115,7 +115,7 @@ fun DashboardScreen() {
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth().height(36.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom) {
-                    s.bands.forEach { v -> val n = ((v + 12f) / 24f).coerceIn(0.08f, 1f); Box(Modifier.weight(1f).height((n * 36).dp).background(p.copy(alpha = 0.2f + n * 0.5f), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))) }
+                    s.bands.take(10).forEach { v -> val n = ((v + 12f) / 24f).coerceIn(0.08f, 1f); Box(Modifier.weight(1f).height((n * 36).dp).background(p.copy(alpha = 0.2f + n * 0.5f), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))) }
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { TextButton(onClick = { vm.resetToAi() }) { Text("Reset to AI Auto", color = p) } }

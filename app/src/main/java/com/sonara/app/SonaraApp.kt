@@ -85,7 +85,7 @@ class SonaraApp : Application() {
         val adjustedBands = FloatArray(profile.bands.size) { profile.bands[it] + profile.preamp }
         audioSessionManager.applyBands(adjustedBands)
         _currentProfile.value = profile
-        _eqState.update { it.copy(bands = profile.bands, presetName = "AI: ${profile.prediction.genre.displayName}", isManualPreset = false, bassBoost = profile.bassBoost, virtualizer = profile.virtualizer, loudness = profile.loudness) }
+        _eqState.update { it.copy(bands = profile.bands.copyOf().let { if (it.size < 10) FloatArray(10).also { arr -> it.copyInto(arr) } else it.take(10).toFloatArray() }, presetName = "AI: ${profile.prediction.genre.displayName}", isManualPreset = false, bassBoost = profile.bassBoost, virtualizer = profile.virtualizer, loudness = profile.loudness) }
         SonaraLogger.eq("Applied: ${profile.prediction.genre} bands=${adjustedBands.take(5).map { "%.1f".format(it) }}")
     }
 

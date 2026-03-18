@@ -53,7 +53,7 @@ class EqComposer {
     )
 
     fun compose(prediction: SonaraPrediction, route: AudioRoute, userOffset: FloatArray? = null): FinalEqProfile {
-        val bands = FloatArray(BAND_COUNT)
+        val bands = FloatArray(10)
         val base = genreEq[prediction.genre] ?: genreEq[Genre.UNKNOWN]!!
         for (i in bands.indices) bands[i] += base[i]
 
