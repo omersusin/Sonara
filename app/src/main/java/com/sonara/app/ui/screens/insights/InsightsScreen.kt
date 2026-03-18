@@ -57,7 +57,6 @@ fun InsightsScreen() {
     val art by vm.albumArt.collectAsState()
     val p = MaterialTheme.colorScheme.primary
 
-    LaunchedEffect(Unit) { vm.refreshCache() }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Column(Modifier.padding(vertical = 8.dp)) { Text("Insights", style = MaterialTheme.typography.headlineLarge); Spacer(Modifier.height(2.dp)); Text("How Sonara processes your sound", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary) } }
