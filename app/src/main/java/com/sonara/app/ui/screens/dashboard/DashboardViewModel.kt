@@ -19,15 +19,26 @@ data class DashboardUiState(
     val bands: FloatArray = FloatArray(10), val bassBoost: Int = 0, val virtualizer: Int = 0,
     val notificationListenerEnabled: Boolean = false, val eqActive: Boolean = false,
     val isManualPreset: Boolean = false, val songsLearned: Int = 0,
-    val eqStrategy: String = "none", val route: String = "Unknown"
+    val eqStrategy: String = "none", val route: String = "Unknown",
+    val headphoneName: String = "", val autoEqActive: Boolean = false, val autoEqProfile: String = "",
+    val savedMessage: String = ""
 ) {
-    override fun equals(other: Any?): Boolean { if (this === other) return true; if (other !is DashboardUiState) return false; return title == other.title && artist == other.artist && genre == other.genre && bands.contentEquals(other.bands) && currentPresetName == other.currentPresetName && eqStrategy == other.eqStrategy && confidence == other.confidence }
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true; if (other !is DashboardUiState) return false
+        return title == other.title && artist == other.artist && genre == other.genre &&
+            bands.contentEquals(other.bands) && currentPresetName == other.currentPresetName &&
+            eqStrategy == other.eqStrategy && confidence == other.confidence &&
+            headphoneName == other.headphoneName && savedMessage == other.savedMessage
+    }
     override fun hashCode() = title.hashCode()
 }
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
-    private val _uiState = MutableStateFlow(DashboardUiState(eqActive = app.audioSessionManager.isInitialized, eqStrategy = app.audioSessionManager.activeStrategy.value))
+    private val _uiState = MutableStateFlow(DashboardUiState(
+        eqActive = app.audioSessionManager.isInitialized,
+        eqStrategy = app.audioSessionManager.activeStrategy.value
+    ))
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
     val albumArt: StateFlow<Bitmap?> = SonaraNotificationListener.albumArt
 
@@ -47,5 +58,20 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun resetToAi() { app.resetToAi() }
-    fun checkNotificationListener() { _uiState.update { it.copy(notificationListenerEnabled = SonaraNotificationListener.isEnabled(getApplication())) } }
+
+    /** Save current AI EQ as a named preset */
+    fun saveCurrentAsPreset() {
+        val s = _uiState.value
+        val name = if (s.genre != "Unknown") "AI: ${s.genre} (${s.mood})" else "AI Preset"
+        app.saveCurrentAsPreset(name)
+        _uiState.update { it.copy(savedMessage = "Saved as \"$name\"") }
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(2000)
+            _uiState.update { it.copy(savedMessage = "") }
+        }
+    }
+
+    fun checkNotificationListener() {
+        _uiState.update { it.copy(notificationListenerEnabled = SonaraNotificationListener.isEnabled(getApplication())) }
+    }
 }

@@ -19,12 +19,17 @@ class SonaraInferencePipeline(private val lastFmApiKey: String?) {
     private val _currentPrediction = MutableStateFlow<SonaraPrediction?>(null)
     val currentPrediction: StateFlow<SonaraPrediction?> = _currentPrediction.asStateFlow()
 
+    /** Callback for self-training: called after each successful prediction */
+    var onPrediction: ((SonaraTrackInfo, SonaraPrediction) -> Unit)? = null
+
     suspend fun analyze(track: SonaraTrackInfo): SonaraPrediction {
         // 1. Cache
         cache[track.cacheKey]?.let { (pred, time) ->
             if (System.currentTimeMillis() - time < 7 * 24 * 60 * 60 * 1000) {
                 SonaraLogger.ai("Cache hit: ${pred.genre}")
-                return pred.copy(source = PredictionSource.CACHE).also { _currentPrediction.value = it }
+                val cached = pred.copy(source = PredictionSource.CACHE)
+                _currentPrediction.value = cached
+                return cached
             }
         }
 
@@ -57,6 +62,12 @@ class SonaraInferencePipeline(private val lastFmApiKey: String?) {
         // 5. Cache
         cache[track.cacheKey] = prediction to System.currentTimeMillis()
         _currentPrediction.value = prediction
+
+        // 6. Self-training callback
+        try { onPrediction?.invoke(track, prediction) } catch (e: Exception) {
+            SonaraLogger.w("Pipeline", "Training callback error: ${e.message}")
+        }
+
         return prediction
     }
 
@@ -72,6 +83,11 @@ class SonaraInferencePipeline(private val lastFmApiKey: String?) {
             l.contains("aggressive") || l.contains("angry") -> Mood.AGGRESSIVE
             else -> null
         }
+    }
+
+    fun updateApiKey(newKey: String) {
+        // Pipeline uses the key passed at construction, but we can reload
+        SonaraLogger.i("Pipeline", "API key updated")
     }
 
     fun clearCache() { cache.clear() }

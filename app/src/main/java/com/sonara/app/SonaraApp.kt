@@ -6,15 +6,19 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
+import com.sonara.app.audio.engine.SmoothTransitionEngine
 import com.sonara.app.data.SonaraDatabase
 import com.sonara.app.data.SonaraLogger
 import com.sonara.app.data.models.SharedEqState
+import com.sonara.app.data.preferences.SecureSecrets
 import com.sonara.app.data.preferences.SonaraPreferences
+import com.sonara.app.engine.classifier.AdaptiveGenreClassifier
 import com.sonara.app.engine.eq.AudioSessionManager
 import com.sonara.app.engine.eq.EqComposer
 import com.sonara.app.intelligence.adaptive.AdaptiveLearningEngine
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.intelligence.pipeline.*
+import com.sonara.app.media.NextTrackPreloader
 import com.sonara.app.preset.PresetRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,14 +33,18 @@ import kotlinx.coroutines.runBlocking
 
 class SonaraApp : Application() {
     lateinit var preferences: SonaraPreferences private set
+    lateinit var secureSecrets: SecureSecrets private set
     lateinit var database: SonaraDatabase private set
     lateinit var presetRepository: PresetRepository private set
     lateinit var audioSessionManager: AudioSessionManager private set
     lateinit var eqComposer: EqComposer private set
     lateinit var adaptiveLearning: AdaptiveLearningEngine private set
+    lateinit var adaptiveClassifier: AdaptiveGenreClassifier private set
     lateinit var inferencePipeline: SonaraInferencePipeline private set
+    lateinit var nextTrackPreloader: NextTrackPreloader private set
+    lateinit var smoothTransitionEngine: SmoothTransitionEngine private set
 
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _eqState = MutableStateFlow(SharedEqState())
     val eqState: StateFlow<SharedEqState> = _eqState.asStateFlow()
     private val _currentRoute = MutableStateFlow(AudioRoute.UNKNOWN)
@@ -48,6 +56,7 @@ class SonaraApp : Application() {
         super.onCreate()
         instance = this
         preferences = SonaraPreferences(this)
+        secureSecrets = SecureSecrets(this)
         database = SonaraDatabase.get(this)
         presetRepository = PresetRepository(database.presetDao())
 
@@ -56,37 +65,98 @@ class SonaraApp : Application() {
 
         eqComposer = EqComposer()
         adaptiveLearning = AdaptiveLearningEngine(this)
+        adaptiveClassifier = AdaptiveGenreClassifier(this)
+        smoothTransitionEngine = SmoothTransitionEngine()
         appScope.launch { adaptiveLearning.load() }
 
-        val apiKey = runBlocking { preferences.lastFmApiKeyFlow.first() }
+        // Use SecureSecrets first, fallback to DataStore for migration
+        val apiKey = secureSecrets.getLastFmApiKey().takeIf { it.isNotBlank() }
+            ?: runBlocking { preferences.lastFmApiKeyFlow.first() }
+
         inferencePipeline = SonaraInferencePipeline(apiKey.takeIf { it.isNotBlank() })
+        nextTrackPreloader = NextTrackPreloader(inferencePipeline, appScope)
+
+        // Self-training: pipeline trains adaptive classifier on successful resolutions
+        inferencePipeline.onPrediction = { track, prediction ->
+            if (prediction.source == PredictionSource.LASTFM || prediction.source == PredictionSource.MERGED) {
+                adaptiveClassifier.train(
+                    prediction.genre.name.lowercase(),
+                    track.title, track.artist, track.album
+                )
+            }
+        }
 
         // Route monitoring
         val am = getSystemService(AUDIO_SERVICE) as AudioManager
         detectRoute(am)
         am.registerAudioDeviceCallback(object : AudioDeviceCallback() {
-            override fun onAudioDevicesAdded(a: Array<out AudioDeviceInfo>) { detectRoute(am); Handler(Looper.getMainLooper()).postDelayed({ audioSessionManager.reinitialize() }, 500) }
-            override fun onAudioDevicesRemoved(r: Array<out AudioDeviceInfo>) { detectRoute(am); Handler(Looper.getMainLooper()).postDelayed({ audioSessionManager.reinitialize() }, 500) }
+            override fun onAudioDevicesAdded(a: Array<out AudioDeviceInfo>) {
+                detectRoute(am)
+                Handler(Looper.getMainLooper()).postDelayed({ audioSessionManager.reinitialize() }, 500)
+            }
+            override fun onAudioDevicesRemoved(r: Array<out AudioDeviceInfo>) {
+                detectRoute(am)
+                Handler(Looper.getMainLooper()).postDelayed({ audioSessionManager.reinitialize() }, 500)
+            }
         }, Handler(Looper.getMainLooper()))
 
         SonaraLogger.i("App", "Sonara started. EQ: ${audioSessionManager.activeStrategy.value}")
         appScope.launch { presetRepository.initBuiltIns(); TrackCache(database.trackCacheDao()).cleanup() }
     }
 
-    // TEK GİRİŞ NOKTASI: Prediction → EQ
-    fun applyFromPrediction(prediction: SonaraPrediction) {
+    // ═══ SINGLE ENTRY POINT: Prediction → EQ ═══
+    fun applyFromPrediction(prediction: SonaraPrediction, smooth: Boolean = true) {
         val route = _currentRoute.value
         val userOffset = adaptiveLearning.getOffset(prediction.genre, route)
         val profile = eqComposer.compose(prediction, route, userOffset)
-        applyProfile(profile)
+
+        if (smooth) {
+            val oldBands = _currentProfile.value.bands.copyOf()
+            appScope.launch {
+                smoothTransitionEngine.transition(oldBands, profile.bands) { step ->
+                    audioSessionManager.applyBands(step)
+                }
+                // After transition, apply effects
+                audioSessionManager.applyEffects(profile.bassBoost, profile.virtualizer, profile.loudness)
+            }
+            // Update state immediately for UI
+            _currentProfile.value = profile
+            _eqState.update {
+                it.copy(
+                    bands = profile.bands.copyOf().let { b ->
+                        if (b.size < 10) FloatArray(10).also { arr -> b.copyInto(arr) } else b.take(10).toFloatArray()
+                    },
+                    presetName = "AI: ${profile.prediction.genre.displayName}",
+                    isManualPreset = false,
+                    bassBoost = profile.bassBoost,
+                    virtualizer = profile.virtualizer,
+                    loudness = profile.loudness
+                )
+            }
+        } else {
+            applyProfile(profile)
+        }
+
+        SonaraLogger.eq("Applied: ${profile.prediction.genre} bands=${profile.bands.take(5).map { "%.1f".format(it) }} bass=${profile.bassBoost} virt=${profile.virtualizer}")
     }
 
     fun applyProfile(profile: FinalEqProfile) {
         val adjustedBands = FloatArray(profile.bands.size) { profile.bands[it] + profile.preamp }
         audioSessionManager.applyBands(adjustedBands)
+        audioSessionManager.applyEffects(profile.bassBoost, profile.virtualizer, profile.loudness)
         _currentProfile.value = profile
-        _eqState.update { it.copy(bands = profile.bands.copyOf().let { if (it.size < 10) FloatArray(10).also { arr -> it.copyInto(arr) } else it.take(10).toFloatArray() }, presetName = "AI: ${profile.prediction.genre.displayName}", isManualPreset = false, bassBoost = profile.bassBoost, virtualizer = profile.virtualizer, loudness = profile.loudness) }
-        SonaraLogger.eq("Applied: ${profile.prediction.genre} bands=${adjustedBands.take(5).map { "%.1f".format(it) }}")
+        _eqState.update {
+            it.copy(
+                bands = profile.bands.copyOf().let { b ->
+                    if (b.size < 10) FloatArray(10).also { arr -> b.copyInto(arr) } else b.take(10).toFloatArray()
+                },
+                presetName = "AI: ${profile.prediction.genre.displayName}",
+                isManualPreset = false,
+                bassBoost = profile.bassBoost,
+                virtualizer = profile.virtualizer,
+                loudness = profile.loudness
+            )
+        }
     }
 
     fun applyManualBands(bands: FloatArray) {
@@ -94,19 +164,50 @@ class SonaraApp : Application() {
         val pred = _currentProfile.value.prediction
         _eqState.update { it.copy(bands = bands, presetName = "Custom", isManualPreset = true) }
         if (pred.confidence > 0f) {
-            appScope.launch { adaptiveLearning.recordFeedback(pred.genre, _currentRoute.value, _currentProfile.value.bands, bands) }
+            appScope.launch {
+                adaptiveLearning.recordFeedback(pred.genre, _currentRoute.value, _currentProfile.value.bands, bands)
+            }
         }
     }
 
-    // Legacy compatibility
-    fun applyEq(bands: FloatArray, presetName: String = "Custom", manual: Boolean = true, bassBoost: Int = 0, virtualizer: Int = 0, loudness: Int = 0, preamp: Float = 0f) {
+    fun applyEq(bands: FloatArray, presetName: String = "Custom", manual: Boolean = true,
+                bassBoost: Int = 0, virtualizer: Int = 0, loudness: Int = 0, preamp: Float = 0f) {
         val adj = if (preamp != 0f) FloatArray(bands.size) { (bands[it] + preamp).coerceIn(-12f, 12f) } else bands
         audioSessionManager.applyBands(adj)
-        _eqState.update { it.copy(bands = adj, presetName = presetName, isManualPreset = manual, bassBoost = bassBoost, virtualizer = virtualizer, loudness = loudness) }
+        audioSessionManager.applyEffects(bassBoost, virtualizer, loudness)
+        _eqState.update {
+            it.copy(bands = adj, presetName = presetName, isManualPreset = manual,
+                bassBoost = bassBoost, virtualizer = virtualizer, loudness = loudness)
+        }
     }
 
-    fun setEqEnabled(enabled: Boolean) { audioSessionManager.setEnabled(enabled); _eqState.update { it.copy(isEnabled = enabled) } }
-    fun resetToAi() { _eqState.update { it.copy(isManualPreset = false, presetName = "AI Auto") } }
+    fun setEqEnabled(enabled: Boolean) {
+        audioSessionManager.setEnabled(enabled)
+        _eqState.update { it.copy(isEnabled = enabled) }
+    }
+
+    fun resetToAi() {
+        _eqState.update { it.copy(isManualPreset = false, presetName = "AI Auto") }
+    }
+
+    /** Save current AI-generated EQ as a user preset */
+    fun saveCurrentAsPreset(name: String) {
+        appScope.launch {
+            val profile = _currentProfile.value
+            val preset = com.sonara.app.preset.Preset(
+                name = name,
+                bands = com.sonara.app.preset.Preset.fromArray(profile.bands),
+                preamp = profile.preamp,
+                bassBoost = profile.bassBoost,
+                virtualizer = profile.virtualizer,
+                loudness = profile.loudness,
+                category = "ai-generated",
+                genre = profile.prediction.genre.name
+            )
+            presetRepository.save(preset)
+            SonaraLogger.i("App", "Saved AI preset: $name")
+        }
+    }
 
     private fun detectRoute(am: AudioManager) {
         val devices = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
@@ -118,6 +219,11 @@ class SonaraApp : Application() {
         }
     }
 
-    override fun onTerminate() { super.onTerminate(); audioSessionManager.stop(); inferencePipeline.destroy() }
+    override fun onTerminate() {
+        super.onTerminate()
+        audioSessionManager.stop()
+        inferencePipeline.destroy()
+    }
+
     companion object { lateinit var instance: SonaraApp private set }
 }

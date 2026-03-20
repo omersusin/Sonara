@@ -10,8 +10,8 @@ import android.media.audiofx.AudioEffect
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import com.sonara.app.data.SonaraLogger
+import com.sonara.app.engine.effects.EffectsChain
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -26,6 +26,10 @@ class AudioSessionManager(private val context: Context) {
     private var currentBandsDb = FloatArray(10) { 0f }
     private var eqEnabled = true
 
+    // ═══ Effects Chain (BassBoost + Virtualizer + Loudness) ═══
+    val effectsChain = EffectsChain()
+    private var effectsAttachedSession = -1
+
     private val _activeStrategy = MutableStateFlow("none")
     val activeStrategy: StateFlow<String> = _activeStrategy
     private val _activeSessions = MutableStateFlow<Set<Int>>(emptySet())
@@ -36,8 +40,14 @@ class AudioSessionManager(private val context: Context) {
             val sid = intent.getIntExtra(AudioEffect.EXTRA_AUDIO_SESSION, -1)
             val pkg = intent.getStringExtra(AudioEffect.EXTRA_PACKAGE_NAME) ?: ""
             when (intent.action) {
-                AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION -> { SonaraLogger.eq("Session OPEN: $sid ($pkg)"); if (sid > 0) attachToSession(sid) }
-                AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION -> { SonaraLogger.eq("Session CLOSE: $sid"); detachFromSession(sid) }
+                AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION -> {
+                    SonaraLogger.eq("Session OPEN: $sid ($pkg)")
+                    if (sid > 0) attachToSession(sid)
+                }
+                AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION -> {
+                    SonaraLogger.eq("Session CLOSE: $sid")
+                    detachFromSession(sid)
+                }
             }
         }
     }
@@ -54,7 +64,8 @@ class AudioSessionManager(private val context: Context) {
             addAction(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION)
             addAction(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) context.registerReceiver(sessionReceiver, filter, Context.RECEIVER_EXPORTED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+            context.registerReceiver(sessionReceiver, filter, Context.RECEIVER_EXPORTED)
         else context.registerReceiver(sessionReceiver, filter)
 
         audioManager.registerAudioPlaybackCallback(playbackCallback, handler)
@@ -62,6 +73,10 @@ class AudioSessionManager(private val context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) tryDynamicsProcessing()
         handleActivePlayback(audioManager.activePlaybackConfigurations)
         if (dpEq == null) tryFallbackEqualizer()
+
+        // Attach effects chain to session 0 (global)
+        effectsChain.attach(0)
+        effectsAttachedSession = 0
 
         SonaraLogger.eq("Started. Strategy: ${_activeStrategy.value}")
     }
@@ -72,6 +87,7 @@ class AudioSessionManager(private val context: Context) {
         dpEq?.release(); dpEq = null
         sessionEqualizers.values.forEach { it.release() }; sessionEqualizers.clear()
         fallbackEqualizer?.release(); fallbackEqualizer = null
+        effectsChain.release()
         _activeStrategy.value = "none"
     }
 
@@ -84,21 +100,38 @@ class AudioSessionManager(private val context: Context) {
         SonaraLogger.eq("Bands applied (${_activeStrategy.value}): ${bandsDb.take(5).map { "%.1f".format(it) }}")
     }
 
+    /**
+     * Apply BassBoost + Virtualizer + Loudness from FinalEqProfile
+     */
+    fun applyEffects(bassBoost: Int, virtualizer: Int, loudness: Int) {
+        effectsChain.applyProfile(bassBoost, virtualizer, loudness)
+        SonaraLogger.eq("Effects applied: bass=$bassBoost virt=$virtualizer loud=$loudness")
+    }
+
     fun setEnabled(enabled: Boolean) {
         eqEnabled = enabled
         dpEq?.setEnabled(enabled)
         sessionEqualizers.values.forEach { it.setEnabled(enabled) }
         fallbackEqualizer?.setEnabled(enabled)
+        effectsChain.setEnabled(enabled)
     }
 
     fun onSessionOpened(sessionId: Int) { attachToSession(sessionId) }
+
     fun reinitialize() {
         val saved = currentBandsDb.copyOf(); val en = eqEnabled
-        dpEq?.release(); dpEq = null; sessionEqualizers.values.forEach { it.release() }; sessionEqualizers.clear(); fallbackEqualizer?.release(); fallbackEqualizer = null
+        dpEq?.release(); dpEq = null
+        sessionEqualizers.values.forEach { it.release() }; sessionEqualizers.clear()
+        fallbackEqualizer?.release(); fallbackEqualizer = null
+        effectsChain.release()
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) tryDynamicsProcessing()
         handleActivePlayback(audioManager.activePlaybackConfigurations)
         if (dpEq == null) tryFallbackEqualizer()
-        currentBandsDb = saved; eqEnabled = en; applyBands(saved); setEnabled(en)
+
+        effectsChain.attach(0)
+        currentBandsDb = saved; eqEnabled = en
+        applyBands(saved); setEnabled(en)
     }
 
     val isInitialized: Boolean get() = dpEq != null || sessionEqualizers.isNotEmpty() || fallbackEqualizer != null
@@ -121,10 +154,22 @@ class AudioSessionManager(private val context: Context) {
         if (sid <= 0 || sid in sessionEqualizers) return
         val eq = SafeEqualizer.create(Int.MAX_VALUE, sid) ?: return
         sessionEqualizers[sid] = eq; _activeSessions.value = sessionEqualizers.keys.toSet()
-        val mb = IntArray(currentBandsDb.size) { (currentBandsDb[it] * 100).toInt() }; eq.setBands(mb); eq.setEnabled(eqEnabled)
+        val mb = IntArray(currentBandsDb.size) { (currentBandsDb[it] * 100).toInt() }
+        eq.setBands(mb); eq.setEnabled(eqEnabled)
+        // Also attach effects to this session
+        if (effectsAttachedSession <= 0) {
+            effectsChain.attach(sid)
+            effectsAttachedSession = sid
+        }
+        if (_activeStrategy.value == "none" || _activeStrategy.value == "equalizer_session0") {
+            _activeStrategy.value = "equalizer_per_session"
+        }
     }
 
-    private fun detachFromSession(sid: Int) { sessionEqualizers.remove(sid)?.release(); _activeSessions.value = sessionEqualizers.keys.toSet() }
+    private fun detachFromSession(sid: Int) {
+        sessionEqualizers.remove(sid)?.release()
+        _activeSessions.value = sessionEqualizers.keys.toSet()
+    }
 
     private fun handleActivePlayback(configs: List<AudioPlaybackConfiguration>) {
         for (c in configs) { extractSessionId(c)?.let { if (it > 0) attachToSession(it) } }
@@ -132,8 +177,22 @@ class AudioSessionManager(private val context: Context) {
     }
 
     private fun extractSessionId(config: AudioPlaybackConfiguration): Int? {
-        listOf("getClientSessionId").forEach { m -> try { val method = AudioPlaybackConfiguration::class.java.getDeclaredMethod(m); method.isAccessible = true; val id = method.invoke(config) as Int; if (id > 0) return id } catch (_: Exception) {} }
-        listOf("mClientSessionId", "mSessionId").forEach { f -> try { val field = AudioPlaybackConfiguration::class.java.getDeclaredField(f); field.isAccessible = true; val id = field.getInt(config); if (id > 0) return id } catch (_: Exception) {} }
+        listOf("getClientSessionId").forEach { m ->
+            try {
+                val method = AudioPlaybackConfiguration::class.java.getDeclaredMethod(m)
+                method.isAccessible = true
+                val id = method.invoke(config) as Int
+                if (id > 0) return id
+            } catch (_: Exception) {}
+        }
+        listOf("mClientSessionId", "mSessionId").forEach { f ->
+            try {
+                val field = AudioPlaybackConfiguration::class.java.getDeclaredField(f)
+                field.isAccessible = true
+                val id = field.getInt(config)
+                if (id > 0) return id
+            } catch (_: Exception) {}
+        }
         return null
     }
 }
