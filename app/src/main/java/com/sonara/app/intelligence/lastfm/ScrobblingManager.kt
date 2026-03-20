@@ -6,120 +6,93 @@ import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.security.MessageDigest
+import java.util.concurrent.TimeUnit
 
 class ScrobblingManager {
 
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .build()
 
     suspend fun updateNowPlaying(
-        track: String,
-        artist: String,
-        apiKey: String,
-        sharedSecret: String,
-        sessionKey: String
+        track: String, artist: String,
+        apiKey: String, sharedSecret: String, sessionKey: String
     ): Boolean {
         if (track.isBlank() || artist.isBlank() || apiKey.isBlank() || sessionKey.isBlank()) return false
-
-        return try {
-            withContext(Dispatchers.IO) {
-                val params = sortedMapOf(
-                    "method" to "track.updateNowPlaying",
-                    "track" to track,
-                    "artist" to artist,
-                    "api_key" to apiKey,
-                    "sk" to sessionKey
-                )
-                val sig = generateSignature(params, sharedSecret)
-
-                val body = FormBody.Builder()
-                params.forEach { (k, v) -> body.add(k, v) }
-                body.add("api_sig", sig)
-                body.add("format", "json")
-
-                val request = Request.Builder()
-                    .url(LastFmApi.BASE_URL)
-                    .post(body.build())
-                    .build()
-
-                val response = client.newCall(request).execute()
-                response.isSuccessful
-            }
-        } catch (e: Exception) {
-            false
-        }
+        return apiCall(sortedMapOf(
+            "method" to "track.updateNowPlaying",
+            "track" to track, "artist" to artist,
+            "api_key" to apiKey, "sk" to sessionKey
+        ), sharedSecret)
     }
 
     suspend fun scrobble(
-        track: String,
-        artist: String,
-        album: String,
-        timestamp: Long,
-        apiKey: String,
-        sharedSecret: String,
-        sessionKey: String
+        track: String, artist: String, album: String, timestamp: Long,
+        apiKey: String, sharedSecret: String, sessionKey: String
     ): Boolean {
         if (track.isBlank() || artist.isBlank() || apiKey.isBlank() || sessionKey.isBlank()) return false
+        return apiCall(sortedMapOf(
+            "method" to "track.scrobble",
+            "track" to track, "artist" to artist, "album" to album,
+            "timestamp" to (timestamp / 1000).toString(),
+            "api_key" to apiKey, "sk" to sessionKey
+        ), sharedSecret)
+    }
 
-        return try {
-            withContext(Dispatchers.IO) {
-                val params = sortedMapOf(
-                    "method" to "track.scrobble",
-                    "track" to track,
-                    "artist" to artist,
-                    "album" to album,
-                    "timestamp" to (timestamp / 1000).toString(),
-                    "api_key" to apiKey,
-                    "sk" to sessionKey
-                )
-                val sig = generateSignature(params, sharedSecret)
+    suspend fun loveTrack(
+        track: String, artist: String,
+        apiKey: String, sharedSecret: String, sessionKey: String
+    ): Boolean {
+        if (track.isBlank() || artist.isBlank() || apiKey.isBlank() || sessionKey.isBlank()) return false
+        return apiCall(sortedMapOf(
+            "method" to "track.love",
+            "track" to track, "artist" to artist,
+            "api_key" to apiKey, "sk" to sessionKey
+        ), sharedSecret)
+    }
 
-                val body = FormBody.Builder()
-                params.forEach { (k, v) -> body.add(k, v) }
-                body.add("api_sig", sig)
-                body.add("format", "json")
-
-                val request = Request.Builder()
-                    .url(LastFmApi.BASE_URL)
-                    .post(body.build())
-                    .build()
-
-                val response = client.newCall(request).execute()
-                response.isSuccessful
-            }
-        } catch (e: Exception) {
-            false
-        }
+    suspend fun unloveTrack(
+        track: String, artist: String,
+        apiKey: String, sharedSecret: String, sessionKey: String
+    ): Boolean {
+        if (track.isBlank() || artist.isBlank() || apiKey.isBlank() || sessionKey.isBlank()) return false
+        return apiCall(sortedMapOf(
+            "method" to "track.unlove",
+            "track" to track, "artist" to artist,
+            "api_key" to apiKey, "sk" to sessionKey
+        ), sharedSecret)
     }
 
     suspend fun getSessionKey(token: String, apiKey: String, sharedSecret: String): String? {
         return try {
             withContext(Dispatchers.IO) {
-                val params = sortedMapOf(
-                    "method" to "auth.getSession",
-                    "token" to token,
-                    "api_key" to apiKey
-                )
+                val params = sortedMapOf("method" to "auth.getSession", "token" to token, "api_key" to apiKey)
                 val sig = generateSignature(params, sharedSecret)
-
                 val body = FormBody.Builder()
                 params.forEach { (k, v) -> body.add(k, v) }
-                body.add("api_sig", sig)
-                body.add("format", "json")
-
-                val request = Request.Builder()
-                    .url(LastFmApi.BASE_URL)
-                    .post(body.build())
-                    .build()
-
+                body.add("api_sig", sig); body.add("format", "json")
+                val request = Request.Builder().url(LastFmApi.BASE_URL).post(body.build()).build()
                 val response = client.newCall(request).execute()
                 val responseBody = response.body?.string() ?: return@withContext null
-
                 val regex = """"key"\s*:\s*"([^"]+)"""".toRegex()
                 regex.find(responseBody)?.groupValues?.get(1)
             }
-        } catch (e: Exception) {
-            null
-        }
+        } catch (e: Exception) { null }
+    }
+
+    private suspend fun apiCall(params: java.util.SortedMap<String, String>, sharedSecret: String): Boolean {
+        return try {
+            withContext(Dispatchers.IO) {
+                val sig = generateSignature(params, sharedSecret)
+                val body = FormBody.Builder()
+                params.forEach { (k, v) -> body.add(k, v) }
+                body.add("api_sig", sig); body.add("format", "json")
+                val request = Request.Builder().url(LastFmApi.BASE_URL).post(body.build()).build()
+                val response = client.newCall(request).execute()
+                response.use { it.isSuccessful }
+            }
+        } catch (e: Exception) { false }
     }
 
     private fun generateSignature(params: Map<String, String>, secret: String): String {

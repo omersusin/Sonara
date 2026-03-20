@@ -209,6 +209,26 @@ class SonaraApp : Application() {
         }
     }
 
+
+    /** Love or unlove current track on Last.fm */
+    suspend fun loveTrack(title: String, artist: String, love: Boolean): Boolean {
+        return try {
+            val apiKey = secureSecrets.getLastFmApiKey().takeIf { it.isNotBlank() }
+                ?: preferences.lastFmApiKeyFlow.first()
+            val secret = secureSecrets.getLastFmSharedSecret().takeIf { it.isNotBlank() }
+                ?: preferences.lastFmSharedSecretFlow.first()
+            val sessionKey = secureSecrets.getLastFmSessionKey().takeIf { it.isNotBlank() }
+                ?: preferences.lastFmSessionKeyFlow.first()
+            if (apiKey.isBlank() || sessionKey.isBlank()) return false
+            val scrobbler = com.sonara.app.intelligence.lastfm.ScrobblingManager()
+            if (love) scrobbler.loveTrack(title, artist, apiKey, secret, sessionKey)
+            else scrobbler.unloveTrack(title, artist, apiKey, secret, sessionKey)
+        } catch (e: Exception) {
+            com.sonara.app.data.SonaraLogger.w("App", "Love track failed: ${e.message}")
+            false
+        }
+    }
+
     private fun detectRoute(am: AudioManager) {
         val devices = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
         _currentRoute.value = when {

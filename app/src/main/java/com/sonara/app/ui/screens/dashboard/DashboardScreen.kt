@@ -20,14 +20,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,11 +60,7 @@ fun DashboardScreen() {
     val ctx = LocalContext.current
     val lc = LocalLifecycleOwner.current
     LaunchedEffect(lc) { lc.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { vm.checkNotificationListener() } }
-
-    // Show toast when preset saved
-    LaunchedEffect(s.savedMessage) {
-        if (s.savedMessage.isNotBlank()) Toast.makeText(ctx, s.savedMessage, Toast.LENGTH_SHORT).show()
-    }
+    LaunchedEffect(s.savedMessage) { if (s.savedMessage.isNotBlank()) Toast.makeText(ctx, s.savedMessage, Toast.LENGTH_SHORT).show() }
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -90,10 +84,15 @@ fun DashboardScreen() {
             item { PermissionCard(onGrant = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) }
         }
 
-        item { NowPlayingBar(if (s.hasTrack) s.title else "No music playing", s.artist, s.isPlaying, art) }
+        item {
+            NowPlayingBar(
+                title = if (s.hasTrack) s.title else "No music playing",
+                artist = s.artist, isPlaying = s.isPlaying, albumArt = art,
+                isLoved = s.isLoved, onLoveToggle = { vm.toggleLove() }
+            )
+        }
 
         if (s.hasTrack) {
-            // Intelligence card
             item {
                 FluentCard {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
@@ -127,7 +126,6 @@ fun DashboardScreen() {
             item { FluentCard { Text("Play some music to start", style = MaterialTheme.typography.bodyLarge, color = SonaraTextSecondary) } }
         }
 
-        // Sound Profile card with Save & Reset
         item {
             FluentCard {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -143,16 +141,13 @@ fun DashboardScreen() {
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    // Save current AI EQ as preset
                     if (s.hasTrack && !s.isManualPreset) {
                         TextButton(onClick = { vm.saveCurrentAsPreset() }) {
                             Icon(Icons.Rounded.Save, null, Modifier.size(16.dp), tint = p)
                             Spacer(Modifier.width(4.dp))
                             Text("Save Preset", color = p)
                         }
-                    } else {
-                        Spacer(Modifier.width(1.dp))
-                    }
+                    } else { Spacer(Modifier.width(1.dp)) }
                     TextButton(onClick = { vm.resetToAi() }) {
                         Icon(Icons.Rounded.RestartAlt, null, Modifier.size(16.dp), tint = p)
                         Spacer(Modifier.width(4.dp))
