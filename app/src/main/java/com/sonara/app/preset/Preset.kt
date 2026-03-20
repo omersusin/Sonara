@@ -22,6 +22,6 @@ data class Preset(
     fun bandsArray(): FloatArray = bands.split(",").map { it.toFloat() }.toFloatArray()
 
     companion object {
-        fun fromArray(arr: FloatArray): String = arr.joinToString(",") { String.format("%.1f", it) }
+        fun fromArray(arr: FloatArray): String = arr.joinToString(",") { String.format(java.util.Locale.US, "%.1f", it) }
     }
 }

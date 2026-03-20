@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.HorizontalDivider
@@ -30,7 +29,6 @@ fun SonaraBottomBar(navController: NavController) {
     val items = listOf(
         NavItem(Screen.Dashboard, Icons.Rounded.Home),
         NavItem(Screen.Equalizer, Icons.Rounded.Tune),
-        NavItem(Screen.Presets, Icons.Rounded.QueueMusic),
         NavItem(Screen.Insights, Icons.Rounded.BarChart),
         NavItem(Screen.Settings, Icons.Rounded.Settings)
     )
@@ -49,18 +47,15 @@ fun SonaraBottomBar(navController: NavController) {
                         if (currentRoute != item.screen.route) {
                             navController.navigate(item.screen.route) {
                                 popUpTo(Screen.Dashboard.route) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
+                                launchSingleTop = true; restoreState = true
                             }
                         }
                     },
                     icon = { Icon(item.icon, contentDescription = item.screen.label) },
                     label = { Text(item.screen.label) },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = primary,
-                        selectedTextColor = primary,
-                        unselectedIconColor = SonaraTextTertiary,
-                        unselectedTextColor = SonaraTextTertiary,
+                        selectedIconColor = primary, selectedTextColor = primary,
+                        unselectedIconColor = SonaraTextTertiary, unselectedTextColor = SonaraTextTertiary,
                         indicatorColor = primary.copy(alpha = 0.1f)
                     )
                 )
