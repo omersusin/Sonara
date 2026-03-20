@@ -30,14 +30,15 @@ class SonaraService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var isLoved = false
+    private var lastTrackKey = ""
 
     override fun onCreate() {
         super.onCreate(); createChannel()
         scope.launch {
             combine(SonaraNotificationListener.nowPlaying, SonaraNotificationListener.albumArt) { np, art -> np to art }
                 .collect { (np, art) ->
-                    // Reset love state on new track
-                    if (np.title.isNotBlank()) isLoved = false
+                    val key = "${np.title}::${np.artist}"
+                    if (key != lastTrackKey) { isLoved = false; lastTrackKey = key }
                     val n = buildNotification(np.title.ifBlank { "Sonara" }, np.artist, np.isPlaying, art)
                     getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, n)
                 }
@@ -51,17 +52,13 @@ class SonaraService : Service() {
                 val np = SonaraNotificationListener.nowPlaying.value
                 if (np.title.isNotBlank()) {
                     isLoved = !isLoved
-                    // Update notification immediately with new heart state
-                    val art = SonaraNotificationListener.albumArt.value
-                    val n = buildNotification(np.title, np.artist, np.isPlaying, art)
-                    getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, n)
-                    // Send love/unlove to Last.fm in background
+                    updateNotification()
                     scope.launch(Dispatchers.IO) {
                         try {
                             val app = application as SonaraApp
                             val ok = app.loveTrack(np.title, np.artist, isLoved)
-                            if (ok) SonaraLogger.i("Scrobble", "${if (isLoved) "Loved" else "Unloved"}: ${np.title}")
-                            else { isLoved = !isLoved; updateNotification() } // revert on failure
+                            if (ok) SonaraLogger.i("Scrobble", "${if (isLoved) "❤ Loved" else "Unloved"}: ${np.title}")
+                            else { isLoved = !isLoved; updateNotification() }
                         } catch (e: Exception) {
                             SonaraLogger.w("Scrobble", "Love failed: ${e.message}")
                             isLoved = !isLoved; updateNotification()
@@ -103,15 +100,15 @@ class SonaraService : Service() {
             else -> "Sound engine active"
         }
 
-        val loveIcon = if (isLoved) android.R.drawable.btn_star_big_on else android.R.drawable.btn_star_big_off
-        val loveLabel = if (isLoved) "Unlove" else "Love"
+        // Heart symbol in action label (visible on all Android versions)
+        val heartLabel = if (isLoved) "♥" else "♡"
 
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(title)
             .setContentText(sub)
             .setContentIntent(open)
-            .addAction(Notification.Action.Builder(null, loveLabel, love).build())
+            .addAction(Notification.Action.Builder(null, heartLabel, love).build())
             .addAction(Notification.Action.Builder(null, "Stop", stop).build())
             .setOngoing(true)
             .setShowWhen(false)
