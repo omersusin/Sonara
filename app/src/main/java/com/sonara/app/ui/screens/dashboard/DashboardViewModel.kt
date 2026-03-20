@@ -13,37 +13,75 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class DashboardUiState(
-    val title: String = "", val artist: String = "", val isPlaying: Boolean = false, val hasTrack: Boolean = false,
-    val genre: String = "Unknown", val mood: String = "Unknown", val energy: Float = 0.5f, val confidence: Float = 0f,
-    val sourceLabel: String = "None", val currentPresetName: String = "Flat", val isAiEnabled: Boolean = true,
-    val bands: FloatArray = FloatArray(10), val bassBoost: Int = 0, val virtualizer: Int = 0,
-    val notificationListenerEnabled: Boolean = false, val eqActive: Boolean = false,
-    val isManualPreset: Boolean = false, val songsLearned: Int = 0,
-    val eqStrategy: String = "none", val route: String = "Unknown",
-    val headphoneName: String = "", val autoEqActive: Boolean = false, val autoEqProfile: String = "",
-    val savedMessage: String = ""
+    val title: String = "",
+    val artist: String = "",
+    val isPlaying: Boolean = false,
+    val hasTrack: Boolean = false,
+    val genre: String = "Unknown",
+    val mood: String = "Unknown",
+    val energy: Float = 0.5f,
+    val confidence: Float = 0f,
+    val sourceLabel: String = "None",
+    val currentPresetName: String = "Flat",
+    val isAiEnabled: Boolean = true,
+    val bands: FloatArray = FloatArray(10),
+    val bassBoost: Int = 0,
+    val virtualizer: Int = 0,
+    val loudness: Int = 0,
+    val notificationListenerEnabled: Boolean = false,
+    val eqActive: Boolean = false,
+    val isManualPreset: Boolean = false,
+    val songsLearned: Int = 0,
+    val eqStrategy: String = "none",
+    val route: String = "Speaker",
+    val headphoneName: String = "",
+    val savedMessage: String = "",
+    val isLoved: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
-        if (this === other) return true; if (other !is DashboardUiState) return false
-        return title == other.title && artist == other.artist && genre == other.genre &&
-            bands.contentEquals(other.bands) && currentPresetName == other.currentPresetName &&
-            eqStrategy == other.eqStrategy && confidence == other.confidence &&
-            headphoneName == other.headphoneName && savedMessage == other.savedMessage
+        if (this === other) return true
+        if (other !is DashboardUiState) return false
+        return title == other.title && artist == other.artist &&
+            isPlaying == other.isPlaying && hasTrack == other.hasTrack &&
+            genre == other.genre && mood == other.mood &&
+            energy == other.energy && confidence == other.confidence &&
+            sourceLabel == other.sourceLabel &&
+            currentPresetName == other.currentPresetName &&
+            isAiEnabled == other.isAiEnabled &&
+            bands.contentEquals(other.bands) &&
+            bassBoost == other.bassBoost && virtualizer == other.virtualizer &&
+            loudness == other.loudness &&
+            notificationListenerEnabled == other.notificationListenerEnabled &&
+            eqActive == other.eqActive && isManualPreset == other.isManualPreset &&
+            songsLearned == other.songsLearned &&
+            eqStrategy == other.eqStrategy && route == other.route &&
+            headphoneName == other.headphoneName &&
+            savedMessage == other.savedMessage && isLoved == other.isLoved
     }
-    override fun hashCode() = title.hashCode()
+    override fun hashCode(): Int {
+        var result = title.hashCode()
+        result = 31 * result + genre.hashCode()
+        result = 31 * result + mood.hashCode()
+        result = 31 * result + route.hashCode()
+        result = 31 * result + bands.contentHashCode()
+        result = 31 * result + notificationListenerEnabled.hashCode()
+        result = 31 * result + isLoved.hashCode()
+        return result
+    }
 }
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
     private val _uiState = MutableStateFlow(DashboardUiState(
         eqActive = app.audioSessionManager.isInitialized,
-        eqStrategy = app.audioSessionManager.activeStrategy.value
+        eqStrategy = app.audioSessionManager.activeStrategy.value,
+        route = app.currentRoute.value.displayName
     ))
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
     val albumArt: StateFlow<Bitmap?> = SonaraNotificationListener.albumArt
 
     init {
-        viewModelScope.launch { app.eqState.collect { eq -> _uiState.update { it.copy(bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer, currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset) } } }
+        viewModelScope.launch { app.eqState.collect { eq -> _uiState.update { it.copy(bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer, loudness = eq.loudness, currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset) } } }
         viewModelScope.launch { SonaraNotificationListener.nowPlaying.collect { np -> _uiState.update { it.copy(title = np.title, artist = np.artist, isPlaying = np.isPlaying, hasTrack = np.title.isNotBlank()) } } }
         viewModelScope.launch { SonaraNotificationListener.currentGenre.collect { g -> if (g.isNotBlank()) _uiState.update { it.copy(genre = g) } } }
         viewModelScope.launch { SonaraNotificationListener.currentMood.collect { m -> if (m.isNotBlank()) _uiState.update { it.copy(mood = m) } } }
@@ -59,7 +97,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun resetToAi() { app.resetToAi() }
 
-    /** Save current AI EQ as a named preset */
     fun saveCurrentAsPreset() {
         val s = _uiState.value
         val name = if (s.genre != "Unknown") "AI: ${s.genre} (${s.mood})" else "AI Preset"
@@ -71,7 +108,20 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun toggleLove() {
+        val s = _uiState.value
+        if (s.title.isBlank()) return
+        val newState = !s.isLoved
+        _uiState.update { it.copy(isLoved = newState) }
+        viewModelScope.launch {
+            val ok = app.loveTrack(s.title, s.artist, newState)
+            if (!ok) _uiState.update { it.copy(isLoved = !newState) }
+        }
+    }
+
     fun checkNotificationListener() {
-        _uiState.update { it.copy(notificationListenerEnabled = SonaraNotificationListener.isEnabled(getApplication())) }
+        val instanceAlive = SonaraNotificationListener.instance != null
+        val systemEnabled = SonaraNotificationListener.isEnabled(getApplication())
+        _uiState.update { it.copy(notificationListenerEnabled = instanceAlive || systemEnabled) }
     }
 }
