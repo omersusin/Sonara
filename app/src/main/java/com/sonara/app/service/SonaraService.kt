@@ -10,6 +10,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.os.IBinder
 import com.sonara.app.MainActivity
+import com.sonara.app.SonaraApp
+import com.sonara.app.data.SonaraLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -22,16 +24,20 @@ class SonaraService : Service() {
         const val CHANNEL_ID = "sonara_engine"
         const val NOTIFICATION_ID = 1
         const val ACTION_STOP = "com.sonara.app.STOP"
+        const val ACTION_LOVE = "com.sonara.app.LOVE"
         fun start(ctx: Context) { ctx.startForegroundService(Intent(ctx, SonaraService::class.java)) }
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var isLoved = false
 
     override fun onCreate() {
         super.onCreate(); createChannel()
         scope.launch {
             combine(SonaraNotificationListener.nowPlaying, SonaraNotificationListener.albumArt) { np, art -> np to art }
                 .collect { (np, art) ->
+                    // Reset love state on new track
+                    if (np.title.isNotBlank()) isLoved = false
                     val n = buildNotification(np.title.ifBlank { "Sonara" }, np.artist, np.isPlaying, art)
                     getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, n)
                 }
@@ -39,7 +45,32 @@ class SonaraService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return START_NOT_STICKY }
+        when (intent?.action) {
+            ACTION_STOP -> { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return START_NOT_STICKY }
+            ACTION_LOVE -> {
+                val np = SonaraNotificationListener.nowPlaying.value
+                if (np.title.isNotBlank()) {
+                    isLoved = !isLoved
+                    // Update notification immediately with new heart state
+                    val art = SonaraNotificationListener.albumArt.value
+                    val n = buildNotification(np.title, np.artist, np.isPlaying, art)
+                    getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, n)
+                    // Send love/unlove to Last.fm in background
+                    scope.launch(Dispatchers.IO) {
+                        try {
+                            val app = application as SonaraApp
+                            val ok = app.loveTrack(np.title, np.artist, isLoved)
+                            if (ok) SonaraLogger.i("Scrobble", "${if (isLoved) "Loved" else "Unloved"}: ${np.title}")
+                            else { isLoved = !isLoved; updateNotification() } // revert on failure
+                        } catch (e: Exception) {
+                            SonaraLogger.w("Scrobble", "Love failed: ${e.message}")
+                            isLoved = !isLoved; updateNotification()
+                        }
+                    }
+                }
+                return START_STICKY
+            }
+        }
         startForeground(NOTIFICATION_ID, buildNotification("Sonara", "Sound engine active", false, null))
         return START_STICKY
     }
@@ -47,17 +78,44 @@ class SonaraService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
 
+    private fun updateNotification() {
+        val np = SonaraNotificationListener.nowPlaying.value
+        val art = SonaraNotificationListener.albumArt.value
+        val n = buildNotification(np.title.ifBlank { "Sonara" }, np.artist, np.isPlaying, art)
+        getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, n)
+    }
+
     private fun buildNotification(title: String, artist: String, isPlaying: Boolean, art: Bitmap?): Notification {
-        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP }, PendingIntent.FLAG_IMMUTABLE)
-        val stop = PendingIntent.getService(this, 1, Intent(this, SonaraService::class.java).apply { action = ACTION_STOP }, PendingIntent.FLAG_IMMUTABLE)
-        val sub = when { artist.isNotBlank() && isPlaying -> "$artist · Playing"; artist.isNotBlank() -> artist; isPlaying -> "Playing"; else -> "Sound engine active" }
+        val open = PendingIntent.getActivity(this, 0,
+            Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP },
+            PendingIntent.FLAG_IMMUTABLE)
+        val stop = PendingIntent.getService(this, 1,
+            Intent(this, SonaraService::class.java).apply { action = ACTION_STOP },
+            PendingIntent.FLAG_IMMUTABLE)
+        val love = PendingIntent.getService(this, 2,
+            Intent(this, SonaraService::class.java).apply { action = ACTION_LOVE },
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+
+        val sub = when {
+            artist.isNotBlank() && isPlaying -> "$artist · Playing"
+            artist.isNotBlank() -> artist
+            isPlaying -> "Playing"
+            else -> "Sound engine active"
+        }
+
+        val loveIcon = if (isLoved) android.R.drawable.btn_star_big_on else android.R.drawable.btn_star_big_off
+        val loveLabel = if (isLoved) "Unlove" else "Love"
 
         val builder = Notification.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_media_play).setContentTitle(title).setContentText(sub)
-            .setContentIntent(open).addAction(Notification.Action.Builder(null, "Stop", stop).build())
-            .setOngoing(true).setShowWhen(false)
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setContentTitle(title)
+            .setContentText(sub)
+            .setContentIntent(open)
+            .addAction(Notification.Action.Builder(null, loveLabel, love).build())
+            .addAction(Notification.Action.Builder(null, "Stop", stop).build())
+            .setOngoing(true)
+            .setShowWhen(false)
 
-        // SAFE: Only use bitmap if not recycled
         if (art != null && !art.isRecycled) { try { builder.setLargeIcon(art) } catch (_: Exception) {} }
 
         return builder.build()

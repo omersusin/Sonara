@@ -55,6 +55,7 @@ class SonaraApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        SonaraLogger.init(this)
         preferences = SonaraPreferences(this)
         secureSecrets = SecureSecrets(this)
         database = SonaraDatabase.get(this)

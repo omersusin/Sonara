@@ -2,6 +2,7 @@ package com.sonara.app.ui.screens.equalizer
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -62,78 +63,45 @@ fun EqualizerScreen() {
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Header
         item {
-            Row(
-                Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Equalizer", style = MaterialTheme.typography.headlineLarge)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     IconButton(onClick = { showSave = true }) { Icon(Icons.Rounded.Save, "Save", tint = SonaraTextSecondary) }
                     IconButton(onClick = { vm.resetBands() }) { Icon(Icons.Rounded.Refresh, "Reset", tint = SonaraTextSecondary) }
-                    Switch(
-                        checked = s.isEnabled,
-                        onCheckedChange = { vm.setEnabled(it) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = p, checkedTrackColor = p.copy(0.3f), uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated)
-                    )
+                    Switch(checked = s.isEnabled, onCheckedChange = { vm.setEnabled(it) },
+                        colors = SwitchDefaults.colors(checkedThumbColor = p, checkedTrackColor = p.copy(0.3f), uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated))
                 }
             }
         }
 
-        // ═══ PRESET DROPDOWN — like system EQ ═══
+        // Preset dropdown
         item {
             FluentCard {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Presets", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-
-                    // Dropdown trigger
-                    Surface(
-                        onClick = { showPresetMenu = true },
-                        shape = MaterialTheme.shapes.small,
-                        color = SonaraCardElevated,
-                        border = BorderStroke(1.dp, SonaraDivider.copy(0.3f))
-                    ) {
-                        Row(
-                            Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    Box {
+                        Surface(
+                            onClick = { showPresetMenu = true },
+                            shape = MaterialTheme.shapes.small,
+                            color = SonaraCardElevated,
+                            border = BorderStroke(1.dp, SonaraDivider.copy(0.3f))
                         ) {
-                            Text(
-                                s.currentPresetName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = p
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Icon(Icons.Rounded.ArrowDropDown, null, tint = p)
+                            Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(s.currentPresetName, style = MaterialTheme.typography.bodyMedium, color = p)
+                                Spacer(Modifier.width(8.dp))
+                                Icon(Icons.Rounded.ArrowDropDown, null, tint = p)
+                            }
                         }
-
-                        // Dropdown menu
-                        DropdownMenu(
-                            expanded = showPresetMenu,
-                            onDismissRequest = { showPresetMenu = false },
-                            containerColor = SonaraCard
-                        ) {
-                            // AI Auto — always first
+                        DropdownMenu(expanded = showPresetMenu, onDismissRequest = { showPresetMenu = false }) {
                             DropdownMenuItem(
                                 text = { Text("AI Auto", color = if (s.currentPresetName.startsWith("AI")) p else SonaraTextPrimary) },
                                 onClick = { vm.resetToAi(); showPresetMenu = false }
                             )
                             HorizontalDivider(color = SonaraDivider.copy(0.3f))
-
-                            // Built-in and user presets
                             s.availablePresets.forEach { preset ->
                                 DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            preset.name,
-                                            color = if (preset.name == s.currentPresetName) p else SonaraTextPrimary
-                                        )
-                                    },
+                                    text = { Text(preset.name, color = if (preset.name == s.currentPresetName) p else SonaraTextPrimary) },
                                     onClick = { vm.applyPreset(preset); showPresetMenu = false }
                                 )
                             }
@@ -143,53 +111,32 @@ fun EqualizerScreen() {
             }
         }
 
-        // EQ Curve
         item { FluentCard { EqCurve(bands = s.bands) } }
 
-        // 10-Band Sliders
-        item {
-            FluentCard {
-                Text("Bands", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    s.bands.forEachIndexed { i, v ->
-                        BandSlider(v, { vm.setBand(i, it) }, TenBandEqualizer.LABELS[i], enabled = s.isEnabled)
-                    }
-                }
+        item { FluentCard {
+            Text("Bands", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                s.bands.forEachIndexed { i, v -> BandSlider(v, { vm.setBand(i, it) }, TenBandEqualizer.LABELS[i], enabled = s.isEnabled) }
             }
-        }
+        } }
 
-        // Preamp
-        item {
-            FluentCard {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Preamp", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-                    Text(
-                        "${if (s.preamp >= 0) "+" else ""}${"%.1f".format(s.preamp)} dB",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (s.preamp != 0f) p else SonaraTextTertiary
-                    )
-                }
-                Spacer(Modifier.height(4.dp))
-                Slider(
-                    s.preamp, { vm.setPreamp(it) }, valueRange = -12f..12f, enabled = s.isEnabled,
-                    colors = SliderDefaults.colors(thumbColor = p, activeTrackColor = p, inactiveTrackColor = SonaraCardElevated)
-                )
-            }
-        }
+        item { FluentCard {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Preamp", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+                Text("${if (s.preamp >= 0) "+" else ""}${"%.1f".format(s.preamp)} dB", style = MaterialTheme.typography.labelLarge, color = if (s.preamp != 0f) p else SonaraTextTertiary)
+            }; Spacer(Modifier.height(4.dp))
+            Slider(s.preamp, { vm.setPreamp(it) }, valueRange = -12f..12f, enabled = s.isEnabled,
+                colors = SliderDefaults.colors(thumbColor = p, activeTrackColor = p, inactiveTrackColor = SonaraCardElevated))
+        } }
 
-        // Effects
-        item {
-            FluentCard {
-                Text("Effects", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-                Spacer(Modifier.height(12.dp))
-                EffRow("Bass Boost", s.bassBoost, { vm.setBassBoost(it) }, s.isEnabled, p, 1000f) { "${(it / 10f).roundToInt()}%" }
-                Spacer(Modifier.height(8.dp))
-                EffRow("Virtualizer", s.virtualizer, { vm.setVirtualizer(it) }, s.isEnabled, p, 1000f) { "${(it / 10f).roundToInt()}%" }
-                Spacer(Modifier.height(8.dp))
-                EffRow("Loudness", s.loudness, { vm.setLoudness(it) }, s.isEnabled, p, 3000f) { "${"%.1f".format(it / 100f)} dB" }
-            }
-        }
+        item { FluentCard {
+            Text("Effects", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Spacer(Modifier.height(12.dp))
+            EffRow("Bass Boost", s.bassBoost, { vm.setBassBoost(it) }, s.isEnabled, p, 1000f) { "${(it / 10f).roundToInt()}%" }
+            Spacer(Modifier.height(8.dp))
+            EffRow("Virtualizer", s.virtualizer, { vm.setVirtualizer(it) }, s.isEnabled, p, 1000f) { "${(it / 10f).roundToInt()}%" }
+            Spacer(Modifier.height(8.dp))
+            EffRow("Loudness", s.loudness, { vm.setLoudness(it) }, s.isEnabled, p, 3000f) { "${"%.1f".format(it / 100f)} dB" }
+        } }
 
         item { Spacer(Modifier.height(8.dp)) }
     }
@@ -204,33 +151,17 @@ private fun EffRow(label: String, value: Int, onChange: (Int) -> Unit, enabled: 
             Text(label, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
             Text(format(value), style = MaterialTheme.typography.labelMedium, color = if (value > 0) p else SonaraTextTertiary)
         }
-        Slider(
-            value.toFloat(), { onChange(it.toInt()) }, valueRange = 0f..max, enabled = enabled,
-            colors = SliderDefaults.colors(thumbColor = p, activeTrackColor = p, inactiveTrackColor = SonaraCardElevated)
-        )
+        Slider(value.toFloat(), { onChange(it.toInt()) }, valueRange = 0f..max, enabled = enabled,
+            colors = SliderDefaults.colors(thumbColor = p, activeTrackColor = p, inactiveTrackColor = SonaraCardElevated))
     }
 }
 
 @Composable
 private fun SaveDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var name by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismiss, containerColor = SonaraCard,
-        title = { Text("Save Preset") },
-        text = {
-            OutlinedTextField(
-                name, { name = it },
-                placeholder = { Text("Preset name", color = SonaraTextTertiary) },
-                singleLine = true, shape = MaterialTheme.shapes.small,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = SonaraDivider,
-                    focusedContainerColor = SonaraCardElevated, unfocusedContainerColor = SonaraCardElevated,
-                    cursorColor = MaterialTheme.colorScheme.primary,
-                    focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary
-                )
-            )
-        },
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Save Preset") },
+        text = { OutlinedTextField(name, { name = it }, placeholder = { Text("Preset name", color = SonaraTextTertiary) }, singleLine = true, shape = MaterialTheme.shapes.small,
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = SonaraDivider, focusedContainerColor = SonaraCardElevated, unfocusedContainerColor = SonaraCardElevated, cursorColor = MaterialTheme.colorScheme.primary, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary)) },
         confirmButton = { TextButton({ if (name.isNotBlank()) onSave(name) }) { Text("Save", color = MaterialTheme.colorScheme.primary) } },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel", color = SonaraTextSecondary) } }
-    )
+        dismissButton = { TextButton(onDismiss) { Text("Cancel", color = SonaraTextSecondary) } })
 }
