@@ -8,20 +8,23 @@ interface LastFmApi {
     suspend fun getTrackInfo(
         @Query("track") track: String,
         @Query("artist") artist: String,
-        @Query("api_key") apiKey: String
+        @Query("api_key") apiKey: String,
+        @Query("autocorrect") autocorrect: Int = 1
     ): LastFmTrackResponse
 
     @GET("?method=track.getTags&format=json")
     suspend fun getTrackTags(
         @Query("track") track: String,
         @Query("artist") artist: String,
-        @Query("api_key") apiKey: String
+        @Query("api_key") apiKey: String,
+        @Query("autocorrect") autocorrect: Int = 1
     ): LastFmTrackResponse
 
     @GET("?method=artist.getTopTags&format=json")
     suspend fun getArtistTags(
         @Query("artist") artist: String,
-        @Query("api_key") apiKey: String
+        @Query("api_key") apiKey: String,
+        @Query("autocorrect") autocorrect: Int = 1
     ): LastFmArtistTagsResponse
 
     companion object {

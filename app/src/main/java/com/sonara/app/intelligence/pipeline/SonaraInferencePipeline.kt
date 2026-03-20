@@ -1,0 +1,79 @@
+package com.sonara.app.intelligence.pipeline
+
+import com.sonara.app.data.SonaraLogger
+import com.sonara.app.intelligence.classifier.MetadataClassifier
+import com.sonara.app.intelligence.lastfm.LastFmClient
+import com.sonara.app.intelligence.lastfm.LastFmResolver
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.ConcurrentHashMap
+
+class SonaraInferencePipeline(private val lastFmApiKey: String?) {
+    private val classifier = MetadataClassifier()
+    private val lastFmResolver = LastFmResolver()
+    private val cache = ConcurrentHashMap<String, Pair<SonaraPrediction, Long>>()
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+    private val _currentPrediction = MutableStateFlow<SonaraPrediction?>(null)
+    val currentPrediction: StateFlow<SonaraPrediction?> = _currentPrediction.asStateFlow()
+
+    suspend fun analyze(track: SonaraTrackInfo): SonaraPrediction {
+        // 1. Cache
+        cache[track.cacheKey]?.let { (pred, time) ->
+            if (System.currentTimeMillis() - time < 7 * 24 * 60 * 60 * 1000) {
+                SonaraLogger.ai("Cache hit: ${pred.genre}")
+                return pred.copy(source = PredictionSource.CACHE).also { _currentPrediction.value = it }
+            }
+        }
+
+        SonaraLogger.ai("Analyzing: ${track.artist} - ${track.title}")
+
+        // 2. Local classifier (instant)
+        val localResult = classifier.classify(track)
+
+        // 3. Last.fm (parallel, 5s timeout)
+        var lastFmSignal: SignalMerger.LastFmSignal? = null
+        if (!lastFmApiKey.isNullOrBlank()) {
+            try {
+                lastFmSignal = withTimeout(5000) {
+                    val result = lastFmResolver.resolve(track.title, track.artist, lastFmApiKey)
+                    if (result != null && result.genre.isNotBlank() && result.genre != "other") {
+                        val genre = Genre.fromString(result.genre)
+                        if (genre != Genre.UNKNOWN) {
+                            val mood = inferMoodFromTags(result.mood)
+                            SignalMerger.LastFmSignal(genre, mood, result.energy, listOf(result.genre, result.mood).filter { it.isNotBlank() })
+                        } else null
+                    } else null
+                }
+            } catch (e: Exception) { SonaraLogger.ai("Last.fm timeout/error: ${e.message}") }
+        }
+
+        // 4. Merge
+        val prediction = SignalMerger.merge(lastFmSignal, localResult)
+        SonaraLogger.ai("Result: ${prediction.genre} | ${prediction.mood} | conf=${prediction.confidence} | src=${prediction.source}")
+
+        // 5. Cache
+        cache[track.cacheKey] = prediction to System.currentTimeMillis()
+        _currentPrediction.value = prediction
+        return prediction
+    }
+
+    private fun inferMoodFromTags(moodStr: String): Mood? {
+        val l = moodStr.lowercase()
+        return when {
+            l.contains("sad") || l.contains("melanchol") -> Mood.MELANCHOLIC
+            l.contains("happy") || l.contains("cheerful") -> Mood.HAPPY
+            l.contains("energetic") || l.contains("party") -> Mood.ENERGETIC
+            l.contains("calm") || l.contains("chill") || l.contains("relax") -> Mood.CALM
+            l.contains("dark") || l.contains("gothic") -> Mood.DARK
+            l.contains("romantic") || l.contains("love") -> Mood.ROMANTIC
+            l.contains("aggressive") || l.contains("angry") -> Mood.AGGRESSIVE
+            else -> null
+        }
+    }
+
+    fun clearCache() { cache.clear() }
+    fun destroy() { scope.cancel() }
+}
