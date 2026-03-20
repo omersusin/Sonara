@@ -159,7 +159,7 @@ class SonaraNotificationListener : NotificationListenerService() {
         scope.launch {
             try {
                 val app = application as SonaraApp
-                if (app.eqState.value.isManualPreset) return@launch
+                val isManualPreset = app.eqState.value.isManualPreset
 
                 // ═══ Try preloaded prediction first ═══
                 val preloaded = app.nextTrackPreloader.consumeIfMatch(title, artist)
@@ -180,7 +180,7 @@ class SonaraNotificationListener : NotificationListenerService() {
 
                 // Apply EQ with smooth transition
                 if (prediction.genre != com.sonara.app.intelligence.pipeline.Genre.UNKNOWN && prediction.confidence > 0.05f) {
-                    app.applyFromPrediction(prediction, smooth = true)
+                    if (!isManualPreset) app.applyFromPrediction(prediction, smooth = true)
                 }
 
                 // Train adaptive classifier

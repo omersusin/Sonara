@@ -5,7 +5,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
 import com.sonara.app.audio.equalizer.TenBandEqualizer
-import com.sonara.app.data.SonaraLogger
 import com.sonara.app.preset.Preset
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -35,6 +34,7 @@ data class EqualizerUiState(
             bassBoost == other.bassBoost && virtualizer == other.virtualizer &&
             loudness == other.loudness && isEnabled == other.isEnabled &&
             currentPresetName == other.currentPresetName &&
+            availablePresets.size == other.availablePresets.size &&
             eqStrategy == other.eqStrategy && isClipping == other.isClipping
     }
     override fun hashCode() = bands.contentHashCode()
@@ -54,14 +54,8 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             app.eqState.collect { eq ->
                 _uiState.update {
-                    it.copy(
-                        bands = eq.bands,
-                        bassBoost = eq.bassBoost,
-                        virtualizer = eq.virtualizer,
-                        loudness = eq.loudness,
-                        currentPresetName = eq.presetName,
-                        isEnabled = eq.isEnabled
-                    )
+                    it.copy(bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer,
+                        loudness = eq.loudness, currentPresetName = eq.presetName, isEnabled = eq.isEnabled)
                 }
             }
         }
@@ -115,14 +109,31 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
         debouncedApply(c().bands, c().currentPresetName, c().bassBoost, c().virtualizer, v.coerceIn(0, 3000))
     }
 
-    fun setEnabled(on: Boolean) {
-        app.setEqEnabled(on)
-    }
+    fun setEnabled(on: Boolean) { app.setEqEnabled(on) }
 
     fun resetBands() {
         applyJob?.cancel()
         app.applyEq(FloatArray(10), "Flat", false, 0, 0, 0)
         _uiState.update { it.copy(preamp = 0f) }
+    }
+
+    /** Reset to AI and re-trigger analysis for current track */
+    fun resetToAi() {
+        app.resetToAi()
+        // Force re-analysis of current track
+        viewModelScope.launch {
+            app.inferencePipeline.clearCache()
+            val np = com.sonara.app.service.SonaraNotificationListener.nowPlaying.value
+            if (np.title.isNotBlank()) {
+                val track = com.sonara.app.intelligence.pipeline.SonaraTrackInfo(
+                    np.title, np.artist, np.album, np.duration, np.packageName
+                )
+                val prediction = app.inferencePipeline.analyze(track)
+                if (prediction.genre != com.sonara.app.intelligence.pipeline.Genre.UNKNOWN) {
+                    app.applyFromPrediction(prediction, smooth = true)
+                }
+            }
+        }
     }
 
     fun applyPreset(preset: Preset) {
