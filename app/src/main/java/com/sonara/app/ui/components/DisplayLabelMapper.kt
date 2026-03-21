@@ -39,6 +39,27 @@ object DisplayLabelMapper {
         "POP_ROCK" to "Pop Rock", "pop-rock" to "Pop Rock",
         "BOSSA_NOVA" to "Bossa Nova", "bossa-nova" to "Bossa Nova",
         "TURKISH_POP" to "Turkish Pop", "turkish-pop" to "Turkish Pop",
+        "ELECTRONIC" to "Electronic", "electronic" to "Electronic",
+        "POP" to "Pop", "pop" to "Pop",
+        "ROCK" to "Rock", "rock" to "Rock",
+        "METAL" to "Metal", "metal" to "Metal",
+        "JAZZ" to "Jazz", "jazz" to "Jazz",
+        "BLUES" to "Blues", "blues" to "Blues",
+        "CLASSICAL" to "Classical", "classical" to "Classical",
+        "COUNTRY" to "Country", "country" to "Country",
+        "FOLK" to "Folk", "folk" to "Folk",
+        "REGGAE" to "Reggae", "reggae" to "Reggae",
+        "LATIN" to "Latin", "latin" to "Latin",
+        "AMBIENT" to "Ambient", "ambient" to "Ambient",
+        "SOUL" to "Soul", "soul" to "Soul",
+        "FUNK" to "Funk", "funk" to "Funk",
+        "PUNK" to "Punk", "punk" to "Punk",
+        "INDIE" to "Indie", "indie" to "Indie",
+        "ALTERNATIVE" to "Alternative", "alternative" to "Alternative",
+        "DANCE" to "Dance", "dance" to "Dance",
+        "WORLD" to "World", "world" to "World",
+        "PODCAST" to "Podcast", "AUDIOBOOK" to "Audiobook",
+        "SPEECH" to "Speech", "UNKNOWN" to "Unknown",
     )
 
     private val moodMap = mapOf(
@@ -63,7 +84,7 @@ object DisplayLabelMapper {
         genreMap[raw.uppercase()]?.let { return it }
 
         // Genel formatlama: SNAKE_CASE → Title Case, tire korunur
-        return raw.replace("_", " ")
+        return raw.lowercase().replace("_", " ")
             .split(" ", "-")
             .joinToString(" ") { word ->
                 if (word.length <= 2 && word.all { it.isLetter() }) word.uppercase()

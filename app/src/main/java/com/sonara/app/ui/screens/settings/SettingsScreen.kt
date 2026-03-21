@@ -102,6 +102,12 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
         item { SectionHeader("Advanced") }
         item { AdvancedCard(state, vm) }
 
+        item { SectionHeader("Gemini AI") }
+        item { GeminiCard(state, vm) }
+
+        item { SectionHeader("Theme") }
+        item { ThemeCard(state, vm) }
+
         item { SectionHeader("Presets") }
         item { PresetExportImportCard(vm) }
 
@@ -348,6 +354,12 @@ private fun AdvancedCard(s: SettingsUiState, vm: SettingsViewModel) {
         SwitchRow("Safety Limiter", "Prevent audio clipping", s.safetyLimiter) { vm.setSafetyLimiter(it) }
         SettingsDivider()
         SwitchRow("Scrobbling", "Send listening history to Last.fm", s.scrobblingEnabled) { vm.setScrobblingEnabled(it) }
+        if (s.pendingScrobbles > 0) {
+            Spacer(Modifier.height(4.dp))
+            Text("Pending: ${s.pendingScrobbles} scrobbles queued", style = MaterialTheme.typography.bodySmall, color = SonaraWarning)
+        }
+        SettingsDivider()
+        SwitchRow("Keep Notification", "Show notification when paused", s.keepNotificationPaused) { vm.setKeepNotificationPaused(it) }
     }
 }
 
@@ -437,7 +449,7 @@ private fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Text("Track Cache", style = MaterialTheme.typography.titleMedium)
-                Text("${s.cacheSize} tracks", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                Text("${s.cacheSize} tracks | ${s.personalSamples} learned", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
             }
             OutlinedButton(
                 onClick = { vm.clearCache() }, shape = MaterialTheme.shapes.extraLarge,
@@ -457,6 +469,78 @@ private fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
             ) { Text("Reset") }
         }
+    }
+}
+
+@Composable
+private fun GeminiCard(s: SettingsUiState, vm: SettingsViewModel) {
+    val p = MaterialTheme.colorScheme.primary
+    FluentCard {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Gemini Insights", style = MaterialTheme.typography.titleMedium)
+            StatusChip(if (s.geminiEnabled && s.geminiApiKey.isNotBlank()) "Active" else "Off", if (s.geminiEnabled && s.geminiApiKey.isNotBlank()) ChipStatus.Active else ChipStatus.Inactive)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text("AI-powered track explanations and listening tips", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(10.dp))
+        SwitchRow("Enable Gemini", "Get AI insights for tracks", s.geminiEnabled) { vm.setGeminiEnabled(it) }
+        if (s.geminiEnabled) {
+            SettingsDivider()
+            Text("API Key", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
+            Spacer(Modifier.height(4.dp))
+            OutlinedTextField(
+                value = s.geminiKeyInput, onValueChange = { vm.updateGeminiKeyInput(it) },
+                placeholder = { Text(if (s.geminiApiKey.isNotBlank()) "••••••••" else "Paste Gemini API key", color = SonaraTextTertiary) },
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(), singleLine = true, shape = MaterialTheme.shapes.small, colors = tfColors()
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                OutlinedButton(onClick = { vm.saveGeminiKey() }, enabled = s.geminiKeyInput.isNotBlank(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    border = BorderStroke(1.dp, if (s.geminiKeyInput.isNotBlank()) p else SonaraDivider),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
+                ) { Text("Save") }
+            }
+            SettingsDivider()
+            Text("Model", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("fast" to "Fast", "balanced" to "Balanced", "strong" to "Strong").forEach { (id, label) ->
+                    val sel = s.geminiModel == id
+                    OutlinedButton(onClick = { vm.setGeminiModel(id) },
+                        shape = MaterialTheme.shapes.extraLarge,
+                        border = BorderStroke(1.dp, if (sel) p else SonaraDivider),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = if (sel) p else SonaraTextSecondary),
+                        modifier = Modifier.weight(1f)
+                    ) { Text(label) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeCard(s: SettingsUiState, vm: SettingsViewModel) {
+    val p = MaterialTheme.colorScheme.primary
+    FluentCard {
+        Text("Theme Mode", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (id, label) ->
+                val sel = s.themeMode == id
+                OutlinedButton(onClick = { vm.setThemeMode(id) },
+                    shape = MaterialTheme.shapes.extraLarge,
+                    border = BorderStroke(1.dp, if (sel) p else SonaraDivider),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = if (sel) p else SonaraTextSecondary),
+                    modifier = Modifier.weight(1f)
+                ) { Text(label) }
+            }
+        }
+        SettingsDivider()
+        SwitchRow("Dynamic Colors", "Use wallpaper colors (Android 12+)", s.dynamicColors) { vm.setDynamicColors(it) }
+        SettingsDivider()
+        SwitchRow("High Contrast", "Increase text contrast", s.highContrast) { vm.setHighContrast(it) }
     }
 }
 
