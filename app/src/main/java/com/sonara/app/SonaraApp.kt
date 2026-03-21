@@ -8,6 +8,8 @@ import android.os.Handler
 import android.os.Looper
 import com.sonara.app.audio.engine.SafetyLimiter
 import com.sonara.app.audio.engine.SmoothTransitionEngine
+import com.sonara.app.autoeq.AutoEqManager
+import com.sonara.app.autoeq.HeadphoneDetector
 import com.sonara.app.data.SonaraDatabase
 import com.sonara.app.data.SonaraLogger
 import com.sonara.app.data.models.SharedEqState
@@ -18,6 +20,7 @@ import com.sonara.app.engine.eq.AudioSessionManager
 import com.sonara.app.engine.eq.EqComposer
 import com.sonara.app.intelligence.adaptive.AdaptiveLearningEngine
 import com.sonara.app.intelligence.adaptive.PersonalizationEngine
+import com.sonara.app.intelligence.gemini.GeminiInsightEngine
 import com.sonara.app.intelligence.lastfm.LastFmAuthManager
 import com.sonara.app.intelligence.lastfm.ScrobbleWorker
 import com.sonara.app.intelligence.cache.TrackCache
@@ -50,6 +53,13 @@ class SonaraApp : Application() {
     lateinit var lastFmAuth: LastFmAuthManager private set
     lateinit var personalization: PersonalizationEngine private set
 
+    // Madde 14 FIX: AutoEQ bileşenleri
+    lateinit var autoEqManager: AutoEqManager private set
+    lateinit var headphoneDetector: HeadphoneDetector private set
+
+    // Madde 10 FIX: Gemini engine instance
+    lateinit var geminiEngine: GeminiInsightEngine private set
+
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _eqState = MutableStateFlow(SharedEqState())
     val eqState: StateFlow<SharedEqState> = _eqState.asStateFlow()
@@ -57,6 +67,10 @@ class SonaraApp : Application() {
     val currentRoute: StateFlow<AudioRoute> = _currentRoute.asStateFlow()
     private val _currentProfile = MutableStateFlow(FinalEqProfile.neutral())
     val currentProfile: StateFlow<FinalEqProfile> = _currentProfile.asStateFlow()
+
+    // Madde 10: Gemini insight state (NLS ve Dashboard'da kullanılır)
+    private val _geminiInsight = MutableStateFlow<GeminiInsightEngine.GeminiInsight?>(null)
+    val geminiInsight: StateFlow<GeminiInsightEngine.GeminiInsight?> = _geminiInsight.asStateFlow()
 
     override fun onCreate() {
         super.onCreate()
@@ -80,6 +94,31 @@ class SonaraApp : Application() {
         personalization = PersonalizationEngine(this)
         appScope.launch { personalization.load() }
         ScrobbleWorker.schedule(this)
+
+        // Madde 14 FIX: AutoEQ başlat
+        autoEqManager = AutoEqManager()
+        headphoneDetector = HeadphoneDetector(this)
+        headphoneDetector.start()
+        appScope.launch {
+            headphoneDetector.headphone.collect { hp ->
+                val autoEqOn = preferences.autoEqEnabledFlow.first()
+                autoEqManager.onHeadphoneChanged(hp, autoEqOn)
+                SonaraLogger.i("AutoEQ", "Headphone: ${hp.name} autoEQ=$autoEqOn active=${autoEqManager.state.value.isActive}")
+            }
+        }
+
+        // Madde 10 FIX: Gemini engine
+        val geminiKey = runBlocking { preferences.geminiApiKeyFlow.first() }.ifBlank { BuildConfig.GEMINI_API_KEY }
+        geminiEngine = GeminiInsightEngine(geminiKey)
+        appScope.launch {
+            preferences.geminiModelFlow.collect { m ->
+                geminiEngine.model = when (m) {
+                    "balanced" -> GeminiInsightEngine.GeminiModel.BALANCED
+                    "strong" -> GeminiInsightEngine.GeminiModel.STRONG
+                    else -> GeminiInsightEngine.GeminiModel.FAST
+                }
+            }
+        }
 
         val apiKey = secureSecrets.getLastFmApiKey().takeIf { it.isNotBlank() }
             ?: runBlocking { preferences.lastFmApiKeyFlow.first() }
@@ -110,23 +149,39 @@ class SonaraApp : Application() {
         appScope.launch { presetRepository.initBuiltIns(); TrackCache(database.trackCacheDao()).cleanup() }
     }
 
-    // ═══ SINGLE ENTRY: Prediction → EQ (reads ALL toggles) ═══
-    fun applyFromPrediction(prediction: SonaraPrediction) {
+    /**
+     * SINGLE ENTRY: Prediction → EQ (reads ALL toggles)
+     * Madde 11 FIX: lyricsModifier parametresi eklendi
+     * Madde 14 FIX: AutoEQ correction bands uygulanıyor
+     */
+    fun applyFromPrediction(prediction: SonaraPrediction, lyricsModifier: FloatArray? = null) {
         val route = _currentRoute.value
         val userOffset = personalization.getPersonalOffset(prediction.genre, route) ?: adaptiveLearning.getOffset(prediction.genre, route)
-        val profile = eqComposer.compose(prediction, route, userOffset)
+        val profile = eqComposer.compose(prediction, route, userOffset, lyricsModifier)
+
+        // ─── Madde 14 FIX: AutoEQ correction ───
+        val autoEqEnabled = runBlocking { preferences.autoEqEnabledFlow.first() }
+        val autoEqState = autoEqManager.state.value
+        var correctedBands = profile.bands.copyOf()
+        if (autoEqEnabled && autoEqState.isActive) {
+            val correction = autoEqState.correctionBands
+            for (i in correctedBands.indices) {
+                correctedBands[i] = (correctedBands[i] + correction.getOrElse(i) { 0f }).coerceIn(-12f, 12f)
+            }
+            SonaraLogger.i("AutoEQ", "Applied correction: ${autoEqState.profile?.name}")
+        }
 
         // ─── Safety Limiter (toggle-aware) ───
         val useSafety = runBlocking { preferences.safetyLimiterFlow.first() }
         val finalBands: FloatArray
         val finalPreamp: Float
         if (useSafety) {
-            val (sb, sp) = SafetyLimiter.limit(profile.bands, profile.preamp)
+            val (sb, sp) = SafetyLimiter.limit(correctedBands, profile.preamp)
             finalBands = sb; finalPreamp = sp
         } else {
-            finalBands = profile.bands; finalPreamp = profile.preamp
+            finalBands = correctedBands; finalPreamp = profile.preamp
         }
-        val clipping = SafetyLimiter.wouldClip(profile.bands, profile.preamp)
+        val clipping = SafetyLimiter.wouldClip(correctedBands, profile.preamp)
 
         // ─── Smooth Transitions (toggle-aware) ───
         val useSmooth = runBlocking { preferences.smoothTransitionsFlow.first() }
@@ -158,7 +213,7 @@ class SonaraApp : Application() {
             )
         }
 
-        SonaraLogger.eq("Applied: ${profile.prediction.genre} smooth=$useSmooth safety=$useSafety clip=$clipping preamp=${"%.1f".format(finalPreamp)}")
+        SonaraLogger.eq("Applied: ${profile.prediction.genre} smooth=$useSmooth safety=$useSafety clip=$clipping autoEQ=${autoEqEnabled && autoEqState.isActive} preamp=${"%.1f".format(finalPreamp)}")
     }
 
     fun applyProfile(profile: FinalEqProfile) {
@@ -243,7 +298,13 @@ class SonaraApp : Application() {
         } catch (e: Exception) { SonaraLogger.e("Love", "Failed: ${e.message}"); false }
     }
 
-    /** Rebuild pipeline with new API key — called from Settings */
+    /**
+     * Madde 10 FIX: Gemini insight'ı güncelle
+     */
+    fun updateGeminiInsight(insight: GeminiInsightEngine.GeminiInsight?) {
+        _geminiInsight.value = insight
+    }
+
     fun reloadPipeline() {
         val apiKey = lastFmAuth.getActiveApiKey().takeIf { it.isNotBlank() }
             ?: secureSecrets.getLastFmApiKey().takeIf { it.isNotBlank() }
@@ -259,7 +320,6 @@ class SonaraApp : Application() {
         SonaraLogger.i("App", "Pipeline rebuilt with key=${if (apiKey.isNullOrBlank()) "NONE" else "${apiKey.take(4)}***"}")
     }
 
-    /** Full data reset */
     fun clearAllData() {
         appScope.launch {
             TrackCache(database.trackCacheDao()).clear()
@@ -267,7 +327,7 @@ class SonaraApp : Application() {
             secureSecrets.clearAll()
             database.presetDao().deleteAllCustom()
             inferencePipeline.clearCache()
-            adaptiveLearning.load() // reload empty
+            adaptiveLearning.load()
             SonaraLogger.i("App", "All data cleared")
         }
     }
@@ -282,6 +342,12 @@ class SonaraApp : Application() {
         }
     }
 
-    override fun onTerminate() { super.onTerminate(); audioSessionManager.stop(); inferencePipeline.destroy() }
+    override fun onTerminate() {
+        super.onTerminate()
+        audioSessionManager.stop()
+        inferencePipeline.destroy()
+        headphoneDetector.stop()
+    }
+
     companion object { lateinit var instance: SonaraApp private set }
 }
