@@ -39,8 +39,9 @@ class AdaptiveLearningEngine(private val context: Context) {
                 } catch (_: Exception) {}
             }
         } catch (e: Exception) {
-            SonaraLogger.w("AdaptiveLearning", "Load error: ${e.message}")
+            SonaraLogger.w("AdaptiveLearning", "Load error (clearing corrupted): ${e.message}")
             profiles = mutableMapOf()
+            try { File(context.filesDir, FILE).delete() } catch (_: Exception) {}
         }
     }
 

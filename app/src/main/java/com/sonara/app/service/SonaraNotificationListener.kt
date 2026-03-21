@@ -178,43 +178,38 @@ class SonaraNotificationListener : NotificationListenerService() {
                     app.inferencePipeline.analyze(track)
                 }
 
-                // ═══ Madde 13 FIX: PredictionSourceMapper merkezî source truth ═══
-                val hasLyrics = false // Lyrics sonucu henüz yok, aşağıda güncellenecek
-                val sourceDisplay = PredictionSourceMapper.map(prediction, hasLyrics)
-                val formattedSource = if (sourceDisplay.detail.isNotBlank()) {
-                    "${sourceDisplay.primary} (${sourceDisplay.detail})"
+                // ═══ Lyrics fetch (AWAITED — actually passes modifier to EQ) ═══
+                var lyricsModifier: FloatArray? = null
+                var hasLyrics = false
+                try {
+                    val lyricsResult = LyricsResolver.resolve(normTitle, normArtist, duration)
+                    if (lyricsResult != null) {
+                        val insight = LyricsInsightEngine.analyze(lyricsResult.plainLyrics)
+                        if (insight.confidence > 0.15f) {
+                            lyricsModifier = insight.eqModifier
+                            hasLyrics = true
+                        }
+                        _lyricsInsight.value = insight
+                        SonaraLogger.ai("Lyrics: tone=${insight.tone} conf=${insight.confidence}")
+                    }
+                } catch (e: Exception) {
+                    SonaraLogger.w("NLS", "Lyrics: ${e.message}")
+                }
+
+                // ═══ Source label — HONEST: Unknown = "No Match" ═══
+                val isUnknown = prediction.genre == com.sonara.app.intelligence.pipeline.Genre.UNKNOWN || prediction.confidence < 0.1f
+                val sourceLabel = if (isUnknown) {
+                    "No Match"
                 } else {
-                    sourceDisplay.primary
+                    val sd = PredictionSourceMapper.map(prediction, hasLyrics)
+                    if (sd.detail.isNotBlank()) "${sd.primary} (${sd.detail})" else sd.primary
                 }
 
                 _currentGenre.value = prediction.genre.displayName
                 _currentMood.value = prediction.mood.displayName
                 _currentEnergy.value = prediction.energy
                 _currentConfidence.value = prediction.confidence
-                _currentSource.value = formattedSource
-
-                // ═══ Madde 11 FIX: Lyrics fetch + modifier ═══
-                var lyricsModifier: FloatArray? = null
-                scope.launch {
-                    try {
-                        val lyricsResult = LyricsResolver.resolve(normTitle, normArtist, duration)
-                        if (lyricsResult != null) {
-                            val insight = LyricsInsightEngine.analyze(lyricsResult.plainLyrics)
-                            lyricsModifier = insight.eqModifier
-                            _lyricsInsight.value = insight
-                            SonaraLogger.ai("Lyrics: tone=${insight.tone} theme=${insight.theme}")
-
-                            // Source'u lyrics bilgisiyle güncelle
-                            val updatedSource = PredictionSourceMapper.map(prediction, true)
-                            val updatedLabel = if (updatedSource.detail.isNotBlank()) {
-                                "${updatedSource.primary} (${updatedSource.detail})"
-                            } else updatedSource.primary
-                            _currentSource.value = updatedLabel
-                        }
-                    } catch (e: Exception) {
-                        SonaraLogger.w("NLS", "Lyrics fetch: ${e.message}")
-                    }
-                }
+                _currentSource.value = sourceLabel
 
                 // ═══ Madde 15 FIX: Auto Preset — genre'ye göre preset seç ═══
                 val autoPresetOn = app.preferences.autoPresetFlow.first()
