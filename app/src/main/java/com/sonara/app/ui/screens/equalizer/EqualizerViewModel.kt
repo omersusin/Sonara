@@ -84,7 +84,8 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
     fun setBand(i: Int, v: Float) {
         val bands = c().bands.copyOf()
         bands[i] = TenBandEqualizer.clamp(if (v in -0.5f..0.5f) 0f else v)
-        _uiState.update { it.copy(bands = bands, currentPresetName = "Custom") }
+        val clipping = com.sonara.app.audio.engine.SafetyLimiter.wouldClip(bands, c().preamp)
+        _uiState.update { it.copy(bands = bands, currentPresetName = "Custom", isClipping = clipping) }
         debouncedApply(bands, "Custom", c().bassBoost, c().virtualizer, c().loudness, c().preamp)
     }
 
@@ -130,7 +131,7 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
                 )
                 val prediction = app.inferencePipeline.analyze(track)
                 if (prediction.genre != com.sonara.app.intelligence.pipeline.Genre.UNKNOWN) {
-                    app.applyFromPrediction(prediction, smooth = true)
+                    app.applyFromPrediction(prediction)
                 }
             }
         }
@@ -138,7 +139,7 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun applyPreset(preset: Preset) {
         applyJob?.cancel()
-        app.applyEq(preset.bandsArray(), preset.name, true, preset.bassBoost, preset.virtualizer, preset.loudness)
+        app.applyEq(preset.bandsArray(), preset.name, true, preset.bassBoost, preset.virtualizer, preset.loudness, preset.preamp)
         viewModelScope.launch { app.presetRepository.markUsed(preset.id) }
     }
 
