@@ -183,9 +183,18 @@ class SonaraNotificationListener : NotificationListenerService() {
                 _currentConfidence.value = prediction.confidence
                 _currentSource.value = prediction.source.displayName
 
-                // Apply EQ with smooth transition
+                // Apply EQ or reset to neutral
                 if (prediction.genre != com.sonara.app.intelligence.pipeline.Genre.UNKNOWN && prediction.confidence > 0.05f) {
                     if (!isManualPreset && aiOn) app.applyFromPrediction(prediction)
+                } else if (!isManualPreset && aiOn) {
+                    // UNKNOWN track → reset EQ to flat so UI stays consistent
+                    app.applyEq(
+                        bands = FloatArray(10),
+                        presetName = "Flat (Unknown)",
+                        manual = false,
+                        bassBoost = 0, virtualizer = 0, loudness = 0
+                    )
+                    SonaraLogger.ai("UNKNOWN track → EQ reset to flat")
                 }
 
                 // Train adaptive classifier + personalization

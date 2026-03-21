@@ -9,17 +9,11 @@ import com.sonara.app.intelligence.pipeline.Genre
 import java.io.File
 
 /**
- * Madde 16/17: Adaptive Personalization Engine.
- * "Self-training AI" değil, "adaptive personalization engine".
+ * Adaptive Personalization Engine.
+ * Genre+route kombinasyonuna göre bass/treble bias öğrenir.
  *
- * Toplanan veriler:
- * - genre/subgenre/tags
- * - route/device
- * - önerilen EQ vs kullanıcının yaptığı değişiklik
- * - favorite / skip / revert
- *
- * Final mantık:
- * Base prediction + Personal delta + Route correction + Safety clamp
+ * FIX: Gson tüm sayıları Double olarak deserialize eder.
+ * Profile/Stats içindeki Int/Float alanlar buna göre güvenli okunur.
  */
 class PersonalizationEngine(private val context: Context) {
 
@@ -35,9 +29,9 @@ class PersonalizationEngine(private val context: Context) {
         val offsets: List<Float>,
         val samples: Int,
         val lastUpdated: Long,
-        val bassBias: Float = 0f,     // kullanıcı bass tercihi: >0 bass sever
-        val trebleBias: Float = 0f,   // kullanıcı treble tercihi
-        val acceptRate: Float = 1f    // önerilen EQ'yu kabul oranı
+        val bassBias: Float = 0f,
+        val trebleBias: Float = 0f,
+        val acceptRate: Float = 1f
     )
 
     data class ListenStats(
@@ -57,16 +51,69 @@ class PersonalizationEngine(private val context: Context) {
         try {
             val pFile = File(context.filesDir, FILE_PROFILES)
             if (pFile.exists()) {
-                val type = object : TypeToken<Map<String, PersonalProfile>>() {}.type
-                profiles = gson.fromJson(pFile.readText(), type) ?: mutableMapOf()
+                profiles = loadProfilesSafe(pFile.readText())
             }
             val sFile = File(context.filesDir, FILE_STATS)
             if (sFile.exists()) {
-                stats = gson.fromJson(sFile.readText(), ListenStats::class.java) ?: ListenStats()
+                stats = loadStatsSafe(sFile.readText())
             }
         } catch (e: Exception) {
             SonaraLogger.w("Personalization", "Load error: ${e.message}")
             profiles = mutableMapOf()
+        }
+    }
+
+    /**
+     * Gson Double→Int safe deserialize.
+     * Gson reads all numbers as Double by default.
+     * We manually convert to correct types.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun loadProfilesSafe(json: String): MutableMap<String, PersonalProfile> {
+        return try {
+            val type = object : TypeToken<Map<String, Map<String, Any>>>() {}.type
+            val raw: Map<String, Map<String, Any>> = gson.fromJson(json, type) ?: return mutableMapOf()
+            val result = mutableMapOf<String, PersonalProfile>()
+            for ((key, map) in raw) {
+                try {
+                    val offsets = (map["offsets"] as? List<*>)?.map { (it as Number).toFloat() } ?: List(BANDS) { 0f }
+                    result[key] = PersonalProfile(
+                        offsets = offsets,
+                        samples = (map["samples"] as? Number)?.toInt() ?: 0,
+                        lastUpdated = (map["lastUpdated"] as? Number)?.toLong() ?: System.currentTimeMillis(),
+                        bassBias = (map["bassBias"] as? Number)?.toFloat() ?: 0f,
+                        trebleBias = (map["trebleBias"] as? Number)?.toFloat() ?: 0f,
+                        acceptRate = (map["acceptRate"] as? Number)?.toFloat() ?: 1f
+                    )
+                } catch (_: Exception) {}
+            }
+            result
+        } catch (e: Exception) {
+            SonaraLogger.w("Personalization", "Profile parse error: ${e.message}")
+            mutableMapOf()
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun loadStatsSafe(json: String): ListenStats {
+        return try {
+            val type = object : TypeToken<Map<String, Any>>() {}.type
+            val raw: Map<String, Any> = gson.fromJson(json, type) ?: return ListenStats()
+            ListenStats(
+                totalTracks = (raw["totalTracks"] as? Number)?.toInt() ?: 0,
+                genreCounts = (raw["genreCounts"] as? Map<*, *>)
+                    ?.mapNotNull { (k, v) -> if (k is String && v is Number) k to v.toInt() else null }
+                    ?.toMap() ?: emptyMap(),
+                routeCounts = (raw["routeCounts"] as? Map<*, *>)
+                    ?.mapNotNull { (k, v) -> if (k is String && v is Number) k to v.toInt() else null }
+                    ?.toMap() ?: emptyMap(),
+                skipCount = (raw["skipCount"] as? Number)?.toInt() ?: 0,
+                revertCount = (raw["revertCount"] as? Number)?.toInt() ?: 0,
+                favoriteCount = (raw["favoriteCount"] as? Number)?.toInt() ?: 0
+            )
+        } catch (e: Exception) {
+            SonaraLogger.w("Personalization", "Stats parse error: ${e.message}")
+            ListenStats()
         }
     }
 
@@ -77,26 +124,21 @@ class PersonalizationEngine(private val context: Context) {
         } catch (_: Exception) {}
     }
 
-    /** Genre + Route kombinasyonuna göre kişisel offset al */
     fun getPersonalOffset(genre: Genre, route: AudioRoute, subGenre: String? = null): FloatArray? {
-        // Önce genre+route+subgenre ara
         if (!subGenre.isNullOrBlank()) {
             profiles["${genre.name}::${route.name}::$subGenre"]?.let {
                 if (it.samples >= 2) return clampOffset(it.offsets.toFloatArray())
             }
         }
-        // Sonra genre+route
         profiles["${genre.name}::${route.name}"]?.let {
             if (it.samples >= 2) return clampOffset(it.offsets.toFloatArray())
         }
-        // En son sadece genre
         profiles[genre.name]?.let {
             if (it.samples >= 3) return clampOffset(it.offsets.toFloatArray())
         }
         return null
     }
 
-    /** Global bass/treble bias al */
     fun getGlobalBias(): Pair<Float, Float> {
         val allProfiles = profiles.values
         if (allProfiles.isEmpty()) return 0f to 0f
@@ -105,30 +147,17 @@ class PersonalizationEngine(private val context: Context) {
         return avgBass to avgTreble
     }
 
-    /**
-     * Kullanıcı feedback'i kaydet.
-     * aiSuggestion: AI'nın önerdiği EQ
-     * userFinal: kullanıcının ayarladığı EQ
-     */
-    fun recordAdjustment(
-        genre: Genre, route: AudioRoute, subGenre: String?,
-        aiSuggestion: FloatArray, userFinal: FloatArray
-    ) {
+    fun recordAdjustment(genre: Genre, route: AudioRoute, subGenre: String?, aiSuggestion: FloatArray, userFinal: FloatArray) {
         val keys = mutableListOf("${genre.name}::${route.name}")
         if (!subGenre.isNullOrBlank()) keys.add("${genre.name}::${route.name}::$subGenre")
-        keys.add(genre.name) // genel genre profili de güncelle
+        keys.add(genre.name)
 
         for (key in keys) {
             val existing = profiles[key] ?: PersonalProfile(List(BANDS) { 0f }, 0, System.currentTimeMillis())
             val delta = FloatArray(BANDS) { i ->
                 if (i < aiSuggestion.size && i < userFinal.size) userFinal[i] - aiSuggestion[i] else 0f
             }
-
-            val newOffsets = List(BANDS) { i ->
-                LEARNING_RATE * delta[i] + (1f - LEARNING_RATE) * existing.offsets[i]
-            }
-
-            // Bass/treble bias hesapla
+            val newOffsets = List(BANDS) { i -> LEARNING_RATE * delta[i] + (1f - LEARNING_RATE) * existing.offsets[i] }
             val bassDelta = (0..2).map { delta.getOrElse(it) { 0f } }.average().toFloat()
             val trebleDelta = (7..9).map { delta.getOrElse(it) { 0f } }.average().toFloat()
 
@@ -141,7 +170,6 @@ class PersonalizationEngine(private val context: Context) {
             )
         }
         save()
-        SonaraLogger.ai("Personalization: recorded adjustment for ${genre.name}/${route.name}")
     }
 
     fun recordAccepted(genre: Genre, route: AudioRoute) {
@@ -174,7 +202,6 @@ class PersonalizationEngine(private val context: Context) {
         profiles.clear()
         stats = ListenStats()
         save()
-        SonaraLogger.i("Personalization", "Tüm kişiselleştirme sıfırlandı")
     }
 
     private fun clampOffset(arr: FloatArray): FloatArray {

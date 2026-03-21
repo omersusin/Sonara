@@ -117,7 +117,7 @@ private fun GenreCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color)
         val max = sorted.firstOrNull()?.value?.toFloat() ?: 1f
         sorted.forEach { (genre, count) ->
             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(genre.uppercase(), style = MaterialTheme.typography.labelSmall, color = SonaraTextSecondary, modifier = Modifier.width(80.dp))
+                Text(genre, style = MaterialTheme.typography.labelSmall, color = SonaraTextSecondary, modifier = Modifier.width(80.dp))
                 Box(Modifier.weight(1f).height(16.dp).clip(RoundedCornerShape(4.dp)).background(SonaraCardElevated)) {
                     Box(Modifier.fillMaxWidth(count / max).height(16.dp).clip(RoundedCornerShape(4.dp)).background(p.copy(alpha = 0.6f)))
                 }

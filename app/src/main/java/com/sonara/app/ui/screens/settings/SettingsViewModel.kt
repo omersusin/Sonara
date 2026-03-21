@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
 import com.sonara.app.intelligence.cache.TrackCache
+import com.sonara.app.intelligence.lastfm.LastFmAuthManager
 import com.sonara.app.preset.PresetExporter
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.theme.AccentColor
@@ -23,7 +24,24 @@ data class SettingsUiState(
     val smoothTransitions: Boolean = true, val safetyLimiter: Boolean = true,
     val scrobblingEnabled: Boolean = false, val autoPreset: Boolean = true,
     val apiKeyInput: String = "", val sharedSecretInput: String = "",
-    val cacheSize: Int = 0, val notificationListenerEnabled: Boolean = false
+    val cacheSize: Int = 0, val notificationListenerEnabled: Boolean = false,
+    // New: Last.fm connection
+    val lastFmConnected: Boolean = false,
+    val lastFmUsername: String = "",
+    val pendingScrobbles: Int = 0,
+    // New: Gemini
+    val geminiApiKey: String = "",
+    val geminiEnabled: Boolean = false,
+    val geminiModel: String = "fast",
+    val geminiKeyInput: String = "",
+    // New: Theme
+    val themeMode: String = "system",
+    val dynamicColors: Boolean = true,
+    val highContrast: Boolean = false,
+    // New: Notification
+    val keepNotificationPaused: Boolean = true,
+    // New: Personalization
+    val personalSamples: Int = 0
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -45,35 +63,58 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.safetyLimiterFlow.collect { e -> _uiState.update { it.copy(safetyLimiter = e) } } }
         viewModelScope.launch { prefs.scrobblingEnabledFlow.collect { e -> _uiState.update { it.copy(scrobblingEnabled = e) } } }
         viewModelScope.launch { prefs.autoPresetFlow.collect { e -> _uiState.update { it.copy(autoPreset = e) } } }
-        refreshCacheSize(); checkNotificationListener()
+        // Gemini
+        viewModelScope.launch { prefs.geminiEnabledFlow.collect { e -> _uiState.update { it.copy(geminiEnabled = e) } } }
+        viewModelScope.launch { prefs.geminiModelFlow.collect { m -> _uiState.update { it.copy(geminiModel = m) } } }
+        viewModelScope.launch { prefs.geminiApiKeyFlow.collect { k -> _uiState.update { it.copy(geminiApiKey = k) } } }
+        // Theme
+        viewModelScope.launch { prefs.themeModeFlow.collect { m -> _uiState.update { it.copy(themeMode = m) } } }
+        viewModelScope.launch { prefs.dynamicColorsFlow.collect { e -> _uiState.update { it.copy(dynamicColors = e) } } }
+        viewModelScope.launch { prefs.highContrastFlow.collect { e -> _uiState.update { it.copy(highContrast = e) } } }
+        // Notification
+        viewModelScope.launch { prefs.keepNotificationPausedFlow.collect { e -> _uiState.update { it.copy(keepNotificationPaused = e) } } }
+        // Last.fm connection status
+        viewModelScope.launch { app.lastFmAuth.authState.collect { state ->
+            _uiState.update { it.copy(lastFmConnected = state == LastFmAuthManager.AuthState.CONNECTED) }
+        } }
+        viewModelScope.launch { app.lastFmAuth.username.collect { name ->
+            _uiState.update { it.copy(lastFmUsername = name) }
+        } }
+
+        refreshCacheSize(); checkNotificationListener(); refreshPendingScrobbles()
+        _uiState.update { it.copy(personalSamples = app.personalization.getTotalSamples()) }
     }
 
     fun updateApiKeyInput(v: String) { _uiState.update { it.copy(apiKeyInput = v) } }
     fun updateSharedSecretInput(v: String) { _uiState.update { it.copy(sharedSecretInput = v) } }
+    fun updateGeminiKeyInput(v: String) { _uiState.update { it.copy(geminiKeyInput = v) } }
 
-    /** Save API key to BOTH SecureSecrets and DataStore, then rebuild pipeline */
     fun saveApiKey() {
         viewModelScope.launch {
             val k = _uiState.value.apiKeyInput
             if (k.isNotBlank()) {
-                secrets.setLastFmApiKey(k)
-                prefs.setLastFmApiKey(k)
-                app.reloadPipeline()
+                secrets.setLastFmApiKey(k); prefs.setLastFmApiKey(k); app.reloadPipeline()
                 _uiState.update { it.copy(apiKeyInput = "", isApiKeySet = true) }
-                com.sonara.app.data.SonaraLogger.i("Settings", "API key saved + pipeline rebuilt")
             }
         }
     }
 
-    /** Save shared secret to BOTH SecureSecrets and DataStore */
     fun saveSharedSecret() {
         viewModelScope.launch {
             val s = _uiState.value.sharedSecretInput
             if (s.isNotBlank()) {
-                secrets.setLastFmSharedSecret(s)
-                prefs.setLastFmSharedSecret(s)
+                secrets.setLastFmSharedSecret(s); prefs.setLastFmSharedSecret(s)
                 _uiState.update { it.copy(sharedSecretInput = "", isSharedSecretSet = true) }
-                com.sonara.app.data.SonaraLogger.i("Settings", "Shared secret saved to SecureSecrets")
+            }
+        }
+    }
+
+    fun saveGeminiKey() {
+        viewModelScope.launch {
+            val k = _uiState.value.geminiKeyInput
+            if (k.isNotBlank()) {
+                prefs.setGeminiApiKey(k)
+                _uiState.update { it.copy(geminiKeyInput = "", geminiApiKey = k) }
             }
         }
     }
@@ -85,13 +126,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setSafetyLimiter(e: Boolean) { viewModelScope.launch { prefs.setSafetyLimiter(e) } }
     fun setScrobblingEnabled(e: Boolean) { viewModelScope.launch { prefs.setScrobblingEnabled(e) } }
     fun setAutoPreset(e: Boolean) { viewModelScope.launch { prefs.setAutoPreset(e) } }
+    fun setGeminiEnabled(e: Boolean) { viewModelScope.launch { prefs.setGeminiEnabled(e) } }
+    fun setGeminiModel(m: String) { viewModelScope.launch { prefs.setGeminiModel(m) } }
+    fun setThemeMode(m: String) { viewModelScope.launch { prefs.setThemeMode(m) } }
+    fun setDynamicColors(e: Boolean) { viewModelScope.launch { prefs.setDynamicColors(e) } }
+    fun setHighContrast(e: Boolean) { viewModelScope.launch { prefs.setHighContrast(e) } }
+    fun setKeepNotificationPaused(e: Boolean) { viewModelScope.launch { prefs.setKeepNotificationPaused(e) } }
     fun clearCache() { viewModelScope.launch { cache.clear(); refreshCacheSize() } }
 
-    /** FULL clear: cache + prefs + secrets + custom presets */
     fun clearAllData() {
         viewModelScope.launch {
-            app.clearAllData()
-            refreshCacheSize()
+            app.clearAllData(); refreshCacheSize()
             _uiState.update { it.copy(isApiKeySet = false, isSharedSecretSet = false, cacheSize = 0) }
         }
     }
@@ -101,6 +146,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val sys = SonaraNotificationListener.isEnabled(getApplication())
         _uiState.update { it.copy(notificationListenerEnabled = alive || sys) }
     }
+
+    fun refreshPendingScrobbles() {
+        viewModelScope.launch {
+            try {
+                val count = app.database.pendingScrobbleDao().count()
+                _uiState.update { it.copy(pendingScrobbles = count) }
+            } catch (_: Exception) {}
+        }
+    }
+
     private fun refreshCacheSize() { viewModelScope.launch { _uiState.update { it.copy(cacheSize = cache.size()) } } }
 
     fun exportPresets(onResult: (String) -> Unit) {
