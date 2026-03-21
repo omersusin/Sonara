@@ -1,9 +1,5 @@
 package com.sonara.app.intelligence.pipeline
 
-/**
- * Madde 3: Source string üretimi tek bir mapper'da olmalı.
- * ViewModel'de değil, burada üretilir.
- */
 object PredictionSourceMapper {
 
     data class SourceDisplay(
@@ -29,18 +25,12 @@ object PredictionSourceMapper {
                 contributors.add("Local AI")
                 if (hasLyrics) contributors.add("Lyrics")
             }
-            PredictionSource.ADAPTIVE_OVERRIDE -> {
-                contributors.add("Learned")
-            }
-            PredictionSource.USER_PRESET -> {
-                contributors.add("User Preset")
-            }
-            PredictionSource.CACHE -> {
-                contributors.add("Cache")
-            }
-            PredictionSource.FALLBACK -> {
-                contributors.add("Fallback")
-            }
+            PredictionSource.ADAPTIVE_OVERRIDE -> contributors.add("Learned")
+            PredictionSource.USER_PRESET -> contributors.add("User Preset")
+            PredictionSource.CACHE -> contributors.add("Cache")
+            PredictionSource.LYRICS -> contributors.add("Lyrics")
+            PredictionSource.GEMINI -> contributors.add("Gemini")
+            PredictionSource.FALLBACK -> contributors.add("Fallback")
         }
 
         val primary = when {
@@ -49,11 +39,7 @@ object PredictionSourceMapper {
             else -> "Unknown"
         }
 
-        val detail = if (contributors.size > 1) {
-            contributors.joinToString(" + ")
-        } else {
-            ""
-        }
+        val detail = if (contributors.size > 1) contributors.joinToString(" + ") else ""
 
         return SourceDisplay(primary, detail, contributors)
     }
