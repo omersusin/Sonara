@@ -160,6 +160,7 @@ class SonaraNotificationListener : NotificationListenerService() {
             try {
                 val app = application as SonaraApp
                 val isManualPreset = app.eqState.value.isManualPreset
+                val isAiEnabled = kotlinx.coroutines.flow.first { true }.let { app.preferences.aiEnabledFlow.first() }
 
                 // ═══ Try preloaded prediction first ═══
                 val preloaded = app.nextTrackPreloader.consumeIfMatch(title, artist)
@@ -180,7 +181,7 @@ class SonaraNotificationListener : NotificationListenerService() {
 
                 // Apply EQ with smooth transition
                 if (prediction.genre != com.sonara.app.intelligence.pipeline.Genre.UNKNOWN && prediction.confidence > 0.05f) {
-                    if (!isManualPreset) app.applyFromPrediction(prediction, smooth = true)
+                    if (!isManualPreset && isAiEnabled) app.applyFromPrediction(prediction)
                 }
 
                 // Train adaptive classifier
