@@ -520,7 +520,6 @@ private fun GeminiCard(s: SettingsUiState, vm: SettingsViewModel) {
 }
 
 @Composable
-@Composable
 private fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
     val p = MaterialTheme.colorScheme.primary
     FluentCard {
