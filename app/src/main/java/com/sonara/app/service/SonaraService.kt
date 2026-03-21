@@ -8,8 +8,10 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.drawable.Icon
 import android.os.IBinder
 import com.sonara.app.MainActivity
+import com.sonara.app.R
 import com.sonara.app.SonaraApp
 import com.sonara.app.data.SonaraLogger
 import kotlinx.coroutines.CoroutineScope
@@ -47,21 +49,30 @@ class SonaraService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_STOP -> { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return START_NOT_STICKY }
+            ACTION_STOP -> {
+                stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
+                return START_NOT_STICKY
+            }
             ACTION_LOVE -> {
                 val np = SonaraNotificationListener.nowPlaying.value
                 if (np.title.isNotBlank()) {
                     isLoved = !isLoved
                     updateNotification()
+                    SonaraLogger.i("Love", "Toggle love=${isLoved} for: ${np.title} - ${np.artist}")
                     scope.launch(Dispatchers.IO) {
                         try {
                             val app = application as SonaraApp
                             val ok = app.loveTrack(np.title, np.artist, isLoved)
-                            if (ok) SonaraLogger.i("Scrobble", "${if (isLoved) "❤ Loved" else "Unloved"}: ${np.title}")
-                            else { isLoved = !isLoved; updateNotification() }
+                            SonaraLogger.i("Love", "API result=$ok loved=$isLoved")
+                            if (!ok) {
+                                SonaraLogger.w("Love", "API failed, reverting")
+                                isLoved = !isLoved
+                                scope.launch(Dispatchers.Main) { updateNotification() }
+                            }
                         } catch (e: Exception) {
-                            SonaraLogger.w("Scrobble", "Love failed: ${e.message}")
-                            isLoved = !isLoved; updateNotification()
+                            SonaraLogger.e("Love", "Exception: ${e.message}")
+                            isLoved = !isLoved
+                            scope.launch(Dispatchers.Main) { updateNotification() }
                         }
                     }
                 }
@@ -91,7 +102,7 @@ class SonaraService : Service() {
             PendingIntent.FLAG_IMMUTABLE)
         val love = PendingIntent.getService(this, 2,
             Intent(this, SonaraService::class.java).apply { action = ACTION_LOVE },
-            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            PendingIntent.FLAG_IMMUTABLE)
 
         val sub = when {
             artist.isNotBlank() && isPlaying -> "$artist · Playing"
@@ -100,20 +111,25 @@ class SonaraService : Service() {
             else -> "Sound engine active"
         }
 
-        // Heart symbol in action label (visible on all Android versions)
-        val heartLabel = if (isLoved) "♥" else "♡"
+        // Heart ICON (real drawable, not text)
+        val heartIcon = Icon.createWithResource(this,
+            if (isLoved) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
+        val heartAction = Notification.Action.Builder(heartIcon, if (isLoved) "Loved" else "Love", love).build()
+        val stopAction = Notification.Action.Builder(null, "Stop", stop).build()
 
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(title)
             .setContentText(sub)
             .setContentIntent(open)
-            .addAction(Notification.Action.Builder(null, heartLabel, love).build())
-            .addAction(Notification.Action.Builder(null, "Stop", stop).build())
+            .addAction(heartAction)
+            .addAction(stopAction)
             .setOngoing(true)
             .setShowWhen(false)
 
-        if (art != null && !art.isRecycled) { try { builder.setLargeIcon(art) } catch (_: Exception) {} }
+        if (art != null && !art.isRecycled) {
+            try { builder.setLargeIcon(art) } catch (_: Exception) {}
+        }
 
         return builder.build()
     }

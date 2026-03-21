@@ -90,7 +90,7 @@ class ScrobblingManager {
                 body.add("api_sig", sig); body.add("format", "json")
                 val request = Request.Builder().url(LastFmApi.BASE_URL).post(body.build()).build()
                 val response = client.newCall(request).execute()
-                response.use { it.isSuccessful }
+                response.use { resp -> val ok = resp.isSuccessful; if (!ok) { val body = resp.body?.string(); com.sonara.app.data.SonaraLogger.w("LastFm", "API ${resp.code}: $body") }; ok }
             }
         } catch (e: Exception) { false }
     }
