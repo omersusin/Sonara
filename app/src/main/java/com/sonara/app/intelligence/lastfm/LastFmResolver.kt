@@ -11,8 +11,14 @@ class LastFmResolver {
             val track = response.track ?: return tryArtistFallback(artist, apiKey, title)
             val tags = track.toptags?.tag ?: emptyList()
             if (tags.isEmpty()) return tryArtistFallback(artist, apiKey, title)
-            val genre = classifyGenre(tags); val mood = classifyMood(tags); val energy = estimateEnergy(tags, genre)
-            TrackInfo(track.name.ifBlank { title }, track.artist?.name ?: artist, track.album?.title ?: "", genre, mood, energy, calculateConfidence(tags), "lastfm")
+            val rawTags = tags.map { it.name.lowercase().trim() }
+            val genre = classifyGenre(tags)
+            val subGenre = extractSubGenre(rawTags, genre)
+            val mood = classifyMood(tags)
+            val energy = estimateEnergy(tags, genre)
+            TrackInfo(track.name.ifBlank { title }, track.artist?.name ?: artist,
+                track.album?.title ?: "", genre, subGenre, mood, energy,
+                calculateConfidence(tags), "lastfm", rawTags)
         } catch (e: Exception) { null }
     }
 
@@ -20,10 +26,92 @@ class LastFmResolver {
         if (artist.isBlank()) return null
         return try {
             val response = LastFmClient.api.getArtistTags(artist, apiKey)
-            val tags = response.toptags?.tag ?: return null; if (tags.isEmpty()) return null
-            val genre = classifyGenre(tags); val mood = classifyMood(tags)
-            TrackInfo(title, artist, "", genre, mood, estimateEnergy(tags, genre), calculateConfidence(tags) * 0.7f, "lastfm-artist")
+            val tags = response.toptags?.tag ?: return null
+            if (tags.isEmpty()) return null
+            val rawTags = tags.map { it.name.lowercase().trim() }
+            val genre = classifyGenre(tags)
+            val subGenre = extractSubGenre(rawTags, genre)
+            val mood = classifyMood(tags)
+            TrackInfo(title, artist, "", genre, subGenre, mood,
+                estimateEnergy(tags, genre), calculateConfidence(tags) * 0.7f,
+                "lastfm-artist", rawTags)
         } catch (e: Exception) { null }
+    }
+
+    /**
+     * Extract the most specific subgenre from raw Last.fm tags.
+     * E.g. tags=[k-pop, dance pop, electronic, pop] → subGenre="k-pop"
+     */
+    private fun extractSubGenre(tags: List<String>, primaryGenre: String): String {
+        // Subgenre patterns: more specific than parent genre
+        val subGenreMap = mapOf(
+            // Pop subgenres
+            "k-pop" to "k-pop", "kpop" to "k-pop", "korean pop" to "k-pop",
+            "j-pop" to "j-pop", "jpop" to "j-pop",
+            "c-pop" to "c-pop", "cpop" to "c-pop",
+            "synth-pop" to "synth-pop", "synthpop" to "synth-pop",
+            "dream pop" to "dream-pop", "dreampop" to "dream-pop",
+            "electropop" to "electropop", "electro pop" to "electropop",
+            "dance pop" to "dance-pop", "dance-pop" to "dance-pop",
+            "indie pop" to "indie-pop", "indiepop" to "indie-pop",
+            "art pop" to "art-pop",
+            "hyperpop" to "hyperpop", "hyper pop" to "hyperpop",
+            "bedroom pop" to "bedroom-pop",
+            "power pop" to "power-pop",
+            "chamber pop" to "chamber-pop",
+            "pop punk" to "pop-punk",
+            "pop rock" to "pop-rock",
+            "turkish pop" to "turkish-pop",
+            // Rock subgenres
+            "alternative rock" to "alt-rock", "alt-rock" to "alt-rock",
+            "indie rock" to "indie-rock", "post-rock" to "post-rock",
+            "psychedelic rock" to "psych-rock", "progressive rock" to "prog-rock",
+            "garage rock" to "garage-rock", "classic rock" to "classic-rock",
+            "hard rock" to "hard-rock", "punk rock" to "punk-rock",
+            "grunge" to "grunge", "shoegaze" to "shoegaze",
+            "post-punk" to "post-punk", "new wave" to "new-wave",
+            "britpop" to "britpop", "emo" to "emo",
+            // Electronic subgenres
+            "house" to "house", "deep house" to "deep-house",
+            "tech house" to "tech-house", "techno" to "techno",
+            "trance" to "trance", "dubstep" to "dubstep",
+            "drum and bass" to "dnb", "dnb" to "dnb",
+            "future bass" to "future-bass", "trap" to "trap-edm",
+            "synthwave" to "synthwave", "chillwave" to "chillwave",
+            "downtempo" to "downtempo", "idm" to "idm",
+            "hardstyle" to "hardstyle", "breakbeat" to "breakbeat",
+            "lo-fi" to "lo-fi", "lofi" to "lo-fi",
+            // Hip-hop subgenres
+            "boom bap" to "boom-bap", "trap" to "trap",
+            "drill" to "drill", "uk drill" to "uk-drill",
+            "cloud rap" to "cloud-rap", "emo rap" to "emo-rap",
+            "phonk" to "phonk", "grime" to "grime",
+            // Metal subgenres
+            "death metal" to "death-metal", "black metal" to "black-metal",
+            "thrash metal" to "thrash-metal", "metalcore" to "metalcore",
+            "doom metal" to "doom-metal", "progressive metal" to "prog-metal",
+            "nu metal" to "nu-metal", "symphonic metal" to "symphonic-metal",
+            "djent" to "djent",
+            // Other
+            "neo-soul" to "neo-soul", "trip-hop" to "trip-hop",
+            "trip hop" to "trip-hop", "bossa nova" to "bossa-nova",
+            "reggaeton" to "reggaeton", "cumbia" to "cumbia",
+            "latin trap" to "latin-trap"
+        )
+
+        // Find the most specific matching tag
+        for (tag in tags) {
+            subGenreMap[tag]?.let { return it }
+        }
+
+        // Try partial matches
+        for (tag in tags) {
+            for ((key, value) in subGenreMap) {
+                if (tag.contains(key) && key.length >= 4) return value
+            }
+        }
+
+        return ""
     }
 
     private data class GK(val genre: String, val specificity: Int)
