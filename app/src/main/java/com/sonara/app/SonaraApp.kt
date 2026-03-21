@@ -17,6 +17,9 @@ import com.sonara.app.engine.classifier.AdaptiveGenreClassifier
 import com.sonara.app.engine.eq.AudioSessionManager
 import com.sonara.app.engine.eq.EqComposer
 import com.sonara.app.intelligence.adaptive.AdaptiveLearningEngine
+import com.sonara.app.intelligence.adaptive.PersonalizationEngine
+import com.sonara.app.intelligence.lastfm.LastFmAuthManager
+import com.sonara.app.intelligence.lastfm.ScrobbleWorker
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.intelligence.pipeline.*
 import com.sonara.app.media.NextTrackPreloader
@@ -44,6 +47,8 @@ class SonaraApp : Application() {
     lateinit var inferencePipeline: SonaraInferencePipeline private set
     lateinit var nextTrackPreloader: NextTrackPreloader private set
     lateinit var smoothTransitionEngine: SmoothTransitionEngine private set
+    lateinit var lastFmAuth: LastFmAuthManager private set
+    lateinit var personalization: PersonalizationEngine private set
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _eqState = MutableStateFlow(SharedEqState())
@@ -70,6 +75,11 @@ class SonaraApp : Application() {
         adaptiveClassifier = AdaptiveGenreClassifier(this)
         smoothTransitionEngine = SmoothTransitionEngine()
         appScope.launch { adaptiveLearning.load() }
+
+        lastFmAuth = LastFmAuthManager(this)
+        personalization = PersonalizationEngine(this)
+        appScope.launch { personalization.load() }
+        ScrobbleWorker.schedule(this)
 
         val apiKey = secureSecrets.getLastFmApiKey().takeIf { it.isNotBlank() }
             ?: runBlocking { preferences.lastFmApiKeyFlow.first() }
@@ -103,7 +113,7 @@ class SonaraApp : Application() {
     // ═══ SINGLE ENTRY: Prediction → EQ (reads ALL toggles) ═══
     fun applyFromPrediction(prediction: SonaraPrediction) {
         val route = _currentRoute.value
-        val userOffset = adaptiveLearning.getOffset(prediction.genre, route)
+        val userOffset = personalization.getPersonalOffset(prediction.genre, route) ?: adaptiveLearning.getOffset(prediction.genre, route)
         val profile = eqComposer.compose(prediction, route, userOffset)
 
         // ─── Safety Limiter (toggle-aware) ───
@@ -169,7 +179,10 @@ class SonaraApp : Application() {
         val pred = _currentProfile.value.prediction
         _eqState.update { it.copy(bands = bands, presetName = "Custom", isManualPreset = true) }
         if (pred.confidence > 0f) {
-            appScope.launch { adaptiveLearning.recordFeedback(pred.genre, _currentRoute.value, _currentProfile.value.bands, bands) }
+            appScope.launch {
+                adaptiveLearning.recordFeedback(pred.genre, _currentRoute.value, _currentProfile.value.bands, bands)
+                personalization.recordAdjustment(pred.genre, _currentRoute.value, pred.subGenre, _currentProfile.value.bands, bands)
+            }
         }
     }
 
@@ -232,7 +245,8 @@ class SonaraApp : Application() {
 
     /** Rebuild pipeline with new API key — called from Settings */
     fun reloadPipeline() {
-        val apiKey = secureSecrets.getLastFmApiKey().takeIf { it.isNotBlank() }
+        val apiKey = lastFmAuth.getActiveApiKey().takeIf { it.isNotBlank() }
+            ?: secureSecrets.getLastFmApiKey().takeIf { it.isNotBlank() }
             ?: runBlocking { preferences.lastFmApiKeyFlow.first() }
         inferencePipeline.destroy()
         inferencePipeline = SonaraInferencePipeline(apiKey.takeIf { it.isNotBlank() })

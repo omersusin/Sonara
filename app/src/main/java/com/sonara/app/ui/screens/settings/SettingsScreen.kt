@@ -71,7 +71,7 @@ import com.sonara.app.ui.components.StatusChip
 import com.sonara.app.ui.theme.*
 
 @Composable
-fun SettingsScreen(onOpenDebugLog: () -> Unit = {}) {
+fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> Unit = {}) {
     val vm: SettingsViewModel = viewModel()
     val state by vm.uiState.collectAsState()
     val ctx = LocalContext.current
@@ -117,6 +117,19 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}) {
                         Text("View real-time app logs", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                     }
                     OutlinedButton(onClick = onOpenDebugLog, shape = MaterialTheme.shapes.extraLarge,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                    ) { Text("Open") }
+                }
+            }
+        }
+        item {
+            FluentCard {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text("Pipeline Debug", style = MaterialTheme.typography.titleMedium)
+                        Text("Track detection, source, EQ state", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    }
+                    OutlinedButton(onClick = onOpenPipelineDebug, shape = MaterialTheme.shapes.extraLarge,
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                     ) { Text("Open") }
                 }

@@ -14,6 +14,8 @@ import android.service.notification.StatusBarNotification
 import com.sonara.app.SonaraApp
 import com.sonara.app.data.SonaraLogger
 import com.sonara.app.intelligence.pipeline.SonaraTrackInfo
+import com.sonara.app.intelligence.pipeline.TitleNormalizer
+import com.sonara.app.intelligence.lastfm.PendingScrobble
 import com.sonara.app.media.ArtworkResolver
 import com.sonara.app.receiver.AudioEffectSessionReceiver
 import kotlinx.coroutines.CoroutineScope
@@ -168,7 +170,9 @@ class SonaraNotificationListener : NotificationListenerService() {
                     SonaraLogger.ai("Using PRELOADED prediction for $title")
                     preloaded
                 } else {
-                    val track = SonaraTrackInfo(title, artist, album, duration, _nowPlaying.value.packageName)
+                    val normTitle = TitleNormalizer.normalizeTitle(title)
+                    val normArtist = TitleNormalizer.normalizeArtist(artist)
+                    val track = SonaraTrackInfo(normTitle, normArtist, album, duration, _nowPlaying.value.packageName)
                     app.inferencePipeline.analyze(track)
                 }
 
@@ -184,11 +188,12 @@ class SonaraNotificationListener : NotificationListenerService() {
                     if (!isManualPreset && aiOn) app.applyFromPrediction(prediction)
                 }
 
-                // Train adaptive classifier
+                // Train adaptive classifier + personalization
                 if (prediction.source == com.sonara.app.intelligence.pipeline.PredictionSource.LASTFM ||
                     prediction.source == com.sonara.app.intelligence.pipeline.PredictionSource.MERGED) {
                     app.preferences.incrementSongLearned(prediction.source.name, prediction.genre.name)
                 }
+                app.personalization.recordListen(prediction.genre.name, app.currentRoute.value.name)
 
                 // ═══ Preload NEXT track ═══
                 app.nextTrackPreloader.tryPreload(activeController)
@@ -265,6 +270,14 @@ class SonaraNotificationListener : NotificationListenerService() {
             if (ok) {
                 hasScrobbled = true
                 SonaraLogger.i("Scrobble", "Scrobbled: ${np.title}")
+            } else {
+                // Queue for offline retry
+                try {
+                    app.database.pendingScrobbleDao().insert(
+                        PendingScrobble(track = np.title, artist = np.artist, album = np.album, timestamp = playStartTime)
+                    )
+                    SonaraLogger.i("Scrobble", "Queued for retry: ${np.title}")
+                } catch (_: Exception) {}
             }
         } catch (e: Exception) { SonaraLogger.w("Scrobble", "Scrobble failed: ${e.message}") }
     }
