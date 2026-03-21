@@ -24,6 +24,11 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
+
+        // API keys from environment variables (GitHub Actions secrets)
+        buildConfigField("String", "LASTFM_API_KEY", "\"${System.getenv("LASTFM_API_KEY") ?: ""}\""  )
+        buildConfigField("String", "LASTFM_SHARED_SECRET", "\"${System.getenv("LASTFM_SHARED_SECRET") ?: ""}\"")
+        buildConfigField("String", "GEMINI_API_KEY", "\"${System.getenv("GEMINI_API_KEY") ?: ""}\"")
     }
 
     signingConfigs {
@@ -92,6 +97,7 @@ dependencies {
     implementation(libs.gson)
 
     implementation(libs.kotlinx.coroutines)
+    implementation(libs.workmanager.runtime)
 
     debugImplementation(libs.compose.ui.tooling)
 }

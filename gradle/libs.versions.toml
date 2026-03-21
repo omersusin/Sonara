@@ -12,6 +12,7 @@ retrofit = "2.11.0"
 okhttp = "4.12.0"
 datastore = "1.1.1"
 coroutines = "1.8.1"
+workmanager = "2.9.0"
 gson = "2.11.0"
 
 [libraries]
@@ -40,6 +41,7 @@ okhttp-logging = { module = "com.squareup.okhttp3:logging-interceptor", version.
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 
 kotlinx-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+workmanager-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "workmanager" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

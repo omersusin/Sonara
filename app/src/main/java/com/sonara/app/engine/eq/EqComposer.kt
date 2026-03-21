@@ -117,7 +117,7 @@ class EqComposer {
         AudioRoute.UNKNOWN to floatArrayOf(0f,0f,0f,0f,0f,0f,0f,0f,0f,0f)
     )
 
-    fun compose(prediction: SonaraPrediction, route: AudioRoute, userOffset: FloatArray? = null): FinalEqProfile {
+    fun compose(prediction: SonaraPrediction, route: AudioRoute, userOffset: FloatArray? = null, lyricsModifier: FloatArray? = null): FinalEqProfile {
         val bands = FloatArray(BAND_COUNT)
 
         // Layer 1: Base genre curve
@@ -154,6 +154,11 @@ class EqComposer {
         // Layer 6: Route correction
         val rc = routeCorr[route] ?: routeCorr[AudioRoute.UNKNOWN]!!
         for (i in bands.indices) bands[i] += rc[i]
+
+        // Layer 7.5: Lyrics modifier (küçük — Madde 14)
+        if (lyricsModifier != null) {
+            for (i in bands.indices) bands[i] += lyricsModifier.getOrElse(i) { 0f } * 0.5f
+        }
 
         // Layer 7: User preference offset
         if (userOffset != null) for (i in bands.indices) bands[i] += userOffset.getOrElse(i) { 0f }

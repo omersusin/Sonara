@@ -219,7 +219,7 @@ class SonaraApp : Application() {
             val apiKey = secureSecrets.getLastFmApiKey().takeIf { it.isNotBlank() } ?: preferences.lastFmApiKeyFlow.first()
             val secret = secureSecrets.getLastFmSharedSecret().takeIf { it.isNotBlank() } ?: preferences.lastFmSharedSecretFlow.first()
             val sessionKey = secureSecrets.getLastFmSessionKey().takeIf { it.isNotBlank() } ?: preferences.lastFmSessionKeyFlow.first()
-            SonaraLogger.i("Love", "key=${apiKey.take(4)}*** session=${sessionKey.take(4)}***")
+            SonaraLogger.i("Love", "key=set session=set")
             if (apiKey.isBlank()) { SonaraLogger.w("Love", "No API key"); return false }
             if (sessionKey.isBlank()) { SonaraLogger.w("Love", "No session key"); return false }
             val scrobbler = com.sonara.app.intelligence.lastfm.ScrobblingManager()
