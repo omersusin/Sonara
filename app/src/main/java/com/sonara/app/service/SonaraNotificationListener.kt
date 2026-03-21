@@ -181,7 +181,7 @@ class SonaraNotificationListener : NotificationListenerService() {
 
                 // Apply EQ with smooth transition
                 if (prediction.genre != com.sonara.app.intelligence.pipeline.Genre.UNKNOWN && prediction.confidence > 0.05f) {
-                    if (!isManualPreset && isAiEnabled)&& isAiEnabled) aiOn) app.applyFromPrediction(prediction)
+                    if (!isManualPreset && aiOn) app.applyFromPrediction(prediction)
                 }
 
                 // Train adaptive classifier
