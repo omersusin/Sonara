@@ -3,10 +3,16 @@ package com.sonara.app.intelligence.adaptive
 import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.sonara.app.data.SonaraLogger
 import com.sonara.app.intelligence.pipeline.AudioRoute
 import com.sonara.app.intelligence.pipeline.Genre
 import java.io.File
 
+/**
+ * FIX: Gson Double→Int crash.
+ * Gson reads all numbers as Double by default when using TypeToken.
+ * Now uses safe Number→Int/Float conversion.
+ */
 class AdaptiveLearningEngine(private val context: Context) {
     companion object { private const val FILE = "sonara_adaptive.json"; private const val LR = 0.2f; private const val BANDS = 10 }
     data class Profile(val offsets: List<Float>, val samples: Int, val updated: Long)
@@ -14,7 +20,30 @@ class AdaptiveLearningEngine(private val context: Context) {
     private var profiles = mutableMapOf<String, Profile>()
     private val gson = Gson()
 
-    fun load() { try { val f = File(context.filesDir, FILE); if (f.exists()) { val type = object : TypeToken<Map<String, Profile>>() {}.type; profiles = gson.fromJson(f.readText(), type) ?: mutableMapOf() } } catch (_: Exception) { profiles = mutableMapOf() } }
+    @Suppress("UNCHECKED_CAST")
+    fun load() {
+        try {
+            val f = File(context.filesDir, FILE)
+            if (!f.exists()) return
+            val type = object : TypeToken<Map<String, Map<String, Any>>>() {}.type
+            val raw: Map<String, Map<String, Any>> = gson.fromJson(f.readText(), type) ?: return
+            profiles = mutableMapOf()
+            for ((key, map) in raw) {
+                try {
+                    val offsets = (map["offsets"] as? List<*>)?.map { (it as Number).toFloat() } ?: List(BANDS) { 0f }
+                    profiles[key] = Profile(
+                        offsets = offsets,
+                        samples = (map["samples"] as? Number)?.toInt() ?: 0,
+                        updated = (map["updated"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                    )
+                } catch (_: Exception) {}
+            }
+        } catch (e: Exception) {
+            SonaraLogger.w("AdaptiveLearning", "Load error: ${e.message}")
+            profiles = mutableMapOf()
+        }
+    }
+
     private fun save() { try { File(context.filesDir, FILE).writeText(gson.toJson(profiles)) } catch (_: Exception) {} }
 
     fun getOffset(genre: Genre, route: AudioRoute): FloatArray? {

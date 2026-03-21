@@ -23,7 +23,6 @@ class NextTrackPreloader(
     private val pipeline: SonaraInferencePipeline,
     private val scope: CoroutineScope
 ) {
-    private val TAG = "NextTrackPreloader"
     private val _nextTrack = MutableStateFlow(PreloadResult())
     val nextTrack: StateFlow<PreloadResult> = _nextTrack.asStateFlow()
     private var preloadJob: Job? = null
@@ -31,37 +30,63 @@ class NextTrackPreloader(
 
     /**
      * Try to detect & preload next track from media session queue.
-     * Called periodically or on queue change.
+     * Enhanced with detailed debug logging per tespitler.txt item 3.
      */
     fun tryPreload(controller: MediaController?) {
-        if (controller == null) return
-        val queue = try { controller.queue } catch (_: Exception) { null }
-        if (queue.isNullOrEmpty()) return
+        if (controller == null) {
+            SonaraLogger.ai("Preloader: controller=null, skipping")
+            return
+        }
 
-        // Find currently playing position
-        val metadata = controller.metadata ?: return
+        val queue = try { controller.queue } catch (e: Exception) {
+            SonaraLogger.ai("Preloader: queue access failed: ${e.message}")
+            null
+        }
+
+        val queueSize = queue?.size ?: 0
+        SonaraLogger.ai("Preloader: queue size=$queueSize, pkg=${controller.packageName}")
+
+        if (queue.isNullOrEmpty()) {
+            SonaraLogger.ai("Preloader: no queue from player, skipping")
+            return
+        }
+
+        val metadata = controller.metadata
+        if (metadata == null) {
+            SonaraLogger.ai("Preloader: no metadata, skipping")
+            return
+        }
+
         val currentTitle = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: return
         val currentArtist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
 
-        // Find next in queue
         val currentIndex = queue.indexOfFirst { item ->
             val desc = item.description
             desc.title?.toString() == currentTitle
         }
-        if (currentIndex < 0 || currentIndex >= queue.size - 1) return
+
+        SonaraLogger.ai("Preloader: currentIndex=$currentIndex, current=$currentTitle")
+
+        if (currentIndex < 0 || currentIndex >= queue.size - 1) {
+            SonaraLogger.ai("Preloader: no next track (index=$currentIndex, queueSize=$queueSize)")
+            return
+        }
 
         val nextItem = queue[currentIndex + 1]
         val nextTitle = nextItem.description.title?.toString() ?: return
         val nextArtist = nextItem.description.subtitle?.toString() ?: ""
         val key = "${nextTitle.lowercase()}::${nextArtist.lowercase()}"
 
-        if (key == lastPreloadKey && _nextTrack.value.isReady) return
+        if (key == lastPreloadKey && _nextTrack.value.isReady) {
+            SonaraLogger.ai("Preloader: already preloaded $nextTitle")
+            return
+        }
         lastPreloadKey = key
 
         preloadJob?.cancel()
         preloadJob = scope.launch {
             try {
-                SonaraLogger.ai("Preloading next: $nextTitle - $nextArtist")
+                SonaraLogger.ai("Preloader: starting preload → $nextTitle - $nextArtist")
                 val track = SonaraTrackInfo(nextTitle, nextArtist, "", 0, "")
                 val prediction = pipeline.analyze(track)
                 _nextTrack.value = PreloadResult(
@@ -69,17 +94,13 @@ class NextTrackPreloader(
                     prediction = prediction, isReady = true,
                     preloadedAt = System.currentTimeMillis()
                 )
-                SonaraLogger.ai("Preloaded: ${prediction.genre} for $nextTitle")
+                SonaraLogger.ai("Preloader: ready → ${prediction.genre} for $nextTitle")
             } catch (e: Exception) {
                 SonaraLogger.w("Preloader", "Preload failed: ${e.message}")
             }
         }
     }
 
-    /**
-     * Check if we have a preloaded prediction for this track.
-     * Returns prediction if match, null otherwise. Clears after consumption.
-     */
     fun consumeIfMatch(title: String, artist: String): SonaraPrediction? {
         val preloaded = _nextTrack.value
         if (!preloaded.isReady) return null
@@ -88,7 +109,7 @@ class NextTrackPreloader(
             val pred = preloaded.prediction
             _nextTrack.value = PreloadResult()
             lastPreloadKey = ""
-            SonaraLogger.ai("Used preloaded prediction for $title")
+            SonaraLogger.ai("Preloader: CONSUMED preloaded prediction for $title")
             return pred
         }
         return null
