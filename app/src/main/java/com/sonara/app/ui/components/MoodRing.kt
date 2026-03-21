@@ -50,9 +50,12 @@ fun MoodRing(
 
     Box(modifier = modifier.size(140.dp), contentAlignment = Alignment.Center) {
         // Background ring
+        val ringBg = SonaraCardElevated
+        val secondaryColor = SonaraTextSecondary
+        val tertiaryColor = SonaraTextTertiary
         Canvas(Modifier.size(130.dp)) {
             drawArc(
-                color = SonaraCardElevated,
+                color = ringBg,
                 startAngle = 135f,
                 sweepAngle = 270f,
                 useCenter = false,
@@ -85,12 +88,12 @@ fun MoodRing(
             Text(
                 mood.replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.labelMedium,
-                color = SonaraTextSecondary
+                color = secondaryColor
             )
             Text(
                 genre.replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.labelSmall,
-                color = SonaraTextTertiary
+                color = tertiaryColor
             )
         }
     }

@@ -8,6 +8,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
@@ -30,101 +31,66 @@ fun SonaraTheme(
     val useDynamic = dynamicColors && Build.VERSION.SDK_INT >= 31
     val p = if (accentColor == AccentColor.Auto) AccentColor.Amber else accentColor
 
-    // AMOLED overrides
-    val amoledBg = Color(0xFF000000)
-    val amoledSurface = Color(0xFF0A0A0A)
-    val amoledCard = Color(0xFF141414)
-    val amoledCardElev = Color(0xFF1A1A1A)
+    // ═══ Pick the right Sonara palette ═══
+    val palette = when {
+        !useDark -> LightPalette
+        amoledMode -> AmoledPalette
+        else -> DarkPalette
+    }
 
+    // ═══ Material color scheme ═══
     val colorScheme = when {
-        // Dynamic + dark
         useDynamic && useDark -> {
             val base = dynamicDarkColorScheme(context)
-            if (amoledMode) {
-                base.copy(background = amoledBg, surface = amoledSurface, surfaceVariant = amoledCard,
-                    onBackground = if (highContrast) Color.White else SonaraTextPrimary,
-                    onSurface = if (highContrast) Color.White else SonaraTextPrimary,
-                    onSurfaceVariant = if (highContrast) SonaraTextPrimary else SonaraTextSecondary,
-                    outline = Color(0xFF2A2A2E), outlineVariant = Color(0xFF2A2A2E), error = SonaraError)
-            } else {
-                base.copy(background = SonaraBackground, surface = SonaraSurface, surfaceVariant = SonaraCard,
-                    onBackground = if (highContrast) Color.White else SonaraTextPrimary,
-                    onSurface = if (highContrast) Color.White else SonaraTextPrimary,
-                    onSurfaceVariant = if (highContrast) SonaraTextPrimary else SonaraTextSecondary,
-                    outline = SonaraDivider, outlineVariant = SonaraDivider, error = SonaraError)
-            }
+            base.copy(
+                background = palette.background, surface = palette.surface,
+                surfaceVariant = palette.card,
+                onBackground = if (highContrast) Color.White else palette.textPrimary,
+                onSurface = if (highContrast) Color.White else palette.textPrimary,
+                onSurfaceVariant = if (highContrast) palette.textPrimary else palette.textSecondary,
+                outline = palette.divider, outlineVariant = palette.divider, error = SonaraError
+            )
         }
-        // Dynamic + light
         useDynamic && !useDark -> {
             val base = dynamicLightColorScheme(context)
             base.copy(
-                background = Color(0xFFF8F8FA), surface = Color(0xFFFFFFFF),
-                surfaceVariant = Color(0xFFF0F0F2),
-                onBackground = if (highContrast) Color.Black else Color(0xFF1C1C1E),
-                onSurface = if (highContrast) Color.Black else Color(0xFF1C1C1E),
-                onSurfaceVariant = if (highContrast) Color(0xFF1C1C1E) else Color(0xFF636366),
-                outline = Color(0xFFD1D1D6), error = SonaraError)
+                background = palette.background, surface = palette.surface,
+                surfaceVariant = palette.card,
+                onBackground = if (highContrast) Color.Black else palette.textPrimary,
+                onSurface = if (highContrast) Color.Black else palette.textPrimary,
+                onSurfaceVariant = if (highContrast) palette.textPrimary else palette.textSecondary,
+                outline = palette.divider, error = SonaraError
+            )
         }
-        // Light theme (proper)
         !useDark -> lightColorScheme(
-            primary = p.primary,
-            onPrimary = Color.White,
-            primaryContainer = p.primary.copy(alpha = 0.10f),
-            onPrimaryContainer = p.primaryDark,
-            secondary = Color(0xFF5A7A8A),
-            onSecondary = Color.White,
-            background = Color(0xFFF8F8FA),
-            onBackground = if (highContrast) Color.Black else Color(0xFF1C1C1E),
-            surface = Color(0xFFFFFFFF),
-            onSurface = if (highContrast) Color.Black else Color(0xFF1C1C1E),
-            surfaceVariant = Color(0xFFF0F0F2),
-            onSurfaceVariant = if (highContrast) Color(0xFF1C1C1E) else Color(0xFF636366),
-            outline = Color(0xFFD1D1D6),
-            outlineVariant = Color(0xFFE5E5EA),
-            error = Color(0xFFD32F2F),
-            inverseSurface = Color(0xFF2C2C2E),
-            inverseOnSurface = Color(0xFFF5F5F5)
+            primary = p.primary, onPrimary = Color.White,
+            primaryContainer = p.primary.copy(alpha = 0.10f), onPrimaryContainer = p.primaryDark,
+            secondary = Color(0xFF5A7A8A), onSecondary = Color.White,
+            background = palette.background, onBackground = if (highContrast) Color.Black else palette.textPrimary,
+            surface = palette.surface, onSurface = if (highContrast) Color.Black else palette.textPrimary,
+            surfaceVariant = palette.card, onSurfaceVariant = if (highContrast) palette.textPrimary else palette.textSecondary,
+            outline = palette.divider, outlineVariant = Color(0xFFE5E5EA),
+            error = Color(0xFFD32F2F), inverseSurface = Color(0xFF2C2C2E), inverseOnSurface = Color(0xFFF5F5F5)
         )
-        // AMOLED dark
-        amoledMode -> darkColorScheme(
-            primary = p.primary,
-            onPrimary = amoledBg,
-            primaryContainer = p.primary.copy(alpha = 0.12f),
-            onPrimaryContainer = p.primaryLight,
-            secondary = SonaraInfo,
-            background = amoledBg,
-            surface = amoledSurface,
-            surfaceVariant = amoledCard,
-            onBackground = if (highContrast) Color.White else SonaraTextPrimary,
-            onSurface = if (highContrast) Color.White else SonaraTextPrimary,
-            onSurfaceVariant = if (highContrast) SonaraTextPrimary else SonaraTextSecondary,
-            outline = Color(0xFF2A2A2E),
-            outlineVariant = Color(0xFF2A2A2E),
-            error = SonaraError
-        )
-        // Normal dark
         else -> darkColorScheme(
-            primary = p.primary,
-            onPrimary = SonaraBackground,
-            primaryContainer = p.primary.copy(alpha = 0.1f),
-            onPrimaryContainer = p.primaryLight,
+            primary = p.primary, onPrimary = palette.background,
+            primaryContainer = p.primary.copy(alpha = 0.1f), onPrimaryContainer = p.primaryLight,
             secondary = SonaraInfo,
-            background = SonaraBackground,
-            surface = SonaraSurface,
-            surfaceVariant = SonaraCard,
-            onBackground = if (highContrast) Color.White else SonaraTextPrimary,
-            onSurface = if (highContrast) Color.White else SonaraTextPrimary,
-            onSurfaceVariant = if (highContrast) SonaraTextPrimary else SonaraTextSecondary,
-            outline = SonaraDivider,
-            outlineVariant = SonaraDivider,
-            error = SonaraError
+            background = palette.background, surface = palette.surface,
+            surfaceVariant = palette.card,
+            onBackground = if (highContrast) Color.White else palette.textPrimary,
+            onSurface = if (highContrast) Color.White else palette.textPrimary,
+            onSurfaceVariant = if (highContrast) palette.textPrimary else palette.textSecondary,
+            outline = palette.divider, outlineVariant = palette.divider, error = SonaraError
         )
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = SonaraTypography,
-        shapes = SonaraShapes,
-        content = content
-    )
+    CompositionLocalProvider(LocalSonaraColors provides palette) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = SonaraTypography,
+            shapes = SonaraShapes,
+            content = content
+        )
+    }
 }

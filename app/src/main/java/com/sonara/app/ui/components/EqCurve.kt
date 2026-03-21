@@ -12,7 +12,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
-import com.sonara.app.ui.theme.SonaraCardElevated
 
 @Composable
 fun EqCurve(
@@ -24,12 +23,12 @@ fun EqCurve(
     val primary = MaterialTheme.colorScheme.primary
     val range = maxValue - minValue
 
+    val gridColor = SonaraCardElevated
     Canvas(modifier = modifier.fillMaxWidth().height(100.dp)) {
         val w = size.width
         val h = size.height
         val padding = 16f
 
-        val gridColor = SonaraCardElevated
         drawLine(gridColor, Offset(padding, h / 2), Offset(w - padding, h / 2), strokeWidth = 1f)
         drawLine(gridColor, Offset(padding, h * 0.25f), Offset(w - padding, h * 0.25f), strokeWidth = 0.5f)
         drawLine(gridColor, Offset(padding, h * 0.75f), Offset(w - padding, h * 0.75f), strokeWidth = 0.5f)

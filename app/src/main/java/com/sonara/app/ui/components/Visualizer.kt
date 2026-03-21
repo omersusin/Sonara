@@ -18,7 +18,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.dp
-import com.sonara.app.ui.theme.SonaraCardElevated
 import kotlin.math.sin
 
 @Composable
@@ -52,6 +51,7 @@ fun SonaraVisualizer(
 
     val seeds = remember { FloatArray(barCount) { (it * 0.7f + it * it * 0.01f) } }
 
+    val idleColor = SonaraCardElevated
     FluentCard(modifier = modifier) {
         Canvas(modifier = Modifier.fillMaxWidth().height(64.dp)) {
             val w = size.width
@@ -75,7 +75,7 @@ fun SonaraVisualizer(
                 val alpha = if (isPlaying) 0.4f + (barHeight / h) * 0.5f else 0.15f
 
                 drawRoundRect(
-                    color = if (isPlaying) primary.copy(alpha = alpha) else SonaraCardElevated,
+                    color = if (isPlaying) primary.copy(alpha = alpha) else idleColor,
                     topLeft = Offset(x, h - barHeight),
                     size = Size(barWidth, barHeight),
                     cornerRadius = CornerRadius(2f, 2f)
