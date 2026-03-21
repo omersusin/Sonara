@@ -20,12 +20,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -49,6 +52,8 @@ import com.sonara.app.ui.components.NowPlayingBar
 import com.sonara.app.ui.components.PermissionCard
 import com.sonara.app.ui.components.SonaraVisualizer
 import com.sonara.app.ui.components.StatusChip
+import com.sonara.app.ui.components.VisualizerMode
+import com.sonara.app.ui.components.VisualizerStateDetector
 import com.sonara.app.ui.theme.*
 
 @Composable
@@ -84,11 +89,26 @@ fun DashboardScreen() {
             item { PermissionCard(onGrant = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) }
         }
 
+        // ═══ Madde 17 FIX: NowPlayingBar + Love butonu ═══
         item {
-            NowPlayingBar(
-                title = if (s.hasTrack) s.title else "No music playing",
-                artist = s.artist, isPlaying = s.isPlaying, albumArt = art,
-            )
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) {
+                    NowPlayingBar(
+                        title = if (s.hasTrack) s.title else "No music playing",
+                        artist = s.artist, isPlaying = s.isPlaying, albumArt = art,
+                    )
+                }
+                if (s.hasTrack) {
+                    IconButton(onClick = { vm.toggleLove() }) {
+                        Icon(
+                            if (s.isLoved) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            contentDescription = if (s.isLoved) "Unlove" else "Love",
+                            tint = if (s.isLoved) SonaraError else SonaraTextTertiary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+            }
         }
 
         if (s.hasTrack) {
@@ -112,6 +132,11 @@ fun DashboardScreen() {
                                 }
                             }
                         }
+                    }
+                    // ═══ Madde 10: Gemini insight gösterimi ═══
+                    if (s.geminiSummary.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(s.geminiSummary, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -155,7 +180,24 @@ fun DashboardScreen() {
             }
         }
 
-        item { SonaraVisualizer(isPlaying = s.isPlaying) }
+        // ═══ Madde 18 FIX: Visualizer + mode göstergesi ═══
+        item {
+            val vizMode = VisualizerStateDetector.detect(
+                hasAudioSession = s.eqActive,
+                hasVisualizerPermission = false, // Real visualizer API değil henüz
+                isPlaying = s.isPlaying
+            )
+            Column {
+                SonaraVisualizer(isPlaying = s.isPlaying)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Visualizer: ${vizMode.label}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SonaraTextTertiary,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+        }
         item { Spacer(Modifier.height(8.dp)) }
     }
 }

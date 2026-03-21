@@ -16,11 +16,19 @@ import com.sonara.app.SonaraApp
 import com.sonara.app.data.SonaraLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+/**
+ * Madde 16 FIX: keepNotificationPaused toggle artık uygulanıyor.
+ * keepNotificationPaused = false → müzik durduğunda notification 5 saniye sonra kaybolur.
+ * keepNotificationPaused = true (default) → notification sürekli kalır.
+ */
 class SonaraService : Service() {
     companion object {
         const val CHANNEL_ID = "sonara_engine"
@@ -33,6 +41,7 @@ class SonaraService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var isLoved = false
     private var lastTrackKey = ""
+    private var dismissJob: Job? = null
 
     override fun onCreate() {
         super.onCreate(); createChannel()
@@ -43,7 +52,41 @@ class SonaraService : Service() {
                     if (key != lastTrackKey) { isLoved = false; lastTrackKey = key }
                     val n = buildNotification(np.title.ifBlank { "Sonara" }, np.artist, np.isPlaying, art)
                     getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, n)
+
+                    // ═══ Madde 16 FIX: Pause lifecycle ═══
+                    if (!np.isPlaying && np.title.isNotBlank()) {
+                        handlePausedState()
+                    } else {
+                        // Müzik çalıyorsa dismiss'i iptal et
+                        dismissJob?.cancel()
+                        dismissJob = null
+                    }
                 }
+        }
+    }
+
+    /**
+     * Madde 16 FIX: Müzik durduğunda keepNotificationPaused kontrolü
+     */
+    private fun handlePausedState() {
+        dismissJob?.cancel()
+        dismissJob = scope.launch {
+            try {
+                val app = application as SonaraApp
+                val keepNotification = app.preferences.keepNotificationPausedFlow.first()
+                if (!keepNotification) {
+                    // 5 saniye bekle — kullanıcı geri açabilir
+                    delay(5000)
+                    // Hâlâ pause'daysa notification'ı kaldır
+                    val stillPaused = !SonaraNotificationListener.nowPlaying.value.isPlaying
+                    if (stillPaused) {
+                        SonaraLogger.i("Service", "Removing notification (keepNotification=false, paused)")
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                    }
+                }
+                // keepNotification=true → notification kalır (default davranış)
+            } catch (_: Exception) {}
         }
     }
 
@@ -84,7 +127,7 @@ class SonaraService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
-    override fun onDestroy() { scope.cancel(); super.onDestroy() }
+    override fun onDestroy() { dismissJob?.cancel(); scope.cancel(); super.onDestroy() }
 
     private fun updateNotification() {
         val np = SonaraNotificationListener.nowPlaying.value
@@ -111,7 +154,6 @@ class SonaraService : Service() {
             else -> "Sound engine active"
         }
 
-        // Heart ICON (real drawable, not text)
         val heartIcon = Icon.createWithResource(this,
             if (isLoved) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
         val heartAction = Notification.Action.Builder(heartIcon, if (isLoved) "Loved" else "Love", love).build()
@@ -124,7 +166,7 @@ class SonaraService : Service() {
             .setContentIntent(open)
             .addAction(heartAction)
             .addAction(stopAction)
-            .setOngoing(true)
+            .setOngoing(isPlaying) // Madde 16: Pause'dayken swipe ile kapatılabilir
             .setShowWhen(false)
 
         if (art != null && !art.isRecycled) {

@@ -38,7 +38,8 @@ data class DashboardUiState(
     val route: String = "Speaker",
     val headphoneName: String = "",
     val savedMessage: String = "",
-    val isLoved: Boolean = false
+    val isLoved: Boolean = false,
+    val geminiSummary: String = ""
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -58,7 +59,8 @@ data class DashboardUiState(
             songsLearned == other.songsLearned &&
             eqStrategy == other.eqStrategy && route == other.route &&
             headphoneName == other.headphoneName &&
-            savedMessage == other.savedMessage && isLoved == other.isLoved
+            savedMessage == other.savedMessage && isLoved == other.isLoved &&
+            geminiSummary == other.geminiSummary
     }
     override fun hashCode(): Int {
         var result = title.hashCode()
@@ -68,6 +70,7 @@ data class DashboardUiState(
         result = 31 * result + bands.contentHashCode()
         result = 31 * result + notificationListenerEnabled.hashCode()
         result = 31 * result + isLoved.hashCode()
+        result = 31 * result + geminiSummary.hashCode()
         return result
     }
 }
@@ -98,11 +101,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch { SonaraNotificationListener.currentMood.collect { m -> if (m.isNotBlank()) _uiState.update { it.copy(mood = DisplayLabelMapper.formatMood(m)) } } }
         viewModelScope.launch { SonaraNotificationListener.currentEnergy.collect { e -> _uiState.update { it.copy(energy = e) } } }
         viewModelScope.launch { SonaraNotificationListener.currentConfidence.collect { c -> _uiState.update { it.copy(confidence = c) } } }
-        viewModelScope.launch { SonaraNotificationListener.currentSource.collect { s -> if (s.isNotBlank()) _uiState.update { it.copy(sourceLabel = DisplayLabelMapper.formatSource(s)) } } }
+        viewModelScope.launch { SonaraNotificationListener.currentSource.collect { s -> if (s.isNotBlank()) _uiState.update { it.copy(sourceLabel = s) } } }
         viewModelScope.launch { app.audioSessionManager.activeStrategy.collect { s -> _uiState.update { it.copy(eqStrategy = s, eqActive = s != "none") } } }
         viewModelScope.launch { app.currentRoute.collect { r -> _uiState.update { it.copy(route = r.displayName) } } }
         viewModelScope.launch { app.preferences.songsLearnedFlow.collect { n -> _uiState.update { it.copy(songsLearned = n) } } }
         viewModelScope.launch { app.preferences.aiEnabledFlow.collect { e -> _uiState.update { it.copy(isAiEnabled = e) } } }
+        viewModelScope.launch { app.geminiInsight.collect { insight ->
+            _uiState.update { it.copy(geminiSummary = insight?.summary ?: "") }
+        } }
+
         checkNotificationListener()
     }
 

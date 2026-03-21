@@ -184,8 +184,21 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
         }
         Spacer(Modifier.height(8.dp))
 
-        if (state.isApiKeySet) {
+        if (state.lastFmConnected) {
+            Text("Connected as ${'$'}{state.lastFmUsername}", style = MaterialTheme.typography.bodySmall, color = SonaraSuccess)
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { vm.disconnectLastFm() }, shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, SonaraError.copy(0.5f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
+            ) { Text("Disconnect Last.fm") }
+        } else if (state.isApiKeySet) {
             Text("Genre detection via Last.fm is active.", style = MaterialTheme.typography.bodySmall, color = SonaraSuccess)
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { vm.connectLastFm { intent -> ctx.startActivity(intent) } },
+                Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, p),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
+            ) { Text("Connect Last.fm Account") }
         } else {
             Text("Required for accurate genre detection. Without this, Sonara uses less accurate local analysis.",
                 style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
@@ -209,6 +222,12 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
                 Spacer(Modifier.size(6.dp))
                 Text("Open Last.fm API Page", color = p)
             }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { vm.connectLastFm { intent -> ctx.startActivity(intent) } },
+                Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, SonaraInfo),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraInfo)
+            ) { Text("Quick Connect (OAuth)") }
         }
 
         Spacer(Modifier.height(10.dp))

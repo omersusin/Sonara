@@ -13,6 +13,9 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.sonara.app.SonaraApp
 import com.sonara.app.data.SonaraLogger
+import com.sonara.app.intelligence.lyrics.LyricsInsightEngine
+import com.sonara.app.intelligence.lyrics.LyricsResolver
+import com.sonara.app.intelligence.pipeline.PredictionSourceMapper
 import com.sonara.app.intelligence.pipeline.SonaraTrackInfo
 import com.sonara.app.intelligence.pipeline.TitleNormalizer
 import com.sonara.app.intelligence.lastfm.PendingScrobble
@@ -55,7 +58,6 @@ class SonaraNotificationListener : NotificationListenerService() {
             val wasPlaying = _nowPlaying.value.isPlaying
             _nowPlaying.value = _nowPlaying.value.copy(isPlaying = playing)
 
-            // Scrobble timing
             if (playing && !wasPlaying) {
                 playStartTime = System.currentTimeMillis()
                 hasScrobbled = false
@@ -152,7 +154,6 @@ class SonaraNotificationListener : NotificationListenerService() {
         if (title.isBlank() || key == lastTrackKey) return
         lastTrackKey = key
 
-        // Reset scrobble state on new track
         playStartTime = System.currentTimeMillis()
         hasScrobbled = false
         nowPlayingSent = false
@@ -166,35 +167,80 @@ class SonaraNotificationListener : NotificationListenerService() {
 
                 // ═══ Try preloaded prediction first ═══
                 val preloaded = app.nextTrackPreloader.consumeIfMatch(title, artist)
+                val normTitle = TitleNormalizer.normalizeTitle(title)
+                val normArtist = TitleNormalizer.normalizeArtist(artist)
+
                 val prediction = if (preloaded != null) {
                     SonaraLogger.ai("Using PRELOADED prediction for $title")
                     preloaded
                 } else {
-                    val normTitle = TitleNormalizer.normalizeTitle(title)
-                    val normArtist = TitleNormalizer.normalizeArtist(artist)
                     val track = SonaraTrackInfo(normTitle, normArtist, album, duration, _nowPlaying.value.packageName)
                     app.inferencePipeline.analyze(track)
                 }
 
-                // Update genre info for Dashboard
+                // ═══ Madde 13 FIX: PredictionSourceMapper merkezî source truth ═══
+                val hasLyrics = false // Lyrics sonucu henüz yok, aşağıda güncellenecek
+                val sourceDisplay = PredictionSourceMapper.map(prediction, hasLyrics)
+                val formattedSource = if (sourceDisplay.detail.isNotBlank()) {
+                    "${sourceDisplay.primary} (${sourceDisplay.detail})"
+                } else {
+                    sourceDisplay.primary
+                }
+
                 _currentGenre.value = prediction.genre.displayName
                 _currentMood.value = prediction.mood.displayName
                 _currentEnergy.value = prediction.energy
                 _currentConfidence.value = prediction.confidence
-                _currentSource.value = prediction.source.displayName
+                _currentSource.value = formattedSource
 
-                // Apply EQ or reset to neutral
-                if (prediction.genre != com.sonara.app.intelligence.pipeline.Genre.UNKNOWN && prediction.confidence > 0.05f) {
-                    if (!isManualPreset && aiOn) app.applyFromPrediction(prediction)
-                } else if (!isManualPreset && aiOn) {
-                    // UNKNOWN track → reset EQ to flat so UI stays consistent
-                    app.applyEq(
-                        bands = FloatArray(10),
-                        presetName = "Flat (Unknown)",
-                        manual = false,
-                        bassBoost = 0, virtualizer = 0, loudness = 0
-                    )
-                    SonaraLogger.ai("UNKNOWN track → EQ reset to flat")
+                // ═══ Madde 11 FIX: Lyrics fetch + modifier ═══
+                var lyricsModifier: FloatArray? = null
+                scope.launch {
+                    try {
+                        val lyricsResult = LyricsResolver.resolve(normTitle, normArtist, duration)
+                        if (lyricsResult != null) {
+                            val insight = LyricsInsightEngine.analyze(lyricsResult.plainLyrics)
+                            lyricsModifier = insight.eqModifier
+                            _lyricsInsight.value = insight
+                            SonaraLogger.ai("Lyrics: tone=${insight.tone} theme=${insight.theme}")
+
+                            // Source'u lyrics bilgisiyle güncelle
+                            val updatedSource = PredictionSourceMapper.map(prediction, true)
+                            val updatedLabel = if (updatedSource.detail.isNotBlank()) {
+                                "${updatedSource.primary} (${updatedSource.detail})"
+                            } else updatedSource.primary
+                            _currentSource.value = updatedLabel
+                        }
+                    } catch (e: Exception) {
+                        SonaraLogger.w("NLS", "Lyrics fetch: ${e.message}")
+                    }
+                }
+
+                // ═══ Madde 15 FIX: Auto Preset — genre'ye göre preset seç ═══
+                val autoPresetOn = app.preferences.autoPresetFlow.first()
+                if (autoPresetOn && !isManualPreset && aiOn && prediction.genre != com.sonara.app.intelligence.pipeline.Genre.UNKNOWN) {
+                    val presets = app.presetRepository.allPresets().first()
+                    val matchingPreset = presets.firstOrNull {
+                        it.genre.equals(prediction.genre.name, ignoreCase = true) && !it.isBuiltIn
+                    }
+                    if (matchingPreset != null) {
+                        SonaraLogger.ai("Auto Preset: Using '${matchingPreset.name}' for ${prediction.genre}")
+                        app.applyEq(
+                            bands = matchingPreset.toArray(),
+                            presetName = matchingPreset.name,
+                            manual = false,
+                            bassBoost = matchingPreset.bassBoost,
+                            virtualizer = matchingPreset.virtualizer,
+                            loudness = matchingPreset.loudness,
+                            preamp = matchingPreset.preamp
+                        )
+                        // Auto Preset uygulandı, AI EQ uygulanmasın
+                    } else {
+                        // Auto Preset eşleşmedi — normal AI akışı
+                        applyAiEq(app, prediction, isManualPreset, aiOn, lyricsModifier)
+                    }
+                } else {
+                    applyAiEq(app, prediction, isManualPreset, aiOn, lyricsModifier)
                 }
 
                 // Train adaptive classifier + personalization
@@ -210,11 +256,51 @@ class SonaraNotificationListener : NotificationListenerService() {
                 // ═══ Scrobbling: updateNowPlaying ═══
                 sendNowPlaying(app, title, artist)
 
+                // ═══ Madde 10 FIX: Gemini insight (arka planda, UI'ı bloklamaz) ═══
+                scope.launch {
+                    try {
+                        val geminiEnabled = app.preferences.geminiEnabledFlow.first()
+                        if (geminiEnabled && app.geminiEngine.isEnabled()) {
+                            val insight = app.geminiEngine.getInsight(
+                                title = normTitle, artist = normArtist,
+                                genre = prediction.genre.displayName,
+                                subGenre = prediction.subGenre,
+                                tags = prediction.tags,
+                                lyricalTone = _lyricsInsight.value?.tone,
+                                energy = prediction.energy,
+                                confidence = prediction.confidence,
+                                currentEqBands = app.eqState.value.bands
+                            )
+                            if (insight.success) {
+                                app.updateGeminiInsight(insight)
+                                SonaraLogger.ai("Gemini insight: ${insight.summary.take(60)}...")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        SonaraLogger.w("NLS", "Gemini: ${e.message}")
+                    }
+                }
+
             } catch (e: Exception) { SonaraLogger.e("NLS", "Process: ${e.message}") }
         }
 
-        // Schedule scrobble if playing
         if (_nowPlaying.value.isPlaying) scheduleScrobble()
+    }
+
+    /** AI EQ uygulaması — ortak fonksiyon */
+    private fun applyAiEq(app: SonaraApp, prediction: com.sonara.app.intelligence.pipeline.SonaraPrediction,
+                          isManualPreset: Boolean, aiOn: Boolean, lyricsModifier: FloatArray?) {
+        if (prediction.genre != com.sonara.app.intelligence.pipeline.Genre.UNKNOWN && prediction.confidence > 0.05f) {
+            if (!isManualPreset && aiOn) app.applyFromPrediction(prediction, lyricsModifier)
+        } else if (!isManualPreset && aiOn) {
+            app.applyEq(
+                bands = FloatArray(10),
+                presetName = "Flat (Unknown)",
+                manual = false,
+                bassBoost = 0, virtualizer = 0, loudness = 0
+            )
+            SonaraLogger.ai("UNKNOWN track → EQ reset to flat")
+        }
     }
 
     private fun sendNowPlaying(app: SonaraApp, title: String, artist: String) {
@@ -244,7 +330,6 @@ class SonaraNotificationListener : NotificationListenerService() {
     private fun scheduleScrobble() {
         scrobbleJob?.cancel()
         scrobbleJob = scope.launch {
-            // Last.fm rule: scrobble after 50% of track or 4 minutes, whichever is first
             val np = _nowPlaying.value
             val waitMs = if (np.duration > 0) {
                 minOf(np.duration / 2, 4 * 60 * 1000L).coerceAtLeast(30_000L)
@@ -280,7 +365,6 @@ class SonaraNotificationListener : NotificationListenerService() {
                 hasScrobbled = true
                 SonaraLogger.i("Scrobble", "Scrobbled: ${np.title}")
             } else {
-                // Queue for offline retry
                 try {
                     app.database.pendingScrobbleDao().insert(
                         PendingScrobble(track = np.title, artist = np.artist, album = np.album, timestamp = playStartTime)
@@ -307,6 +391,11 @@ class SonaraNotificationListener : NotificationListenerService() {
         val currentConfidence: StateFlow<Float> = _currentConfidence.asStateFlow()
         val _currentSource = MutableStateFlow("None")
         val currentSource: StateFlow<String> = _currentSource.asStateFlow()
+
+        // Madde 11: Lyrics insight state
+        val _lyricsInsight = MutableStateFlow<LyricsInsightEngine.LyricsInsight?>(null)
+        val lyricsInsight: StateFlow<LyricsInsightEngine.LyricsInsight?> = _lyricsInsight.asStateFlow()
+
         fun isEnabled(ctx: Context): Boolean {
             val cn = ComponentName(ctx, SonaraNotificationListener::class.java)
             val flat = Settings.Secure.getString(ctx.contentResolver, "enabled_notification_listeners")

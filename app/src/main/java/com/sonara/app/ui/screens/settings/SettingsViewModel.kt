@@ -132,6 +132,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setDynamicColors(e: Boolean) { viewModelScope.launch { prefs.setDynamicColors(e) } }
     fun setHighContrast(e: Boolean) { viewModelScope.launch { prefs.setHighContrast(e) } }
     fun setKeepNotificationPaused(e: Boolean) { viewModelScope.launch { prefs.setKeepNotificationPaused(e) } }
+
+    fun connectLastFm(onIntent: (android.content.Intent) -> Unit) {
+        viewModelScope.launch {
+            val intent = app.lastFmAuth.startAuth()
+            if (intent != null) onIntent(intent)
+        }
+    }
+
+    fun disconnectLastFm() {
+        app.lastFmAuth.disconnect()
+        viewModelScope.launch { _uiState.update { it.copy(lastFmConnected = false, lastFmUsername = "") } }
+    }
     fun clearCache() { viewModelScope.launch { cache.clear(); refreshCacheSize() } }
 
     fun clearAllData() {
