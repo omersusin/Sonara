@@ -88,24 +88,8 @@ fun DashboardScreen() {
 
         // ═══ Madde 17 FIX: NowPlayingBar + Love butonu ═══
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) {
-                    NowPlayingBar(
-                        title = if (s.hasTrack) s.title else "No music playing",
-                        artist = s.artist, isPlaying = s.isPlaying, albumArt = art,
-                    )
-                }
-                if (s.hasTrack) {
-                    IconButton(onClick = { vm.toggleLove() }) {
-                        Icon(
-                            if (s.isLoved) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                            contentDescription = if (s.isLoved) "Unlove" else "Love",
-                            tint = if (s.isLoved) SonaraError else SonaraTextTertiary,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-            }
+            NowPlayingBar(title = if (s.hasTrack) s.title else "No music playing",
+                artist = s.artist, isPlaying = s.isPlaying, albumArt = art)
         }
 
         if (s.hasTrack) {
