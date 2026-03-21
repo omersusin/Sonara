@@ -15,6 +15,7 @@ import com.sonara.app.SonaraApp
 import com.sonara.app.ui.components.SonaraBottomBar
 import com.sonara.app.ui.screens.dashboard.DashboardScreen
 import com.sonara.app.ui.screens.debug.DebugLogScreen
+import com.sonara.app.ui.screens.debug.DebugPipelineScreen
 import com.sonara.app.ui.screens.equalizer.EqualizerScreen
 import com.sonara.app.ui.screens.insights.InsightsScreen
 import com.sonara.app.ui.screens.onboarding.OnboardingScreen
@@ -31,6 +32,7 @@ sealed class Screen(val route: String, val label: String) {
     data object Insights : Screen("insights", "Insights")
     data object Settings : Screen("settings", "Settings")
     data object DebugLog : Screen("debug_log", "Debug")
+    data object DebugPipeline : Screen("debug_pipeline", "Pipeline Debug")
 }
 
 @Composable
@@ -41,7 +43,7 @@ fun SonaraNavigation() {
     val startDest = if (!prompted) Screen.Onboarding.route else Screen.Dashboard.route
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
-    val hideBottomBar = currentRoute == Screen.Onboarding.route || currentRoute == Screen.DebugLog.route
+    val hideBottomBar = currentRoute == Screen.Onboarding.route || currentRoute == Screen.DebugLog.route || currentRoute == Screen.DebugPipeline.route
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = { if (!hideBottomBar) SonaraBottomBar(navController) }) { padding ->
         NavHost(navController, startDestination = startDest, Modifier.padding(padding)) {
@@ -55,8 +57,14 @@ fun SonaraNavigation() {
             composable(Screen.Equalizer.route) { EqualizerScreen() }
             composable(Screen.Presets.route) { PresetsScreen() }
             composable(Screen.Insights.route) { InsightsScreen() }
-            composable(Screen.Settings.route) { SettingsScreen(onOpenDebugLog = { navController.navigate(Screen.DebugLog.route) }) }
+            composable(Screen.Settings.route) {
+                SettingsScreen(
+                    onOpenDebugLog = { navController.navigate(Screen.DebugLog.route) },
+                    onOpenPipelineDebug = { navController.navigate(Screen.DebugPipeline.route) }
+                )
+            }
             composable(Screen.DebugLog.route) { DebugLogScreen(onBack = { navController.popBackStack() }) }
+            composable(Screen.DebugPipeline.route) { DebugPipelineScreen() }
         }
     }
 }

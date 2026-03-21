@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.service.SonaraNotificationListener
+import com.sonara.app.ui.components.DisplayLabelMapper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,7 +25,8 @@ data class InsightsUiState(
     val songsLearned: Int = 0, val songsViaLastFm: Int = 0, val songsViaLocal: Int = 0,
     val genreDistribution: Map<String, Int> = emptyMap(),
     val apiAccuracy: Int = 0, val eqStrategy: String = "none",
-    val aiModelSamples: Int = 0, val route: String = "Unknown"
+    val aiModelSamples: Int = 0, val route: String = "Unknown",
+    val personalSamples: Int = 0
 )
 
 class InsightsViewModel(application: Application) : AndroidViewModel(application) {
@@ -41,11 +43,12 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
 
     init {
         viewModelScope.launch { SonaraNotificationListener.nowPlaying.collect { np -> _uiState.update { it.copy(trackTitle = np.title, trackArtist = np.artist, isPlaying = np.isPlaying) } } }
-        viewModelScope.launch { SonaraNotificationListener.currentGenre.collect { g -> if (g.isNotBlank()) _uiState.update { it.copy(genre = g) } } }
-        viewModelScope.launch { SonaraNotificationListener.currentMood.collect { m -> if (m.isNotBlank()) _uiState.update { it.copy(mood = m) } } }
+        // Use DisplayLabelMapper for formatted genre/mood/source
+        viewModelScope.launch { SonaraNotificationListener.currentGenre.collect { g -> if (g.isNotBlank()) _uiState.update { it.copy(genre = DisplayLabelMapper.formatGenre(g)) } } }
+        viewModelScope.launch { SonaraNotificationListener.currentMood.collect { m -> if (m.isNotBlank()) _uiState.update { it.copy(mood = DisplayLabelMapper.formatMood(m)) } } }
         viewModelScope.launch { SonaraNotificationListener.currentEnergy.collect { e -> _uiState.update { it.copy(energy = e) } } }
         viewModelScope.launch { SonaraNotificationListener.currentConfidence.collect { c -> _uiState.update { it.copy(confidence = c) } } }
-        viewModelScope.launch { SonaraNotificationListener.currentSource.collect { s -> if (s.isNotBlank()) _uiState.update { it.copy(dataSource = s) } } }
+        viewModelScope.launch { SonaraNotificationListener.currentSource.collect { s -> if (s.isNotBlank()) _uiState.update { it.copy(dataSource = DisplayLabelMapper.formatSource(s)) } } }
         viewModelScope.launch { app.audioSessionManager.activeStrategy.collect { s -> _uiState.update { it.copy(eqStrategy = s, eqActive = s != "none") } } }
         viewModelScope.launch { app.currentRoute.collect { r -> _uiState.update { it.copy(route = r.displayName) } } }
         viewModelScope.launch { prefs.aiEnabledFlow.collect { e -> _uiState.update { it.copy(isAiEnabled = e) } } }
@@ -55,10 +58,11 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.genreStatsFlow.collect { raw ->
             val map = if (raw.isBlank()) emptyMap()
             else raw.split(";").mapNotNull { entry -> val parts = entry.split(":"); if (parts.size == 2) parts[0] to (parts[1].toIntOrNull() ?: 0) else null }.toMap()
-            _uiState.update { it.copy(genreDistribution = map) }
+            // Format genre labels in distribution
+            val formatted = map.mapKeys { (k, _) -> DisplayLabelMapper.formatGenre(k) }
+            _uiState.update { it.copy(genreDistribution = formatted) }
         } }
 
-        // ═══ REAL headphone + cache feeds ═══
         viewModelScope.launch {
             app.currentRoute.collect { route ->
                 val isHP = route != com.sonara.app.intelligence.pipeline.AudioRoute.SPEAKER && route != com.sonara.app.intelligence.pipeline.AudioRoute.UNKNOWN
@@ -66,7 +70,11 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
             }
         }
         viewModelScope.launch {
-            _uiState.update { it.copy(cacheSize = cache.size(), aiModelSamples = app.adaptiveLearning.getTotalSamples()) }
+            _uiState.update { it.copy(
+                cacheSize = cache.size(),
+                aiModelSamples = app.adaptiveLearning.getTotalSamples(),
+                personalSamples = app.personalization.getTotalSamples()
+            ) }
         }
     }
 }
