@@ -131,7 +131,7 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
                 )
                 val prediction = app.inferencePipeline.analyze(track)
                 if (prediction.genre != com.sonara.app.intelligence.pipeline.Genre.UNKNOWN) {
-                    app.applyFromPrediction(prediction, smooth = true)
+                    app.applyFromPrediction(prediction)
                 }
             }
         }
