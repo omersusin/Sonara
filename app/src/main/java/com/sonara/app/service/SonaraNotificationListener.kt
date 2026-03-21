@@ -226,7 +226,7 @@ class SonaraNotificationListener : NotificationListenerService() {
                     if (matchingPreset != null) {
                         SonaraLogger.ai("Auto Preset: Using '${matchingPreset.name}' for ${prediction.genre}")
                         app.applyEq(
-                            bands = matchingPreset.toArray(),
+                            bands = matchingPreset.bandsArray(),
                             presetName = matchingPreset.name,
                             manual = false,
                             bassBoost = matchingPreset.bassBoost,
