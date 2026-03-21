@@ -164,6 +164,9 @@ class SonaraNotificationListener : NotificationListenerService() {
                 val app = application as SonaraApp
                 val isManualPreset = app.eqState.value.isManualPreset
                 val aiOn = app.preferences.aiEnabledFlow.first()
+                val srcLastFm = app.preferences.sourceLastFmEnabledFlow.first()
+                val srcLocalAi = app.preferences.sourceLocalAiEnabledFlow.first()
+                val srcLyrics = app.preferences.sourceLyricsEnabledFlow.first()
 
                 // ═══ Try preloaded prediction first ═══
                 val preloaded = app.nextTrackPreloader.consumeIfMatch(title, artist)
@@ -175,13 +178,13 @@ class SonaraNotificationListener : NotificationListenerService() {
                     preloaded
                 } else {
                     val track = SonaraTrackInfo(normTitle, normArtist, album, duration, _nowPlaying.value.packageName)
-                    app.inferencePipeline.analyze(track)
+                    app.inferencePipeline.analyze(track, useLastFm = srcLastFm, useLocalAi = srcLocalAi)
                 }
 
-                // ═══ Lyrics fetch (AWAITED — actually passes modifier to EQ) ═══
+                // ═══ Lyrics fetch (only if lyrics source enabled) ═══
                 var lyricsModifier: FloatArray? = null
                 var hasLyrics = false
-                try {
+                if (srcLyrics) try {
                     val lyricsResult = LyricsResolver.resolve(normTitle, normArtist, duration)
                     if (lyricsResult != null) {
                         val insight = LyricsInsightEngine.analyze(lyricsResult.plainLyrics)

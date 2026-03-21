@@ -94,10 +94,13 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
         item { AutoEqImportCard() }
 
         item { SectionHeader("Appearance") }
-        item { AccentColorCard(state.accentColor) { vm.setAccentColor(it) } }
+        item { AppearanceCard(state, vm) }
 
         item { SectionHeader("Sound Engine") }
         item { SoundEngineCard(state, vm) }
+
+        item { SectionHeader("AI Sources") }
+        item { AiSourcesCard(state, vm) }
 
         item { SectionHeader("Advanced") }
         item { AdvancedCard(state, vm) }
@@ -105,8 +108,7 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
         item { SectionHeader("Gemini AI") }
         item { GeminiCard(state, vm) }
 
-        item { SectionHeader("Theme") }
-        item { ThemeCard(state, vm) }
+        // Theme merged into Appearance above
 
         item { SectionHeader("Presets") }
         item { PresetExportImportCard(vm) }
@@ -237,6 +239,12 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
                     Spacer(Modifier.size(6.dp))
                     Text("Open Last.fm API Page", color = p)
                 }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = { vm.connectLastFm { intent -> ctx.startActivity(intent) } },
+                    Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                    border = BorderStroke(1.dp, SonaraInfo),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraInfo)
+                ) { Text("Quick Connect (OAuth)") }
             }
         }
 
@@ -324,29 +332,7 @@ private fun AutoEqImportCard() {
     }
 }
 
-@Composable
-private fun AccentColorCard(selected: AccentColor, onSelect: (AccentColor) -> Unit) {
-    FluentCard {
-        Text("Accent Color", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(4.dp))
-        Text(if (selected == AccentColor.Auto) "Wallpaper colors" else selected.displayName,
-            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-        Spacer(Modifier.height(16.dp))
-        val colors = if (Build.VERSION.SDK_INT >= 31) AccentColor.entries else AccentColor.entries.filter { it != AccentColor.Auto }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            colors.forEach { c ->
-                val sel = c == selected
-                Box(
-                    Modifier.size(38.dp).clip(CircleShape)
-                        .then(if (c == AccentColor.Auto) Modifier.background(Brush.sweepGradient(listOf(SonaraInfo, SonaraSuccess, SonaraBandLow, SonaraError, SonaraWarning, SonaraInfo))) else Modifier.background(c.primary))
-                        .then(if (sel) Modifier.border(2.5.dp, SonaraTextPrimary, CircleShape) else Modifier.border(1.dp, SonaraDivider.copy(0.3f), CircleShape))
-                        .clickable { onSelect(c) },
-                    contentAlignment = Alignment.Center
-                ) { if (sel) Icon(Icons.Rounded.Check, null, tint = SonaraBackground, modifier = Modifier.size(18.dp)) }
-            }
-        }
-    }
-}
+
 
 @Composable
 private fun SoundEngineCard(s: SettingsUiState, vm: SettingsViewModel) {
@@ -534,12 +520,32 @@ private fun GeminiCard(s: SettingsUiState, vm: SettingsViewModel) {
 }
 
 @Composable
-private fun ThemeCard(s: SettingsUiState, vm: SettingsViewModel) {
+@Composable
+private fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
     val p = MaterialTheme.colorScheme.primary
     FluentCard {
+        Text("Accent Color", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(if (s.accentColor == AccentColor.Auto) "Wallpaper colors" else s.accentColor.displayName,
+            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(16.dp))
+        val colors = if (Build.VERSION.SDK_INT >= 31) AccentColor.entries else AccentColor.entries.filter { it != AccentColor.Auto }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            colors.forEach { c ->
+                val sel = c == s.accentColor
+                Box(
+                    Modifier.size(38.dp).clip(CircleShape)
+                        .then(if (c == AccentColor.Auto) Modifier.background(Brush.sweepGradient(listOf(SonaraInfo, SonaraSuccess, SonaraBandLow, SonaraError, SonaraWarning, SonaraInfo))) else Modifier.background(c.primary))
+                        .then(if (sel) Modifier.border(2.5.dp, SonaraTextPrimary, CircleShape) else Modifier.border(1.dp, SonaraDivider.copy(0.3f), CircleShape))
+                        .clickable { vm.setAccentColor(c) },
+                    contentAlignment = Alignment.Center
+                ) { if (sel) Icon(Icons.Rounded.Check, null, tint = SonaraBackground, modifier = Modifier.size(18.dp)) }
+            }
+        }
+        SettingsDivider()
         Text("Theme Mode", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (id, label) ->
                 val sel = s.themeMode == id
                 OutlinedButton(onClick = { vm.setThemeMode(id) },
@@ -551,9 +557,26 @@ private fun ThemeCard(s: SettingsUiState, vm: SettingsViewModel) {
             }
         }
         SettingsDivider()
+        SwitchRow("AMOLED Mode", "Pure black background", s.amoledMode) { vm.setAmoledMode(it) }
+        SettingsDivider()
         SwitchRow("Dynamic Colors", "Use wallpaper colors (Android 12+)", s.dynamicColors) { vm.setDynamicColors(it) }
         SettingsDivider()
         SwitchRow("High Contrast", "Increase text contrast", s.highContrast) { vm.setHighContrast(it) }
+    }
+}
+
+@Composable
+private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
+    FluentCard {
+        Text("AI Sources", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text("Choose which sources AI uses for genre detection", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(8.dp))
+        SwitchRow("Last.fm", "Online genre tags and metadata", s.sourceLastFm) { vm.setSourceLastFm(it) }
+        SettingsDivider()
+        SwitchRow("Local AI", "On-device title/artist classification", s.sourceLocalAi) { vm.setSourceLocalAi(it) }
+        SettingsDivider()
+        SwitchRow("Lyrics", "Lyrics-based tone and mood analysis", s.sourceLyrics) { vm.setSourceLyrics(it) }
     }
 }
 

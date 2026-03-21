@@ -38,6 +38,10 @@ class SonaraPreferences(private val context: Context) {
     private val DYNAMIC_COLORS_ENABLED = booleanPreferencesKey("dynamic_colors_enabled")
     private val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
     private val KEEP_NOTIFICATION_PAUSED = booleanPreferencesKey("keep_notification_paused")
+    private val SOURCE_LASTFM_ENABLED = booleanPreferencesKey("source_lastfm_enabled")
+    private val SOURCE_LOCAL_AI_ENABLED = booleanPreferencesKey("source_local_ai_enabled")
+    private val SOURCE_LYRICS_ENABLED = booleanPreferencesKey("source_lyrics_enabled")
+    private val AMOLED_MODE = booleanPreferencesKey("amoled_mode")
 
     val accentColorFlow: Flow<AccentColor> = context.dataStore.data.map { p ->
         val name = p[ACCENT_COLOR] ?: AccentColor.Amber.name
@@ -83,7 +87,7 @@ class SonaraPreferences(private val context: Context) {
     suspend fun incrementSongLearned(source: String, genre: String) {
         context.dataStore.edit { prefs ->
             prefs[SONGS_LEARNED] = (prefs[SONGS_LEARNED] ?: 0) + 1
-            if (source.contains("lastfm", ignoreCase = true)) prefs[SONGS_VIA_LASTFM] = (prefs[SONGS_VIA_LASTFM] ?: 0) + 1
+            if (source.contains("lastfm", ignoreCase = true) || source.contains("merged", ignoreCase = true)) prefs[SONGS_VIA_LASTFM] = (prefs[SONGS_VIA_LASTFM] ?: 0) + 1
             else prefs[SONGS_VIA_LOCAL] = (prefs[SONGS_VIA_LOCAL] ?: 0) + 1
             val current = prefs[GENRE_STATS] ?: ""
             val map = parseGenreStats(current).toMutableMap()
@@ -112,6 +116,18 @@ class SonaraPreferences(private val context: Context) {
 
     val keepNotificationPausedFlow: Flow<Boolean> = context.dataStore.data.map { it[KEEP_NOTIFICATION_PAUSED] ?: true }
     suspend fun setKeepNotificationPaused(e: Boolean) { context.dataStore.edit { it[KEEP_NOTIFICATION_PAUSED] = e } }
+
+    val sourceLastFmEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[SOURCE_LASTFM_ENABLED] ?: true }
+    suspend fun setSourceLastFmEnabled(e: Boolean) { context.dataStore.edit { it[SOURCE_LASTFM_ENABLED] = e } }
+
+    val sourceLocalAiEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[SOURCE_LOCAL_AI_ENABLED] ?: true }
+    suspend fun setSourceLocalAiEnabled(e: Boolean) { context.dataStore.edit { it[SOURCE_LOCAL_AI_ENABLED] = e } }
+
+    val sourceLyricsEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[SOURCE_LYRICS_ENABLED] ?: true }
+    suspend fun setSourceLyricsEnabled(e: Boolean) { context.dataStore.edit { it[SOURCE_LYRICS_ENABLED] = e } }
+
+    val amoledModeFlow: Flow<Boolean> = context.dataStore.data.map { it[AMOLED_MODE] ?: false }
+    suspend fun setAmoledMode(e: Boolean) { context.dataStore.edit { it[AMOLED_MODE] = e } }
 
     suspend fun resetAll() { context.dataStore.edit { it.clear() } }
 

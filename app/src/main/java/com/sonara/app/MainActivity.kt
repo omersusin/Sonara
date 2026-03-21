@@ -46,12 +46,14 @@ class MainActivity : ComponentActivity() {
             val themeMode by prefs.themeModeFlow.collectAsState(initial = "dark")
             val dynamicColors by prefs.dynamicColorsFlow.collectAsState(initial = false)
             val highContrast by prefs.highContrastFlow.collectAsState(initial = false)
+            val amoledMode by prefs.amoledModeFlow.collectAsState(initial = false)
 
             SonaraTheme(
                 accentColor = accent,
                 themeMode = themeMode,
                 dynamicColors = dynamicColors,
-                highContrast = highContrast
+                highContrast = highContrast,
+                amoledMode = amoledMode
             ) {
                 SonaraNavigation()
             }
