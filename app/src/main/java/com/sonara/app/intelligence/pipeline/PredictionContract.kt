@@ -11,6 +11,7 @@ data class SonaraPrediction(
     val genre: Genre, val subGenre: String? = null, val mood: Mood,
     val energy: Float, val confidence: Float, val source: PredictionSource,
     val mediaType: MediaType, val reasoning: List<String> = emptyList(),
+    val tags: List<String> = emptyList(),
     val timestamp: Long = System.currentTimeMillis()
 )
 

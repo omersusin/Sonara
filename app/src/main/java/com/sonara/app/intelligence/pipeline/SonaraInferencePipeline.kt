@@ -48,7 +48,7 @@ class SonaraInferencePipeline(private val lastFmApiKey: String?) {
                         val genre = Genre.fromString(result.genre)
                         if (genre != Genre.UNKNOWN) {
                             val mood = inferMoodFromTags(result.mood)
-                            SignalMerger.LastFmSignal(genre, mood, result.energy, listOf(result.genre, result.mood).filter { it.isNotBlank() })
+                            SignalMerger.LastFmSignal(genre, result.subGenre, mood, result.energy, result.tags.ifEmpty { listOf(result.genre, result.mood).filter { it.isNotBlank() } })
                         } else null
                     } else null
                 }
