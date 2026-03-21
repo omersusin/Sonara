@@ -69,7 +69,7 @@ enum class MediaType { MUSIC, PODCAST, AUDIOBOOK, VIDEO, UNKNOWN }
 
 enum class PredictionSource(val displayName: String) {
     LASTFM("Last.fm"), LOCAL_CLASSIFIER("Local AI"), MERGED("AI + Last.fm"),
-    ADAPTIVE_OVERRIDE("Learned"), USER_PRESET("User Preset"), CACHE("Cache"), FALLBACK("Fallback")
+    ADAPTIVE_OVERRIDE("Learned"), USER_PRESET("User Preset"), CACHE("Cache"), LYRICS("Lyrics"), GEMINI("Gemini"), FALLBACK("Fallback")
 }
 
 enum class AudioRoute(val displayName: String) {

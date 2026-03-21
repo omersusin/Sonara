@@ -31,6 +31,13 @@ class SonaraPreferences(private val context: Context) {
     private val SONGS_VIA_LASTFM = intPreferencesKey("songs_via_lastfm")
     private val SONGS_VIA_LOCAL = intPreferencesKey("songs_via_local")
     private val GENRE_STATS = stringPreferencesKey("genre_stats")
+    private val GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
+    private val GEMINI_ENABLED = booleanPreferencesKey("gemini_enabled")
+    private val GEMINI_MODEL = stringPreferencesKey("gemini_model")
+    private val THEME_MODE = stringPreferencesKey("theme_mode")
+    private val DYNAMIC_COLORS_ENABLED = booleanPreferencesKey("dynamic_colors_enabled")
+    private val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
+    private val KEEP_NOTIFICATION_PAUSED = booleanPreferencesKey("keep_notification_paused")
 
     val accentColorFlow: Flow<AccentColor> = context.dataStore.data.map { p ->
         val name = p[ACCENT_COLOR] ?: AccentColor.Amber.name
@@ -84,6 +91,27 @@ class SonaraPreferences(private val context: Context) {
             prefs[GENRE_STATS] = serializeGenreStats(map)
         }
     }
+
+    val geminiApiKeyFlow: Flow<String> = context.dataStore.data.map { it[GEMINI_API_KEY] ?: "" }
+    suspend fun setGeminiApiKey(k: String) { context.dataStore.edit { it[GEMINI_API_KEY] = k } }
+
+    val geminiEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[GEMINI_ENABLED] ?: false }
+    suspend fun setGeminiEnabled(e: Boolean) { context.dataStore.edit { it[GEMINI_ENABLED] = e } }
+
+    val geminiModelFlow: Flow<String> = context.dataStore.data.map { it[GEMINI_MODEL] ?: "fast" }
+    suspend fun setGeminiModel(m: String) { context.dataStore.edit { it[GEMINI_MODEL] = m } }
+
+    val themeModeFlow: Flow<String> = context.dataStore.data.map { it[THEME_MODE] ?: "system" }
+    suspend fun setThemeMode(m: String) { context.dataStore.edit { it[THEME_MODE] = m } }
+
+    val dynamicColorsFlow: Flow<Boolean> = context.dataStore.data.map { it[DYNAMIC_COLORS_ENABLED] ?: true }
+    suspend fun setDynamicColors(e: Boolean) { context.dataStore.edit { it[DYNAMIC_COLORS_ENABLED] = e } }
+
+    val highContrastFlow: Flow<Boolean> = context.dataStore.data.map { it[HIGH_CONTRAST] ?: false }
+    suspend fun setHighContrast(e: Boolean) { context.dataStore.edit { it[HIGH_CONTRAST] = e } }
+
+    val keepNotificationPausedFlow: Flow<Boolean> = context.dataStore.data.map { it[KEEP_NOTIFICATION_PAUSED] ?: true }
+    suspend fun setKeepNotificationPaused(e: Boolean) { context.dataStore.edit { it[KEEP_NOTIFICATION_PAUSED] = e } }
 
     suspend fun resetAll() { context.dataStore.edit { it.clear() } }
 
