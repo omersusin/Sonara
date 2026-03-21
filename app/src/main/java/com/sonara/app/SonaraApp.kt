@@ -156,7 +156,12 @@ class SonaraApp : Application() {
      */
     fun applyFromPrediction(prediction: SonaraPrediction, lyricsModifier: FloatArray? = null) {
         val route = _currentRoute.value
-        val userOffset = personalization.getPersonalOffset(prediction.genre, route) ?: adaptiveLearning.getOffset(prediction.genre, route)
+        val userOffset = try {
+            personalization.getPersonalOffset(prediction.genre, route) ?: adaptiveLearning.getOffset(prediction.genre, route)
+        } catch (e: Exception) {
+            SonaraLogger.w("App", "Offset error (safe fallback): ${e.message}")
+            null
+        }
         val profile = eqComposer.compose(prediction, route, userOffset, lyricsModifier)
 
         // ─── Madde 14 FIX: AutoEQ correction ───

@@ -58,8 +58,11 @@ class PersonalizationEngine(private val context: Context) {
                 stats = loadStatsSafe(sFile.readText())
             }
         } catch (e: Exception) {
-            SonaraLogger.w("Personalization", "Load error: ${e.message}")
+            SonaraLogger.w("Personalization", "Load error (clearing corrupted): ${e.message}")
             profiles = mutableMapOf()
+            stats = ListenStats()
+            try { File(context.filesDir, FILE_PROFILES).delete() } catch (_: Exception) {}
+            try { File(context.filesDir, FILE_STATS).delete() } catch (_: Exception) {}
         }
     }
 
