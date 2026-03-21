@@ -212,6 +212,7 @@ class SonaraApp : Application() {
 
 
     /** Love or unlove current track on Last.fm */
+    /** Love or unlove current track on Last.fm */
     suspend fun loveTrack(title: String, artist: String, love: Boolean): Boolean {
         return try {
             val apiKey = secureSecrets.getLastFmApiKey().takeIf { it.isNotBlank() }
@@ -220,12 +221,16 @@ class SonaraApp : Application() {
                 ?: preferences.lastFmSharedSecretFlow.first()
             val sessionKey = secureSecrets.getLastFmSessionKey().takeIf { it.isNotBlank() }
                 ?: preferences.lastFmSessionKeyFlow.first()
-            if (apiKey.isBlank() || sessionKey.isBlank()) return false
+            SonaraLogger.i("Love", "apiKey=${apiKey.take(4)}*** secret=${secret.take(4)}*** session=${sessionKey.take(4)}***")
+            if (apiKey.isBlank()) { SonaraLogger.w("Love", "No API key"); return false }
+            if (sessionKey.isBlank()) { SonaraLogger.w("Love", "No session key — need Last.fm auth"); return false }
             val scrobbler = com.sonara.app.intelligence.lastfm.ScrobblingManager()
-            if (love) scrobbler.loveTrack(title, artist, apiKey, secret, sessionKey)
-            else scrobbler.unloveTrack(title, artist, apiKey, secret, sessionKey)
+            val result = if (love) scrobbler.loveTrack(title, artist, apiKey, secret, sessionKey)
+                else scrobbler.unloveTrack(title, artist, apiKey, secret, sessionKey)
+            SonaraLogger.i("Love", "Result=$result for $title")
+            result
         } catch (e: Exception) {
-            com.sonara.app.data.SonaraLogger.w("App", "Love track failed: ${e.message}")
+            SonaraLogger.e("Love", "Failed: ${e.message}")
             false
         }
     }
