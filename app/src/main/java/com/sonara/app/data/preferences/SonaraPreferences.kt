@@ -34,6 +34,11 @@ class SonaraPreferences(private val context: Context) {
     private val GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
     private val GEMINI_ENABLED = booleanPreferencesKey("gemini_enabled")
     private val GEMINI_MODEL = stringPreferencesKey("gemini_model")
+    private val AI_PROVIDER = stringPreferencesKey("ai_provider")
+    private val OPENROUTER_API_KEY = stringPreferencesKey("openrouter_api_key")
+    private val OPENROUTER_MODEL = stringPreferencesKey("openrouter_model")
+    private val GROQ_API_KEY = stringPreferencesKey("groq_api_key")
+    private val GROQ_MODEL = stringPreferencesKey("groq_model")
     private val THEME_MODE = stringPreferencesKey("theme_mode")
     private val DYNAMIC_COLORS_ENABLED = booleanPreferencesKey("dynamic_colors_enabled")
     private val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
@@ -128,6 +133,19 @@ class SonaraPreferences(private val context: Context) {
 
     val amoledModeFlow: Flow<Boolean> = context.dataStore.data.map { it[AMOLED_MODE] ?: false }
     suspend fun setAmoledMode(e: Boolean) { context.dataStore.edit { it[AMOLED_MODE] = e } }
+
+    val aiProviderFlow: Flow<String> = context.dataStore.data.map { it[AI_PROVIDER] ?: "gemini" }
+    suspend fun setAiProvider(v: String) { context.dataStore.edit { it[AI_PROVIDER] = v } }
+
+    val openRouterApiKeyFlow: Flow<String> = context.dataStore.data.map { it[OPENROUTER_API_KEY] ?: "" }
+    suspend fun setOpenRouterApiKey(v: String) { context.dataStore.edit { it[OPENROUTER_API_KEY] = v } }
+    val openRouterModelFlow: Flow<String> = context.dataStore.data.map { it[OPENROUTER_MODEL] ?: "google/gemini-2.5-flash" }
+    suspend fun setOpenRouterModel(v: String) { context.dataStore.edit { it[OPENROUTER_MODEL] = v } }
+
+    val groqApiKeyFlow: Flow<String> = context.dataStore.data.map { it[GROQ_API_KEY] ?: "" }
+    suspend fun setGroqApiKey(v: String) { context.dataStore.edit { it[GROQ_API_KEY] = v } }
+    val groqModelFlow: Flow<String> = context.dataStore.data.map { it[GROQ_MODEL] ?: "llama-3.3-70b-versatile" }
+    suspend fun setGroqModel(v: String) { context.dataStore.edit { it[GROQ_MODEL] = v } }
 
     suspend fun resetAll() { context.dataStore.edit { it.clear() } }
 

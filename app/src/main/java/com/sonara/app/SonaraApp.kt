@@ -21,6 +21,9 @@ import com.sonara.app.engine.eq.EqComposer
 import com.sonara.app.intelligence.adaptive.AdaptiveLearningEngine
 import com.sonara.app.intelligence.adaptive.PersonalizationEngine
 import com.sonara.app.intelligence.gemini.GeminiInsightEngine
+import com.sonara.app.intelligence.provider.InsightProviderManager
+import com.sonara.app.intelligence.provider.InsightRequest
+import com.sonara.app.intelligence.provider.InsightResult
 import com.sonara.app.intelligence.lastfm.LastFmAuthManager
 import com.sonara.app.intelligence.lastfm.ScrobbleWorker
 import com.sonara.app.intelligence.cache.TrackCache
@@ -59,6 +62,7 @@ class SonaraApp : Application() {
 
     // Madde 10 FIX: Gemini engine instance
     lateinit var geminiEngine: GeminiInsightEngine private set
+    lateinit var insightManager: InsightProviderManager private set
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _eqState = MutableStateFlow(SharedEqState())
@@ -110,6 +114,20 @@ class SonaraApp : Application() {
         // Madde 10 FIX: Gemini engine
         val geminiKey = runBlocking { preferences.geminiApiKeyFlow.first() }.ifBlank { BuildConfig.GEMINI_API_KEY }
         geminiEngine = GeminiInsightEngine(geminiKey)
+        insightManager = InsightProviderManager()
+        insightManager.configureGemini(geminiEngine)
+
+        // Configure OpenRouter/Groq from prefs
+        runBlocking {
+            val orKey = preferences.openRouterApiKeyFlow.first()
+            val orModel = preferences.openRouterModelFlow.first()
+            val grKey = preferences.groqApiKeyFlow.first()
+            val grModel = preferences.groqModelFlow.first()
+            val provider = preferences.aiProviderFlow.first()
+            insightManager.configureOpenRouter(orKey, orModel)
+            insightManager.configureGroq(grKey, grModel)
+            insightManager.setPrimary(provider)
+        }
         appScope.launch {
             preferences.geminiModelFlow.collect { m ->
                 geminiEngine.model = when (m) {

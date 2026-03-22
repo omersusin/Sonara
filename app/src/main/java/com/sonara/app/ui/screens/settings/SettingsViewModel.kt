@@ -45,7 +45,12 @@ data class SettingsUiState(
     val sourceLastFm: Boolean = true,
     val sourceLocalAi: Boolean = true,
     val sourceLyrics: Boolean = true,
-    val amoledMode: Boolean = false
+    val amoledMode: Boolean = false,
+    val aiProvider: String = "gemini",
+    val openRouterApiKey: String = "", val openRouterKeyInput: String = "",
+    val openRouterModel: String = "google/gemini-2.5-flash",
+    val groqApiKey: String = "", val groqKeyInput: String = "",
+    val groqModel: String = "llama-3.3-70b-versatile"
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -81,6 +86,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.sourceLyricsEnabledFlow.collect { e -> _uiState.update { it.copy(sourceLyrics = e) } } }
         // AMOLED
         viewModelScope.launch { prefs.amoledModeFlow.collect { e -> _uiState.update { it.copy(amoledMode = e) } } }
+        // Provider
+        viewModelScope.launch { prefs.aiProviderFlow.collect { v -> _uiState.update { it.copy(aiProvider = v) } } }
+        viewModelScope.launch { prefs.openRouterApiKeyFlow.collect { v -> _uiState.update { it.copy(openRouterApiKey = v) } } }
+        viewModelScope.launch { prefs.openRouterModelFlow.collect { v -> _uiState.update { it.copy(openRouterModel = v) } } }
+        viewModelScope.launch { prefs.groqApiKeyFlow.collect { v -> _uiState.update { it.copy(groqApiKey = v) } } }
+        viewModelScope.launch { prefs.groqModelFlow.collect { v -> _uiState.update { it.copy(groqModel = v) } } }
         // Notification
         viewModelScope.launch { prefs.keepNotificationPausedFlow.collect { e -> _uiState.update { it.copy(keepNotificationPaused = e) } } }
         // Last.fm connection status
@@ -158,6 +169,37 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setSourceLocalAi(e: Boolean) { viewModelScope.launch { prefs.setSourceLocalAiEnabled(e) } }
     fun setSourceLyrics(e: Boolean) { viewModelScope.launch { prefs.setSourceLyricsEnabled(e) } }
     fun setAmoledMode(e: Boolean) { viewModelScope.launch { prefs.setAmoledMode(e) } }
+
+    fun setAiProvider(v: String) {
+        viewModelScope.launch {
+            prefs.setAiProvider(v)
+            app.insightManager.setPrimary(v)
+        }
+    }
+    fun updateOpenRouterKeyInput(v: String) { _uiState.update { it.copy(openRouterKeyInput = v) } }
+    fun setOpenRouterModel(v: String) { viewModelScope.launch { prefs.setOpenRouterModel(v) } }
+    fun saveOpenRouterKey() {
+        viewModelScope.launch {
+            val k = _uiState.value.openRouterKeyInput
+            if (k.isNotBlank()) {
+                prefs.setOpenRouterApiKey(k)
+                app.insightManager.configureOpenRouter(k, _uiState.value.openRouterModel)
+                _uiState.update { it.copy(openRouterKeyInput = "", openRouterApiKey = k) }
+            }
+        }
+    }
+    fun updateGroqKeyInput(v: String) { _uiState.update { it.copy(groqKeyInput = v) } }
+    fun setGroqModel(v: String) { viewModelScope.launch { prefs.setGroqModel(v) } }
+    fun saveGroqKey() {
+        viewModelScope.launch {
+            val k = _uiState.value.groqKeyInput
+            if (k.isNotBlank()) {
+                prefs.setGroqApiKey(k)
+                app.insightManager.configureGroq(k, _uiState.value.groqModel)
+                _uiState.update { it.copy(groqKeyInput = "", groqApiKey = k) }
+            }
+        }
+    }
 
     fun clearCache() { viewModelScope.launch { cache.clear(); refreshCacheSize() } }
 

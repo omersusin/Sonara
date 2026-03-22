@@ -12,6 +12,7 @@ import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.sonara.app.SonaraApp
+import com.sonara.app.intelligence.provider.InsightRequest
 import com.sonara.app.data.SonaraLogger
 import com.sonara.app.intelligence.lyrics.LyricsInsightEngine
 import com.sonara.app.intelligence.lyrics.LyricsResolver
@@ -257,12 +258,12 @@ class SonaraNotificationListener : NotificationListenerService() {
                 // ═══ Scrobbling: updateNowPlaying ═══
                 sendNowPlaying(app, title, artist)
 
-                // ═══ Madde 10 FIX: Gemini insight (arka planda, UI'ı bloklamaz) ═══
+                // ═══ AI Insight via provider manager (Gemini/OpenRouter/Groq with fallback) ═══
                 scope.launch {
                     try {
                         val geminiEnabled = app.preferences.geminiEnabledFlow.first()
-                        if (geminiEnabled && app.geminiEngine.isEnabled()) {
-                            val insight = app.geminiEngine.getInsight(
+                        if (geminiEnabled) {
+                            val request = InsightRequest(
                                 title = normTitle, artist = normArtist,
                                 genre = prediction.genre.displayName,
                                 subGenre = prediction.subGenre,
@@ -272,13 +273,18 @@ class SonaraNotificationListener : NotificationListenerService() {
                                 confidence = prediction.confidence,
                                 currentEqBands = app.eqState.value.bands
                             )
-                            if (insight.success) {
-                                app.updateGeminiInsight(insight)
-                                SonaraLogger.ai("Gemini insight: ${insight.summary.take(60)}...")
+                            val result = app.insightManager.getInsight(request)
+                            if (result.success) {
+                                app.updateGeminiInsight(com.sonara.app.intelligence.gemini.GeminiInsightEngine.GeminiInsight(
+                                    summary = result.summary, whyThisEq = result.whyThisEq,
+                                    listeningFocus = result.listeningFocus, lyricalTone = result.lyricalTone,
+                                    confidenceNote = result.confidenceNote, success = true
+                                ))
+                                SonaraLogger.ai("${result.provider} insight: ${result.summary.take(60)}...")
                             }
                         }
                     } catch (e: Exception) {
-                        SonaraLogger.w("NLS", "Gemini: ${e.message}")
+                        SonaraLogger.w("NLS", "Insight: ${e.message}")
                     }
                 }
 

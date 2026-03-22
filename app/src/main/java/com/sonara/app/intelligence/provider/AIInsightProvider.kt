@@ -1,0 +1,29 @@
+package com.sonara.app.intelligence.provider
+
+/**
+ * Common interface for AI insight providers.
+ * Implementations: Gemini, OpenRouter, Groq
+ */
+interface AIInsightProvider {
+    val name: String
+    val isConfigured: Boolean
+
+    suspend fun getInsight(request: InsightRequest): InsightResult
+}
+
+data class InsightRequest(
+    val title: String, val artist: String, val genre: String,
+    val subGenre: String?, val tags: List<String>,
+    val lyricalTone: String?, val energy: Float,
+    val confidence: Float, val currentEqBands: FloatArray?
+)
+
+data class InsightResult(
+    val summary: String = "",
+    val whyThisEq: String = "",
+    val listeningFocus: String = "",
+    val lyricalTone: String = "",
+    val confidenceNote: String = "",
+    val success: Boolean = false,
+    val provider: String = ""
+)
