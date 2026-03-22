@@ -105,8 +105,7 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
         item { SectionHeader("Advanced") }
         item { AdvancedCard(state, vm) }
 
-        item { SectionHeader("Gemini AI") }
-        item { GeminiCard(state, vm) }
+        // Gemini merged into AI Sources
 
         // Theme merged into Appearance above
 
@@ -471,53 +470,7 @@ private fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
     }
 }
 
-@Composable
-private fun GeminiCard(s: SettingsUiState, vm: SettingsViewModel) {
-    val p = MaterialTheme.colorScheme.primary
-    FluentCard {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Gemini Insights", style = MaterialTheme.typography.titleMedium)
-            StatusChip(if (s.geminiEnabled && s.geminiApiKey.isNotBlank()) "Active" else "Off", if (s.geminiEnabled && s.geminiApiKey.isNotBlank()) ChipStatus.Active else ChipStatus.Inactive)
-        }
-        Spacer(Modifier.height(4.dp))
-        Text("AI-powered track explanations and listening tips", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-        Spacer(Modifier.height(10.dp))
-        SwitchRow("Enable Gemini", "Get AI insights for tracks", s.geminiEnabled) { vm.setGeminiEnabled(it) }
-        if (s.geminiEnabled) {
-            SettingsDivider()
-            Text("API Key", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
-            Spacer(Modifier.height(4.dp))
-            OutlinedTextField(
-                value = s.geminiKeyInput, onValueChange = { vm.updateGeminiKeyInput(it) },
-                placeholder = { Text(if (s.geminiApiKey.isNotBlank()) "••••••••" else "Paste Gemini API key", color = SonaraTextTertiary) },
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(), singleLine = true, shape = MaterialTheme.shapes.small, colors = tfColors()
-            )
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                OutlinedButton(onClick = { vm.saveGeminiKey() }, enabled = s.geminiKeyInput.isNotBlank(),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    border = BorderStroke(1.dp, if (s.geminiKeyInput.isNotBlank()) p else SonaraDivider),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
-                ) { Text("Save") }
-            }
-            SettingsDivider()
-            Text("Model", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("fast" to "Fast", "balanced" to "Balanced", "strong" to "Strong").forEach { (id, label) ->
-                    val sel = s.geminiModel == id
-                    OutlinedButton(onClick = { vm.setGeminiModel(id) },
-                        shape = MaterialTheme.shapes.extraLarge,
-                        border = BorderStroke(1.dp, if (sel) p else SonaraDivider),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = if (sel) p else SonaraTextSecondary),
-                        modifier = Modifier.weight(1f)
-                    ) { Text(label) }
-                }
-            }
-        }
-    }
-}
+
 
 @Composable
 private fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
@@ -528,7 +481,7 @@ private fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
         Text(if (s.accentColor == AccentColor.Auto) "Wallpaper colors" else s.accentColor.displayName,
             style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
         Spacer(Modifier.height(16.dp))
-        val colors = if (Build.VERSION.SDK_INT >= 31) AccentColor.entries else AccentColor.entries.filter { it != AccentColor.Auto }
+        val colors = AccentColor.entries.filter { it != AccentColor.Auto }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             colors.forEach { c ->
                 val sel = c == s.accentColor
@@ -576,6 +529,33 @@ private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
         SwitchRow("Local AI", "On-device title/artist classification", s.sourceLocalAi) { vm.setSourceLocalAi(it) }
         SettingsDivider()
         SwitchRow("Lyrics", "Lyrics-based tone and mood analysis", s.sourceLyrics) { vm.setSourceLyrics(it) }
+        SettingsDivider()
+        SwitchRow("Gemini Insights", "AI-powered track analysis", s.geminiEnabled) { vm.setGeminiEnabled(it) }
+        if (s.geminiEnabled) {
+            Spacer(Modifier.height(8.dp))
+            val p = MaterialTheme.colorScheme.primary
+            OutlinedTextField(
+                value = s.geminiKeyInput, onValueChange = { vm.updateGeminiKeyInput(it) },
+                placeholder = { Text(if (s.geminiApiKey.isNotBlank()) "••••••••" else "Gemini API key", color = SonaraTextTertiary) },
+                modifier = Modifier.fillMaxWidth(), singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p, cursorColor = p)
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { vm.saveGeminiKey() }, enabled = s.geminiKeyInput.isNotBlank(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    border = BorderStroke(1.dp, if (s.geminiKeyInput.isNotBlank()) p else SonaraDivider)
+                ) { Text("Save Key") }
+                listOf("fast" to "Fast", "balanced" to "Balanced", "strong" to "Strong").forEach { (id, label) ->
+                    val sel = s.geminiModel == id
+                    OutlinedButton(onClick = { vm.setGeminiModel(id) },
+                        shape = MaterialTheme.shapes.extraLarge,
+                        border = BorderStroke(1.dp, if (sel) p else SonaraDivider),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = if (sel) p else SonaraTextSecondary)
+                    ) { Text(label, style = MaterialTheme.typography.labelSmall) }
+                }
+            }
+        }
     }
 }
 

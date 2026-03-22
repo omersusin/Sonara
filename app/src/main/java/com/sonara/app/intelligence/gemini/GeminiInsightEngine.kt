@@ -105,6 +105,11 @@ Respond ONLY with valid JSON, no markdown backticks."""
                 val body = response.body?.string() ?: throw Exception("Empty response")
                 val json = JSONObject(body)
 
+                if (!json.has("candidates") || json.getJSONArray("candidates").length() == 0) {
+                    val errMsg = if (json.has("error")) json.getJSONObject("error").optString("message", "Unknown API error") else "No candidates in response"
+                    SonaraLogger.w("Gemini", "API: $errMsg")
+                    return@withContext GeminiInsight("", "", "", "", "", false)
+                }
                 val text = json.getJSONArray("candidates")
                     .getJSONObject(0)
                     .getJSONObject("content")

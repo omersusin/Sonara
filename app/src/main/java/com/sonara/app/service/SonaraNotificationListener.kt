@@ -242,10 +242,8 @@ class SonaraNotificationListener : NotificationListenerService() {
                 }
 
                 // Train adaptive classifier + personalization
-                if (prediction.source == com.sonara.app.intelligence.pipeline.PredictionSource.LASTFM ||
-                    prediction.source == com.sonara.app.intelligence.pipeline.PredictionSource.MERGED) {
-                    app.preferences.incrementSongLearned(prediction.source.name, prediction.genre.name)
-                }
+                // Count ALL analyzed tracks
+                app.preferences.incrementSongLearned(prediction.source.name, prediction.genre.name)
                 app.personalization.recordListen(prediction.genre.name, app.currentRoute.value.name)
 
                 // ═══ Preload NEXT track ═══
