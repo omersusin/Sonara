@@ -94,19 +94,20 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
         item { AutoEqImportCard() }
 
         item { SectionHeader("Appearance") }
-        item { AccentColorCard(state.accentColor) { vm.setAccentColor(it) } }
+        item { AppearanceCard(state, vm) }
 
         item { SectionHeader("Sound Engine") }
         item { SoundEngineCard(state, vm) }
 
+        item { SectionHeader("AI Sources") }
+        item { AiSourcesCard(state, vm) }
+
         item { SectionHeader("Advanced") }
         item { AdvancedCard(state, vm) }
 
-        item { SectionHeader("Gemini AI") }
-        item { GeminiCard(state, vm) }
+        // Gemini merged into AI Sources
 
-        item { SectionHeader("Theme") }
-        item { ThemeCard(state, vm) }
+        // Theme merged into Appearance above
 
         item { SectionHeader("Presets") }
         item { PresetExportImportCard(vm) }
@@ -183,7 +184,7 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
             StatusChip(
                 when {
                     state.lastFmConnected -> "Connected"
-                    state.isApiKeySet -> "Active"
+                    state.isApiKeySet -> "Ready"
                     else -> "Not Set"
                 },
                 when {
@@ -196,6 +197,7 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
         Spacer(Modifier.height(8.dp))
 
         when {
+            // Connected
             state.lastFmConnected -> {
                 Text("Connected as ${state.lastFmUsername}", style = MaterialTheme.typography.bodySmall, color = SonaraSuccess)
                 Spacer(Modifier.height(4.dp))
@@ -208,13 +210,22 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
                 ) { Text("Disconnect") }
             }
+
+            // Key saved → Connect button
             state.isApiKeySet -> {
-                Text("Genre detection via Last.fm is active.", style = MaterialTheme.typography.bodySmall, color = SonaraSuccess)
-                if (!state.isSharedSecretSet) {
-                    Spacer(Modifier.height(4.dp))
-                    Text("Add shared secret for scrobbling support.", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
-                }
+                Text("API key saved. Tap below to connect your Last.fm account.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = { vm.connectLastFm { intent -> ctx.startActivity(intent) } },
+                    Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                    border = BorderStroke(1.dp, SonaraInfo),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraInfo)
+                ) { Text("Connect Last.fm") }
+                Spacer(Modifier.height(8.dp))
+                Text("You will be redirected to Last.fm to authorize Sonara.", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
             }
+
+            // No key → Setup
             else -> {
                 Text("Required for accurate genre detection.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                 Spacer(Modifier.height(12.dp))
@@ -240,38 +251,41 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
             }
         }
 
+        // Key fields — when NOT connected
         if (!state.lastFmConnected) {
             SettingsDivider()
             Text("API Key", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
             Spacer(Modifier.height(4.dp))
             OutlinedTextField(
                 value = state.apiKeyInput, onValueChange = { vm.updateApiKeyInput(it) },
-                placeholder = { Text(if (state.isApiKeySet) "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" else "Paste your API key", color = SonaraTextTertiary) },
+                placeholder = { Text(if (state.isApiKeySet) "••••••••" else "Paste your API key", color = SonaraTextTertiary) },
                 visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(), singleLine = true, shape = MaterialTheme.shapes.small, colors = tfColors()
+                modifier = Modifier.fillMaxWidth(), singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p, cursorColor = p)
             )
             Spacer(Modifier.height(8.dp))
             Text("Shared Secret", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
             Spacer(Modifier.height(4.dp))
             OutlinedTextField(
                 value = state.sharedSecretInput, onValueChange = { vm.updateSharedSecretInput(it) },
-                placeholder = { Text(if (state.isSharedSecretSet) "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" else "Paste shared secret", color = SonaraTextTertiary) },
+                placeholder = { Text(if (state.isSharedSecretSet) "••••••••" else "Paste shared secret", color = SonaraTextTertiary) },
                 visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(), singleLine = true, shape = MaterialTheme.shapes.small, colors = tfColors()
+                modifier = Modifier.fillMaxWidth(), singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p, cursorColor = p)
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 OutlinedButton(
                     onClick = { vm.saveApiKey(); vm.saveSharedSecret() },
                     enabled = state.apiKeyInput.isNotBlank() || state.sharedSecretInput.isNotBlank(),
                     shape = MaterialTheme.shapes.extraLarge,
-                    border = BorderStroke(1.dp, if (state.apiKeyInput.isNotBlank() || state.sharedSecretInput.isNotBlank()) p else SonaraDivider),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
+                    border = BorderStroke(1.dp, if (state.apiKeyInput.isNotBlank() || state.sharedSecretInput.isNotBlank()) p else SonaraDivider)
                 ) { Text("Save") }
             }
         }
     }
 }
+
 
 @Composable
 private fun AutoEqImportCard() {
@@ -324,29 +338,7 @@ private fun AutoEqImportCard() {
     }
 }
 
-@Composable
-private fun AccentColorCard(selected: AccentColor, onSelect: (AccentColor) -> Unit) {
-    FluentCard {
-        Text("Accent Color", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(4.dp))
-        Text(if (selected == AccentColor.Auto) "Wallpaper colors" else selected.displayName,
-            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-        Spacer(Modifier.height(16.dp))
-        val colors = if (Build.VERSION.SDK_INT >= 31) AccentColor.entries else AccentColor.entries.filter { it != AccentColor.Auto }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            colors.forEach { c ->
-                val sel = c == selected
-                Box(
-                    Modifier.size(38.dp).clip(CircleShape)
-                        .then(if (c == AccentColor.Auto) Modifier.background(Brush.sweepGradient(listOf(SonaraInfo, SonaraSuccess, SonaraBandLow, SonaraError, SonaraWarning, SonaraInfo))) else Modifier.background(c.primary))
-                        .then(if (sel) Modifier.border(2.5.dp, SonaraTextPrimary, CircleShape) else Modifier.border(1.dp, SonaraDivider.copy(0.3f), CircleShape))
-                        .clickable { onSelect(c) },
-                    contentAlignment = Alignment.Center
-                ) { if (sel) Icon(Icons.Rounded.Check, null, tint = SonaraBackground, modifier = Modifier.size(18.dp)) }
-            }
-        }
-    }
-}
+
 
 @Composable
 private fun SoundEngineCard(s: SettingsUiState, vm: SettingsViewModel) {
@@ -485,61 +477,34 @@ private fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
     }
 }
 
-@Composable
-private fun GeminiCard(s: SettingsUiState, vm: SettingsViewModel) {
-    val p = MaterialTheme.colorScheme.primary
-    FluentCard {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Gemini Insights", style = MaterialTheme.typography.titleMedium)
-            StatusChip(if (s.geminiEnabled && s.geminiApiKey.isNotBlank()) "Active" else "Off", if (s.geminiEnabled && s.geminiApiKey.isNotBlank()) ChipStatus.Active else ChipStatus.Inactive)
-        }
-        Spacer(Modifier.height(4.dp))
-        Text("AI-powered track explanations and listening tips", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-        Spacer(Modifier.height(10.dp))
-        SwitchRow("Enable Gemini", "Get AI insights for tracks", s.geminiEnabled) { vm.setGeminiEnabled(it) }
-        if (s.geminiEnabled) {
-            SettingsDivider()
-            Text("API Key", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
-            Spacer(Modifier.height(4.dp))
-            OutlinedTextField(
-                value = s.geminiKeyInput, onValueChange = { vm.updateGeminiKeyInput(it) },
-                placeholder = { Text(if (s.geminiApiKey.isNotBlank()) "••••••••" else "Paste Gemini API key", color = SonaraTextTertiary) },
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(), singleLine = true, shape = MaterialTheme.shapes.small, colors = tfColors()
-            )
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                OutlinedButton(onClick = { vm.saveGeminiKey() }, enabled = s.geminiKeyInput.isNotBlank(),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    border = BorderStroke(1.dp, if (s.geminiKeyInput.isNotBlank()) p else SonaraDivider),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
-                ) { Text("Save") }
-            }
-            SettingsDivider()
-            Text("Model", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("fast" to "Fast", "balanced" to "Balanced", "strong" to "Strong").forEach { (id, label) ->
-                    val sel = s.geminiModel == id
-                    OutlinedButton(onClick = { vm.setGeminiModel(id) },
-                        shape = MaterialTheme.shapes.extraLarge,
-                        border = BorderStroke(1.dp, if (sel) p else SonaraDivider),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = if (sel) p else SonaraTextSecondary),
-                        modifier = Modifier.weight(1f)
-                    ) { Text(label) }
-                }
-            }
-        }
-    }
-}
+
 
 @Composable
-private fun ThemeCard(s: SettingsUiState, vm: SettingsViewModel) {
+private fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
     val p = MaterialTheme.colorScheme.primary
     FluentCard {
+        Text("Accent Color", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(if (s.accentColor == AccentColor.Auto) "Wallpaper colors" else s.accentColor.displayName,
+            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(16.dp))
+        val colors = AccentColor.entries.filter { it != AccentColor.Auto }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            colors.forEach { c ->
+                val sel = c == s.accentColor
+                Box(
+                    Modifier.size(38.dp).clip(CircleShape)
+                        .then(if (c == AccentColor.Auto) Modifier.background(Brush.sweepGradient(listOf(SonaraInfo, SonaraSuccess, SonaraBandLow, SonaraError, SonaraWarning, SonaraInfo))) else Modifier.background(c.primary))
+                        .then(if (sel) Modifier.border(2.5.dp, SonaraTextPrimary, CircleShape) else Modifier.border(1.dp, SonaraDivider.copy(0.3f), CircleShape))
+                        .clickable { vm.setAccentColor(c) },
+                    contentAlignment = Alignment.Center
+                ) { if (sel) Icon(Icons.Rounded.Check, null, tint = SonaraBackground, modifier = Modifier.size(18.dp)) }
+            }
+        }
+        SettingsDivider()
         Text("Theme Mode", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (id, label) ->
                 val sel = s.themeMode == id
                 OutlinedButton(onClick = { vm.setThemeMode(id) },
@@ -551,9 +516,57 @@ private fun ThemeCard(s: SettingsUiState, vm: SettingsViewModel) {
             }
         }
         SettingsDivider()
+        SwitchRow("AMOLED Mode", "Pure black background", s.amoledMode) { vm.setAmoledMode(it) }
+        SettingsDivider()
         SwitchRow("Dynamic Colors", "Use wallpaper colors (Android 12+)", s.dynamicColors) { vm.setDynamicColors(it) }
         SettingsDivider()
         SwitchRow("High Contrast", "Increase text contrast", s.highContrast) { vm.setHighContrast(it) }
+    }
+}
+
+@Composable
+private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
+    FluentCard {
+        Text("AI Sources", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text("Choose which sources AI uses for genre detection", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(8.dp))
+        SwitchRow("Last.fm", "Online genre tags and metadata", s.sourceLastFm) { vm.setSourceLastFm(it) }
+        SettingsDivider()
+        SwitchRow("Local AI", "On-device title/artist classification", s.sourceLocalAi) { vm.setSourceLocalAi(it) }
+        SettingsDivider()
+        SwitchRow("Lyrics", "Lyrics-based tone and mood analysis", s.sourceLyrics) { vm.setSourceLyrics(it) }
+        SettingsDivider()
+        SwitchRow("Gemini Insights", "AI-powered track analysis", s.geminiEnabled) { vm.setGeminiEnabled(it) }
+        if (s.geminiEnabled) {
+            Spacer(Modifier.height(8.dp))
+            val p = MaterialTheme.colorScheme.primary
+            OutlinedTextField(
+                value = s.geminiKeyInput, onValueChange = { vm.updateGeminiKeyInput(it) },
+                placeholder = { Text(if (s.geminiApiKey.isNotBlank()) "••••••••" else "Gemini API key", color = SonaraTextTertiary) },
+                modifier = Modifier.fillMaxWidth(), singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p, cursorColor = p)
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { vm.saveGeminiKey() }, enabled = s.geminiKeyInput.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, if (s.geminiKeyInput.isNotBlank()) p else SonaraDivider)
+            ) { Text("Save Key") }
+            Spacer(Modifier.height(8.dp))
+            Text("Model", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
+            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("fast" to "Fast", "balanced" to "Balanced", "strong" to "Strong").forEach { (id, label) ->
+                    val sel = s.geminiModel == id
+                    OutlinedButton(onClick = { vm.setGeminiModel(id) },
+                        modifier = Modifier.weight(1f),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        border = BorderStroke(1.dp, if (sel) p else SonaraDivider),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = if (sel) p else SonaraTextSecondary)
+                    ) { Text(label, style = MaterialTheme.typography.labelSmall) }
+                }
+            }
+        }
     }
 }
 

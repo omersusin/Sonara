@@ -54,7 +54,6 @@ data class OnboardingPage(val icon: ImageVector, val title: String, val descript
 fun OnboardingScreen(onComplete: () -> Unit) {
     val pages = listOf(
         OnboardingPage(Icons.Rounded.MusicNote, "Sonara understands your music", "AI-powered genre detection analyzes every song and automatically adjusts your equalizer for the best sound."),
-        OnboardingPage(Icons.Rounded.Headphones, "Knows your headphones", "AutoEQ correction profiles for 26+ headphone models. Connect your headphones and Sonara adapts instantly."),
         OnboardingPage(Icons.Rounded.GraphicEq, "Smarter with Last.fm", "Connect Last.fm for accurate genre detection. Without it, Sonara's local AI handles everything offline."),
         OnboardingPage(Icons.Rounded.CompareArrows, "Hear the Difference", "Play a song and hold the button to compare Original vs Sonara Enhanced sound in real-time.")
     )

@@ -22,7 +22,7 @@ class SonaraInferencePipeline(private val lastFmApiKey: String?) {
     /** Callback for self-training: called after each successful prediction */
     var onPrediction: ((SonaraTrackInfo, SonaraPrediction) -> Unit)? = null
 
-    suspend fun analyze(track: SonaraTrackInfo): SonaraPrediction {
+    suspend fun analyze(track: SonaraTrackInfo, useLastFm: Boolean = true, useLocalAi: Boolean = true): SonaraPrediction {
         // 1. Cache
         cache[track.cacheKey]?.let { (pred, time) ->
             if (System.currentTimeMillis() - time < 7 * 24 * 60 * 60 * 1000) {
@@ -35,12 +35,12 @@ class SonaraInferencePipeline(private val lastFmApiKey: String?) {
 
         SonaraLogger.ai("Analyzing: ${track.artist} - ${track.title}")
 
-        // 2. Local classifier (instant)
-        val localResult = classifier.classify(track)
+        // 2. Local classifier (if enabled)
+        val localResult = if (useLocalAi) classifier.classify(track) else null
 
         // 3. Last.fm (parallel, 5s timeout)
         var lastFmSignal: SignalMerger.LastFmSignal? = null
-        if (!lastFmApiKey.isNullOrBlank()) {
+        if (!lastFmApiKey.isNullOrBlank() && useLastFm) {
             try {
                 lastFmSignal = withTimeout(5000) {
                     val result = lastFmResolver.resolve(track.title, track.artist, lastFmApiKey)

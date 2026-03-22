@@ -22,9 +22,9 @@ class GeminiInsightEngine(private var apiKey: String = com.sonara.app.BuildConfi
     }
 
     enum class GeminiModel(val id: String, val displayName: String) {
-        FAST("gemini-2.0-flash", "Fast"),
-        BALANCED("gemini-1.5-flash", "Balanced"),
-        STRONG("gemini-1.5-pro", "Strong")
+        FAST("gemini-2.5-flash-lite", "Fast"),
+        BALANCED("gemini-2.5-flash", "Balanced"),
+        STRONG("gemini-2.5-pro", "Strong")
     }
 
     data class GeminiInsight(
@@ -105,6 +105,11 @@ Respond ONLY with valid JSON, no markdown backticks."""
                 val body = response.body?.string() ?: throw Exception("Empty response")
                 val json = JSONObject(body)
 
+                if (!json.has("candidates") || json.getJSONArray("candidates").length() == 0) {
+                    val errMsg = if (json.has("error")) json.getJSONObject("error").optString("message", "Unknown API error") else "No candidates in response"
+                    SonaraLogger.w("Gemini", "API: $errMsg")
+                    return@withContext GeminiInsight("", "", "", "", "", false)
+                }
                 val text = json.getJSONArray("candidates")
                     .getJSONObject(0)
                     .getJSONObject("content")

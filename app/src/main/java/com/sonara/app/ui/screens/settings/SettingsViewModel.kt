@@ -41,7 +41,11 @@ data class SettingsUiState(
     // New: Notification
     val keepNotificationPaused: Boolean = true,
     // New: Personalization
-    val personalSamples: Int = 0
+    val personalSamples: Int = 0,
+    val sourceLastFm: Boolean = true,
+    val sourceLocalAi: Boolean = true,
+    val sourceLyrics: Boolean = true,
+    val amoledMode: Boolean = false
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -71,6 +75,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.themeModeFlow.collect { m -> _uiState.update { it.copy(themeMode = m) } } }
         viewModelScope.launch { prefs.dynamicColorsFlow.collect { e -> _uiState.update { it.copy(dynamicColors = e) } } }
         viewModelScope.launch { prefs.highContrastFlow.collect { e -> _uiState.update { it.copy(highContrast = e) } } }
+        // AI Sources
+        viewModelScope.launch { prefs.sourceLastFmEnabledFlow.collect { e -> _uiState.update { it.copy(sourceLastFm = e) } } }
+        viewModelScope.launch { prefs.sourceLocalAiEnabledFlow.collect { e -> _uiState.update { it.copy(sourceLocalAi = e) } } }
+        viewModelScope.launch { prefs.sourceLyricsEnabledFlow.collect { e -> _uiState.update { it.copy(sourceLyrics = e) } } }
+        // AMOLED
+        viewModelScope.launch { prefs.amoledModeFlow.collect { e -> _uiState.update { it.copy(amoledMode = e) } } }
         // Notification
         viewModelScope.launch { prefs.keepNotificationPausedFlow.collect { e -> _uiState.update { it.copy(keepNotificationPaused = e) } } }
         // Last.fm connection status
@@ -144,6 +154,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         app.lastFmAuth.disconnect()
         viewModelScope.launch { _uiState.update { it.copy(lastFmConnected = false, lastFmUsername = "") } }
     }
+    fun setSourceLastFm(e: Boolean) { viewModelScope.launch { prefs.setSourceLastFmEnabled(e) } }
+    fun setSourceLocalAi(e: Boolean) { viewModelScope.launch { prefs.setSourceLocalAiEnabled(e) } }
+    fun setSourceLyrics(e: Boolean) { viewModelScope.launch { prefs.setSourceLyricsEnabled(e) } }
+    fun setAmoledMode(e: Boolean) { viewModelScope.launch { prefs.setAmoledMode(e) } }
+
     fun clearCache() { viewModelScope.launch { cache.clear(); refreshCacheSize() } }
 
     fun clearAllData() {

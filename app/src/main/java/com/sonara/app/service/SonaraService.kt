@@ -40,6 +40,7 @@ class SonaraService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var isLoved = false
+    private var hasSessionKey = false
     private var lastTrackKey = ""
     private var dismissJob: Job? = null
 
@@ -98,6 +99,10 @@ class SonaraService : Service() {
             }
             ACTION_LOVE -> {
                 val np = SonaraNotificationListener.nowPlaying.value
+                if (!hasSessionKey) {
+                    SonaraLogger.w("Love", "No session key, ignoring")
+                    return START_STICKY
+                }
                 if (np.title.isNotBlank()) {
                     isLoved = !isLoved
                     updateNotification()
@@ -156,7 +161,7 @@ class SonaraService : Service() {
 
         val heartIcon = Icon.createWithResource(this,
             if (isLoved) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
-        val heartAction = Notification.Action.Builder(heartIcon, if (isLoved) "Loved" else "Love", love).build()
+        val heartAction = if (hasSessionKey) Notification.Action.Builder(heartIcon, if (isLoved) "Loved" else "Love", love).build() else null
         val stopAction = Notification.Action.Builder(null, "Stop", stop).build()
 
         val builder = Notification.Builder(this, CHANNEL_ID)
@@ -164,7 +169,7 @@ class SonaraService : Service() {
             .setContentTitle(title)
             .setContentText(sub)
             .setContentIntent(open)
-            .addAction(heartAction)
+            .also { if (heartAction != null) it.addAction(heartAction) }
             .addAction(stopAction)
             .setOngoing(isPlaying) // Madde 16: Pause'dayken swipe ile kapatılabilir
             .setShowWhen(false)

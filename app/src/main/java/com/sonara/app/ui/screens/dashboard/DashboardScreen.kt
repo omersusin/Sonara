@@ -20,15 +20,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -91,24 +88,8 @@ fun DashboardScreen() {
 
         // ═══ Madde 17 FIX: NowPlayingBar + Love butonu ═══
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) {
-                    NowPlayingBar(
-                        title = if (s.hasTrack) s.title else "No music playing",
-                        artist = s.artist, isPlaying = s.isPlaying, albumArt = art,
-                    )
-                }
-                if (s.hasTrack) {
-                    IconButton(onClick = { vm.toggleLove() }) {
-                        Icon(
-                            if (s.isLoved) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                            contentDescription = if (s.isLoved) "Unlove" else "Love",
-                            tint = if (s.isLoved) SonaraError else SonaraTextTertiary,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-            }
+            NowPlayingBar(title = if (s.hasTrack) s.title else "No music playing",
+                artist = s.artist, isPlaying = s.isPlaying, albumArt = art)
         }
 
         if (s.hasTrack) {

@@ -46,12 +46,14 @@ class MainActivity : ComponentActivity() {
             val themeMode by prefs.themeModeFlow.collectAsState(initial = "dark")
             val dynamicColors by prefs.dynamicColorsFlow.collectAsState(initial = false)
             val highContrast by prefs.highContrastFlow.collectAsState(initial = false)
+            val amoledMode by prefs.amoledModeFlow.collectAsState(initial = false)
 
             SonaraTheme(
                 accentColor = accent,
                 themeMode = themeMode,
                 dynamicColors = dynamicColors,
-                highContrast = highContrast
+                highContrast = highContrast,
+                amoledMode = amoledMode
             ) {
                 SonaraNavigation()
             }
@@ -61,6 +63,23 @@ class MainActivity : ComponentActivity() {
     /**
      * Madde 8 FIX: Deep link callback — Last.fm OAuth dönüşünü işle
      */
+    override fun onResume() {
+        super.onResume()
+        // Last.fm does NOT auto-redirect back — user manually returns.
+        // Check if there's a pending auth token and complete the flow.
+        val app = application as SonaraApp
+        if (app.lastFmAuth.authState.value == com.sonara.app.intelligence.lastfm.LastFmAuthManager.AuthState.AUTHENTICATING) {
+            SonaraLogger.i("MainActivity", "Resuming with pending Last.fm auth, completing...")
+            kotlinx.coroutines.MainScope().launch {
+                val success = app.lastFmAuth.handleCallback()
+                if (success) {
+                    SonaraLogger.i("MainActivity", "Last.fm auth completed on resume")
+                    app.reloadPipeline()
+                }
+            }
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleLastFmDeepLink(intent)
