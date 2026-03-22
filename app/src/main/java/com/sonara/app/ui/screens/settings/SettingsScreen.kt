@@ -30,6 +30,8 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Launch
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Upload
@@ -96,26 +98,22 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
         item { SectionHeader("Appearance") }
         item { AppearanceCard(state, vm) }
 
-        item { SectionHeader("Sound Engine") }
+        item { SectionHeader("Playback & EQ") }
         item { SoundEngineCard(state, vm) }
 
         item { SectionHeader("AI Sources") }
         item { AiSourcesCard(state, vm) }
 
-        item { SectionHeader("Advanced") }
         item { AdvancedCard(state, vm) }
 
         // Gemini merged into AI Sources
 
         // Theme merged into Appearance above
 
-        item { SectionHeader("Presets") }
         item { PresetExportImportCard(vm) }
 
-        item { SectionHeader("Data") }
+        item { SectionHeader("Data & Developer") }
         item { DataCard(state, vm) }
-
-        item { SectionHeader("Developer") }
         item {
             FluentCard {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -251,9 +249,23 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
             }
         }
 
-        // Key fields — when NOT connected
+        // Key fields — collapsible developer section
         if (!state.lastFmConnected) {
             SettingsDivider()
+            var showKeyFields by remember { mutableStateOf(!state.isApiKeySet) }
+            Row(
+                Modifier.fillMaxWidth().clickable { showKeyFields = !showKeyFields },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(if (state.isApiKeySet) "API Keys (saved)" else "API Keys", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
+                Icon(
+                    if (showKeyFields) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = null, tint = SonaraTextTertiary, modifier = Modifier.size(20.dp)
+                )
+            }
+            if (showKeyFields) {
+            Spacer(Modifier.height(4.dp))
             Text("API Key", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
             Spacer(Modifier.height(4.dp))
             OutlinedTextField(
@@ -282,6 +294,7 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
                     border = BorderStroke(1.dp, if (state.apiKeyInput.isNotBlank() || state.sharedSecretInput.isNotBlank()) p else SonaraDivider)
                 ) { Text("Save") }
             }
+            } // end showKeyFields
         }
     }
 }

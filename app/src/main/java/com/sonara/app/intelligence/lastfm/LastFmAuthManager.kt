@@ -154,6 +154,12 @@ class LastFmAuthManager(private val context: Context) {
             _errorMessage.value = "API key bulunamadı"
             return false
         }
+        if (sharedSecret.isBlank()) {
+            _authState.value = AuthState.ERROR
+            _errorMessage.value = "Shared secret gerekli. Settings'den girin."
+            SonaraLogger.e("LastFmAuth", "Shared secret is blank — cannot sign auth.getSession")
+            return false
+        }
 
         return withContext(Dispatchers.IO) {
             try {
@@ -251,7 +257,9 @@ class LastFmAuthManager(private val context: Context) {
     private fun generateSignature(params: Map<String, String>, secret: String): String {
         val raw = params.entries.sortedBy { it.key }
             .joinToString("") { "${it.key}${it.value}" } + secret
-        return md5(raw)
+        val sig = md5(raw)
+        SonaraLogger.i("LastFmAuth", "Signature: method=${params["method"]} keyLen=${params["api_key"]?.length} secretLen=${secret.length} sigLen=${sig.length}")
+        return sig
     }
 
     private fun md5(input: String): String {

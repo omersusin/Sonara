@@ -199,13 +199,18 @@ class SonaraNotificationListener : NotificationListenerService() {
                     SonaraLogger.w("NLS", "Lyrics: ${e.message}")
                 }
 
-                // ═══ Source label — HONEST: Unknown = "No Match" ═══
+                // ═══ Source label — HONEST with nuance ═══
                 val isUnknown = prediction.genre == com.sonara.app.intelligence.pipeline.Genre.UNKNOWN || prediction.confidence < 0.1f
-                val sourceLabel = if (isUnknown) {
-                    "No Match"
-                } else {
-                    val sd = PredictionSourceMapper.map(prediction, hasLyrics)
-                    if (sd.detail.isNotBlank()) "${sd.primary} (${sd.detail})" else sd.primary
+                val sourceLabel = when {
+                    isUnknown -> "No Match"
+                    prediction.confidence < 0.5f -> {
+                        val sd = PredictionSourceMapper.map(prediction, hasLyrics)
+                        "Weak (${sd.primary})"
+                    }
+                    else -> {
+                        val sd = PredictionSourceMapper.map(prediction, hasLyrics)
+                        if (sd.detail.isNotBlank()) "${sd.primary} (${sd.detail})" else sd.primary
+                    }
                 }
 
                 _currentGenre.value = prediction.genre.displayName
