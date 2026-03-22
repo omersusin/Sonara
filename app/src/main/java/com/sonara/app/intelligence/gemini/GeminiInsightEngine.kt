@@ -22,9 +22,9 @@ class GeminiInsightEngine(private var apiKey: String = com.sonara.app.BuildConfi
     }
 
     enum class GeminiModel(val id: String, val displayName: String) {
-        FAST("gemini-2.0-flash", "Fast"),
-        BALANCED("gemini-1.5-flash", "Balanced"),
-        STRONG("gemini-1.5-pro", "Strong")
+        FAST("gemini-2.5-flash-lite", "Fast"),
+        BALANCED("gemini-2.5-flash", "Balanced"),
+        STRONG("gemini-2.5-pro", "Strong")
     }
 
     data class GeminiInsight(
