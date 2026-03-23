@@ -55,6 +55,25 @@ class SonaraInferencePipeline(private val lastFmApiKey: String?) {
             } catch (e: Exception) { SonaraLogger.ai("Last.fm timeout/error: ${e.message}") }
         }
 
+        // 3b. Artist-only fallback if both sources weak
+        if (lastFmSignal == null && (localResult == null || localResult.genre == Genre.UNKNOWN)) {
+            if (!lastFmApiKey.isNullOrBlank() && useLastFm && track.artist.isNotBlank()) {
+                try {
+                    val artistResult = withTimeout(5000) {
+                        lastFmResolver.resolve("", track.artist, lastFmApiKey)
+                    }
+                    if (artistResult != null && artistResult.genre.isNotBlank() && artistResult.genre != "other") {
+                        val genre = Genre.fromString(artistResult.genre)
+                        if (genre != Genre.UNKNOWN) {
+                            lastFmSignal = SignalMerger.LastFmSignal(genre, artistResult.subGenre, null, artistResult.energy,
+                                artistResult.tags.ifEmpty { listOf(artistResult.genre) })
+                            SonaraLogger.ai("Artist fallback: ${track.artist} → $genre")
+                        }
+                    }
+                } catch (_: Exception) { }
+            }
+        }
+
         // 4. Merge
         val prediction = SignalMerger.merge(lastFmSignal, localResult)
         SonaraLogger.ai("Result: ${prediction.genre} | ${prediction.mood} | conf=${prediction.confidence} | src=${prediction.source}")

@@ -55,11 +55,10 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     val pages = listOf(
         OnboardingPage(Icons.Rounded.MusicNote, "Sonara understands your music", "AI-powered genre detection analyzes every song and automatically adjusts your equalizer for the best sound."),
         OnboardingPage(Icons.Rounded.GraphicEq, "Smarter with Last.fm", "Connect Last.fm for accurate genre detection. Without it, Sonara's local AI handles everything offline."),
-        OnboardingPage(Icons.Rounded.CompareArrows, "Hear the Difference", "Play a song and hold the button to compare Original vs Sonara Enhanced sound in real-time.")
     )
 
     // Toplam sayfa sayısı: 4 info page + 1 interactive page = 5
-    val totalPages = pages.size + 1
+    val totalPages = pages.size
     val pagerState = rememberPagerState(pageCount = { totalPages })
     val scope = rememberCoroutineScope()
     val p = MaterialTheme.colorScheme.primary
@@ -69,7 +68,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
 
     Box(Modifier.fillMaxSize().background(SonaraBackground)) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-            if (page < pages.size) {
+            if (page < pages.size) { // All pages are info pages now
                 // Normal bilgi sayfaları
                 Column(
                     Modifier.fillMaxSize().padding(horizontal = 40.dp),
@@ -82,12 +81,6 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                     Spacer(Modifier.height(16.dp))
                     Text(pages[page].description, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = SonaraTextSecondary)
                 }
-            } else {
-                // Madde 12 FIX: Son sayfa = interaktif HearTheDifference
-                HearTheDifferenceScreen(
-                    isPlaying = np.isPlaying,
-                    onContinue = onComplete
-                )
             }
         }
 
@@ -101,25 +94,18 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             Spacer(Modifier.height(24.dp))
 
             // Son interaktif sayfa kendi "Continue" butonu var
-            if (pagerState.currentPage < totalPages - 1) {
-                if (pagerState.currentPage == pages.size - 1) {
-                    // 4. info sayfası → Next ile interaktif sayfaya
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        TextButton(onClick = onComplete) { Text("Skip", color = SonaraTextTertiary) }
-                        FilledTonalButton(onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } },
-                            colors = ButtonDefaults.filledTonalButtonColors(containerColor = p, contentColor = SonaraBackground)
-                        ) { Text("Try it") }
-                    }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                TextButton(onClick = onComplete) { Text("Skip", color = SonaraTextTertiary) }
+                if (pagerState.currentPage < totalPages - 1) {
+                    FilledTonalButton(onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } },
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = p, contentColor = SonaraBackground)
+                    ) { Text("Next") }
                 } else {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        TextButton(onClick = onComplete) { Text("Skip", color = SonaraTextTertiary) }
-                        FilledTonalButton(onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } },
-                            colors = ButtonDefaults.filledTonalButtonColors(containerColor = p, contentColor = SonaraBackground)
-                        ) { Text("Next") }
-                    }
+                    FilledTonalButton(onClick = onComplete,
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = p, contentColor = SonaraBackground)
+                    ) { Text("Get Started") }
                 }
             }
-            // Son sayfa (HearTheDifference) kendi butonunu gösteriyor, burada boş
         }
     }
 }
