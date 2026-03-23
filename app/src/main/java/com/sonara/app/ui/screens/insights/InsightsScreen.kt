@@ -213,7 +213,7 @@ private fun PipelineCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Col
         PDivider()
         PRow(Icons.Rounded.Cached, "Cache", "${s.cacheSize} tracks", p, s.cacheSize > 0)
         PDivider()
-        PRow(Icons.Rounded.Bolt, "AI Provider", s.route.ifBlank { "None" }, p, s.route.isNotBlank() && s.route != "Unknown")
+        PRow(Icons.Rounded.AutoAwesome, "AI Provider", s.route.ifBlank { "None" }, p, s.route.isNotBlank() && s.route != "Unknown")
     }
 }
 
