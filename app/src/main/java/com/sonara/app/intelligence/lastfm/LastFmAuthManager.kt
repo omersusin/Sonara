@@ -97,6 +97,12 @@ class LastFmAuthManager(private val context: Context) {
      * API key yoksa null döner — Settings'te kullanıcıyı uyar.
      */
     suspend fun startAuth(): Intent? {
+        // Debounce: if already authenticating, don't create new token
+        if (_authState.value == AuthState.AUTHENTICATING && pendingToken != null) {
+            SonaraLogger.w("LastFmAuth", "Already authenticating, ignoring duplicate")
+            return null
+        }
+
         val apiKey = resolveApiKey()
         if (apiKey.isBlank()) {
             _authState.value = AuthState.ERROR

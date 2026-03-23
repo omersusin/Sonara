@@ -64,10 +64,9 @@ class OpenAICompatibleProvider(
 
                 if (json.has("error")) {
                     val errMsg = json.getJSONObject("error").optString("message", "Unknown error")
-                    if (errMsg.contains("quota", ignoreCase = true) || errMsg.contains("rate", ignoreCase = true)) {
-                        quotaPausedUntil = System.currentTimeMillis() + 5 * 60 * 1000L
-                    }
-                    SonaraLogger.w(name, "API: $errMsg")
+                    // Backoff on ANY API error — quota, rate limit, no endpoints, etc.
+                    quotaPausedUntil = System.currentTimeMillis() + 5 * 60 * 1000L
+                    SonaraLogger.w(name, "API error, pausing 5min: $errMsg")
                     return@withContext InsightResult(provider = name)
                 }
 
