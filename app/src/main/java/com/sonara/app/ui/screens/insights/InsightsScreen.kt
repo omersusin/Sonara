@@ -61,10 +61,11 @@ fun InsightsScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Column(Modifier.padding(vertical = 8.dp)) { Text("Insights", style = MaterialTheme.typography.headlineLarge); Spacer(Modifier.height(2.dp)); Text("How Sonara processes your sound", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary) } }
         item { TrackCard(s, art, p) }
-        item { LearningCard(s, p) }
-        item { GenreCard(s, p) }
+        item { WhyCard(s, p) }
         item { DetectionCard(s, p) }
         item { AnalysisCard(s, p) }
+        item { LearningCard(s, p) }
+        item { GenreCard(s, p) }
         item { PipelineCard(s, p) }
         item { Spacer(Modifier.height(8.dp)) }
     }
@@ -128,6 +129,38 @@ private fun GenreCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color)
 }
 
 @Composable
+private fun WhyCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
+    FluentCard {
+        Text("Why This Result", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(8.dp))
+        val isUnknown = s.genre == "Unknown" || s.confidence < 0.1f
+        if (isUnknown) {
+            Text("No Match", style = MaterialTheme.typography.titleMedium, color = SonaraWarning)
+            Spacer(Modifier.height(4.dp))
+            val reasons = mutableListOf<String>()
+            if (s.dataSource.contains("Local", ignoreCase = true) || s.dataSource == "None") reasons.add("Last.fm could not find this track or artist")
+            if (s.confidence < 0.1f) reasons.add("Local AI confidence too low to classify")
+            if (reasons.isEmpty()) reasons.add("No source returned a strong genre signal")
+            reasons.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
+            Spacer(Modifier.height(8.dp))
+            Text("EQ is set to flat (no changes applied).", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+        } else {
+            Text(s.genre.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleMedium, color = p)
+            Spacer(Modifier.height(4.dp))
+            val parts = mutableListOf<String>()
+            if (s.dataSource.contains("Last.fm", ignoreCase = true)) parts.add("Last.fm matched genre tags for this track/artist")
+            if (s.dataSource.contains("Local", ignoreCase = true)) parts.add("Local AI identified the artist pattern")
+            if (s.dataSource.contains("Lyrics", ignoreCase = true)) parts.add("Lyrics analysis contributed mood data")
+            if (s.dataSource.contains("Merged", ignoreCase = true)) parts.add("Multiple sources combined for higher confidence")
+            if (parts.isEmpty()) parts.add("Detected via ${s.dataSource}")
+            parts.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
+            Spacer(Modifier.height(8.dp))
+            Text("Confidence: ${(s.confidence * 100).toInt()}% — ${if (s.confidence > 0.7f) "High" else if (s.confidence > 0.4f) "Medium" else "Low"}", style = MaterialTheme.typography.bodySmall, color = if (s.confidence > 0.7f) SonaraSuccess else SonaraWarning)
+        }
+    }
+}
+
+@Composable
 private fun DetectionCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
     FluentCard {
         Text("Detection", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
@@ -179,6 +212,8 @@ private fun PipelineCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Col
         PRow(Icons.Rounded.GraphicEq, "EQ", if (s.eqActive) "Active" else "Off", p, s.eqActive)
         PDivider()
         PRow(Icons.Rounded.Cached, "Cache", "${s.cacheSize} tracks", p, s.cacheSize > 0)
+        PDivider()
+        PRow(Icons.Rounded.AutoAwesome, "AI Provider", s.route.ifBlank { "None" }, p, s.route.isNotBlank() && s.route != "Unknown")
     }
 }
 

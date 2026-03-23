@@ -141,7 +141,7 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
             }
         }
         item { SectionHeader("About") }
-        item { AboutCard() }
+        item { AboutCard(state, vm) }
 
         item { Spacer(Modifier.height(16.dp)) }
     }
@@ -175,57 +175,35 @@ private fun NotificationCard(ctx: Context) {
 @Composable
 private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Context) {
     val p = MaterialTheme.colorScheme.primary
-
     FluentCard {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Last.fm", style = MaterialTheme.typography.titleMedium)
             StatusChip(
-                when {
-                    state.lastFmConnected -> "Connected"
-                    state.isApiKeySet -> "Ready"
-                    else -> "Not Set"
-                },
-                when {
-                    state.lastFmConnected -> ChipStatus.Active
-                    state.isApiKeySet -> ChipStatus.Active
-                    else -> ChipStatus.Warning
-                }
+                if (state.lastFmConnected) "Connected" else "Not Connected",
+                if (state.lastFmConnected) ChipStatus.Active else ChipStatus.Warning
             )
         }
         Spacer(Modifier.height(8.dp))
-
         when {
-            // Connected
             state.lastFmConnected -> {
                 Text("Connected as ${state.lastFmUsername}", style = MaterialTheme.typography.bodySmall, color = SonaraSuccess)
                 Spacer(Modifier.height(4.dp))
                 Text("Genre detection and scrobbling active.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                 Spacer(Modifier.height(12.dp))
-                OutlinedButton(
-                    onClick = { vm.disconnectLastFm() },
-                    shape = MaterialTheme.shapes.extraLarge,
-                    border = BorderStroke(1.dp, SonaraError.copy(0.5f)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
-                ) { Text("Disconnect") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { vm.disconnectLastFm() }, shape = MaterialTheme.shapes.extraLarge,
+                        border = BorderStroke(1.dp, SonaraError.copy(0.5f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
+                    ) { Text("Disconnect") }
+                    OutlinedButton(onClick = { vm.connectLastFm { intent -> ctx.startActivity(intent) } },
+                        shape = MaterialTheme.shapes.extraLarge,
+                        border = BorderStroke(1.dp, SonaraDivider),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraTextSecondary)
+                    ) { Text("Reconnect") }
+                }
             }
-
-            // Key saved → Connect button
-            state.isApiKeySet -> {
-                Text("API key saved. Tap below to connect your Last.fm account.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                Spacer(Modifier.height(12.dp))
-                OutlinedButton(
-                    onClick = { vm.connectLastFm { intent -> ctx.startActivity(intent) } },
-                    Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
-                    border = BorderStroke(1.dp, SonaraInfo),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraInfo)
-                ) { Text("Connect Last.fm") }
-                Spacer(Modifier.height(8.dp))
-                Text("You will be redirected to Last.fm to authorize Sonara.", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
-            }
-
-            // No key → Setup + Connect
             else -> {
-                Text("Required for accurate genre detection.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                Text("Connect your Last.fm account for accurate genre detection and scrobbling.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(
                     onClick = { vm.connectLastFm { intent -> ctx.startActivity(intent) } },
@@ -233,68 +211,20 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
                     border = BorderStroke(1.dp, SonaraInfo),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraInfo)
                 ) { Text("Connect Last.fm") }
-                Spacer(Modifier.height(8.dp))
-                Text("You will be redirected to Last.fm to authorize Sonara.", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
-                Spacer(Modifier.height(4.dp))
-                Text("Requires API key. Tap below to set up.", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
-                Spacer(Modifier.height(8.dp))
-                TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.last.fm/api/account/create"))) }) {
-                    Icon(Icons.Rounded.Launch, null, Modifier.size(16.dp), tint = p)
-                    Spacer(Modifier.size(6.dp))
-                    Text("Get API Key from Last.fm", color = p)
+                if (!state.isApiKeySet) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Requires a Last.fm API key to connect.", style = MaterialTheme.typography.bodySmall, color = SonaraWarning)
+                    TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.last.fm/api/account/create"))) }) {
+                        Icon(Icons.Rounded.Launch, null, Modifier.size(16.dp), tint = p)
+                        Spacer(Modifier.size(6.dp))
+                        Text("Get API Key", color = p)
+                    }
                 }
             }
         }
-
-        // Key fields — collapsible developer section
-        if (!state.lastFmConnected) {
-            SettingsDivider()
-            var showKeyFields by remember { mutableStateOf(!state.isApiKeySet) }
-            Row(
-                Modifier.fillMaxWidth().clickable { showKeyFields = !showKeyFields },
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(if (state.isApiKeySet) "API Keys (saved)" else "API Keys", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
-                Icon(
-                    if (showKeyFields) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    contentDescription = null, tint = SonaraTextTertiary, modifier = Modifier.size(20.dp)
-                )
-            }
-            if (showKeyFields) {
-            Spacer(Modifier.height(4.dp))
-            Text("API Key", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
-            Spacer(Modifier.height(4.dp))
-            OutlinedTextField(
-                value = state.apiKeyInput, onValueChange = { vm.updateApiKeyInput(it) },
-                placeholder = { Text(if (state.isApiKeySet) "••••••••" else "Paste your API key", color = SonaraTextTertiary) },
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(), singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p, cursorColor = p)
-            )
-            Spacer(Modifier.height(8.dp))
-            Text("Shared Secret", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
-            Spacer(Modifier.height(4.dp))
-            OutlinedTextField(
-                value = state.sharedSecretInput, onValueChange = { vm.updateSharedSecretInput(it) },
-                placeholder = { Text(if (state.isSharedSecretSet) "••••••••" else "Paste shared secret", color = SonaraTextTertiary) },
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(), singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p, cursorColor = p)
-            )
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                OutlinedButton(
-                    onClick = { vm.saveApiKey(); vm.saveSharedSecret() },
-                    enabled = state.apiKeyInput.isNotBlank() || state.sharedSecretInput.isNotBlank(),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    border = BorderStroke(1.dp, if (state.apiKeyInput.isNotBlank() || state.sharedSecretInput.isNotBlank()) p else SonaraDivider)
-                ) { Text("Save") }
-            }
-            } // end showKeyFields
-        }
     }
 }
+
 
 
 @Composable
@@ -628,14 +558,58 @@ private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
 }
 
 @Composable
-private fun AboutCard() {
+private fun AboutCard(state: SettingsUiState, vm: SettingsViewModel) {
+    var tapCount by remember { mutableStateOf(0) }
+    var devMode by remember { mutableStateOf(false) }
+    val ctx = LocalContext.current
     FluentCard {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().clickable {
+            tapCount++
+            if (tapCount >= 5 && !devMode) { devMode = true }
+        }, horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Text("Sonara", style = MaterialTheme.typography.titleMedium)
                 Text("Personal Sound Engine", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
             }
             Text("v1.0.0", style = MaterialTheme.typography.labelLarge, color = SonaraTextTertiary)
+        }
+        if (tapCount in 1..4) {
+            Text("${5 - tapCount} more taps for developer options", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+        }
+        if (devMode) {
+            SettingsDivider()
+            Text("Developer Options", style = MaterialTheme.typography.titleSmall, color = SonaraWarning)
+            Spacer(Modifier.height(8.dp))
+            val p = MaterialTheme.colorScheme.primary
+            // API Key
+            Text("Last.fm API Key", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
+            Spacer(Modifier.height(4.dp))
+            OutlinedTextField(value = state.apiKeyInput, onValueChange = { vm.updateApiKeyInput(it) },
+                placeholder = { Text(if (state.isApiKeySet) "\u2022\u2022\u2022\u2022" else "API key", color = SonaraTextTertiary) },
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(), singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p, cursorColor = p))
+            Spacer(Modifier.height(4.dp))
+            // Shared Secret
+            Text("Last.fm Shared Secret", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
+            Spacer(Modifier.height(4.dp))
+            OutlinedTextField(value = state.sharedSecretInput, onValueChange = { vm.updateSharedSecretInput(it) },
+                placeholder = { Text(if (state.isSharedSecretSet) "\u2022\u2022\u2022\u2022" else "Shared secret", color = SonaraTextTertiary) },
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(), singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p, cursorColor = p))
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { vm.saveApiKey(); vm.saveSharedSecret() },
+                enabled = state.apiKeyInput.isNotBlank() || state.sharedSecretInput.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, if (state.apiKeyInput.isNotBlank() || state.sharedSecretInput.isNotBlank()) p else SonaraDivider)
+            ) { Text("Save Keys") }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { vm.disconnectLastFm(); vm.clearAllData() },
+                modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, SonaraError.copy(0.5f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
+            ) { Text("Reset All Auth") }
         }
     }
 }
