@@ -43,6 +43,9 @@ class GeminiInsightEngine(private var apiKey: String = com.sonara.app.BuildConfi
 
     var model: GeminiModel = GeminiModel.FAST
 
+    @Volatile private var quotaPausedUntil: Long = 0L
+    private val QUOTA_BACKOFF_MS = 5 * 60 * 1000L // 5 minutes
+
     fun updateApiKey(key: String) { apiKey = key }
     fun isEnabled(): Boolean = apiKey.isNotBlank()
 
@@ -56,6 +59,7 @@ class GeminiInsightEngine(private var apiKey: String = com.sonara.app.BuildConfi
         confidence: Float, currentEqBands: FloatArray?
     ): GeminiInsight {
         if (apiKey.isBlank()) return GeminiInsight("", "", "", "", "", false)
+        if (System.currentTimeMillis() < quotaPausedUntil) return GeminiInsight("", "", "", "", "", false)
 
         return withContext(Dispatchers.IO) {
             try {
@@ -106,6 +110,11 @@ Respond ONLY with valid JSON, no markdown backticks."""
                 val json = JSONObject(body)
 
                 if (!json.has("candidates") || json.getJSONArray("candidates").length() == 0) {
+                    // Quota exceeded → backoff 5 minutes
+                    if (json.has("error") && json.toString().contains("quota", ignoreCase = true)) {
+                        quotaPausedUntil = System.currentTimeMillis() + QUOTA_BACKOFF_MS
+                        SonaraLogger.w("Gemini", "Quota exceeded, pausing for 5 minutes")
+                    }
                     val errMsg = if (json.has("error")) json.getJSONObject("error").optString("message", "Unknown API error") else "No candidates in response"
                     SonaraLogger.w("Gemini", "API: $errMsg")
                     return@withContext GeminiInsight("", "", "", "", "", false)

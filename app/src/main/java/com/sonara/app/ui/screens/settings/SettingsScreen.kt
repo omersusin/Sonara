@@ -30,6 +30,8 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Launch
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Upload
@@ -96,26 +98,22 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
         item { SectionHeader("Appearance") }
         item { AppearanceCard(state, vm) }
 
-        item { SectionHeader("Sound Engine") }
+        item { SectionHeader("Playback & EQ") }
         item { SoundEngineCard(state, vm) }
 
         item { SectionHeader("AI Sources") }
         item { AiSourcesCard(state, vm) }
 
-        item { SectionHeader("Advanced") }
         item { AdvancedCard(state, vm) }
 
         // Gemini merged into AI Sources
 
         // Theme merged into Appearance above
 
-        item { SectionHeader("Presets") }
         item { PresetExportImportCard(vm) }
 
-        item { SectionHeader("Data") }
+        item { SectionHeader("Data & Developer") }
         item { DataCard(state, vm) }
-
-        item { SectionHeader("Developer") }
         item {
             FluentCard {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -225,35 +223,46 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
                 Text("You will be redirected to Last.fm to authorize Sonara.", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
             }
 
-            // No key → Setup
+            // No key → Setup + Connect
             else -> {
                 Text("Required for accurate genre detection.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                 Spacer(Modifier.height(12.dp))
-                Text("How to get your free API key:", style = MaterialTheme.typography.titleSmall)
-                Spacer(Modifier.height(6.dp))
-                listOf(
-                    "Go to last.fm/api/account/create",
-                    "Create a Last.fm account (or log in)",
-                    "Fill in Application name: Sonara",
-                    "Leave other fields empty, click Submit",
-                    "Copy API Key and Shared Secret",
-                    "Paste them below and tap Save"
-                ).forEachIndexed { i, step ->
-                    Text("${i + 1}. $step", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary,
-                        modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
-                }
+                OutlinedButton(
+                    onClick = { vm.connectLastFm { intent -> ctx.startActivity(intent) } },
+                    Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                    border = BorderStroke(1.dp, SonaraInfo),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraInfo)
+                ) { Text("Connect Last.fm") }
+                Spacer(Modifier.height(8.dp))
+                Text("You will be redirected to Last.fm to authorize Sonara.", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                Spacer(Modifier.height(4.dp))
+                Text("Requires API key. Tap below to set up.", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
                 Spacer(Modifier.height(8.dp))
                 TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.last.fm/api/account/create"))) }) {
                     Icon(Icons.Rounded.Launch, null, Modifier.size(16.dp), tint = p)
                     Spacer(Modifier.size(6.dp))
-                    Text("Open Last.fm API Page", color = p)
+                    Text("Get API Key from Last.fm", color = p)
                 }
             }
         }
 
-        // Key fields — when NOT connected
+        // Key fields — collapsible developer section
         if (!state.lastFmConnected) {
             SettingsDivider()
+            var showKeyFields by remember { mutableStateOf(!state.isApiKeySet) }
+            Row(
+                Modifier.fillMaxWidth().clickable { showKeyFields = !showKeyFields },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(if (state.isApiKeySet) "API Keys (saved)" else "API Keys", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
+                Icon(
+                    if (showKeyFields) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = null, tint = SonaraTextTertiary, modifier = Modifier.size(20.dp)
+                )
+            }
+            if (showKeyFields) {
+            Spacer(Modifier.height(4.dp))
             Text("API Key", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
             Spacer(Modifier.height(4.dp))
             OutlinedTextField(
@@ -282,6 +291,7 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
                     border = BorderStroke(1.dp, if (state.apiKeyInput.isNotBlank() || state.sharedSecretInput.isNotBlank()) p else SonaraDivider)
                 ) { Text("Save") }
             }
+            } // end showKeyFields
         }
     }
 }
@@ -566,6 +576,56 @@ private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
                     ) { Text(label, style = MaterialTheme.typography.labelSmall) }
                 }
             }
+        }
+        SettingsDivider()
+        Text("AI Provider", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text("Primary provider for AI insights (with fallback)", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("gemini" to "Gemini", "openrouter" to "OpenRouter", "groq" to "Groq").forEach { (id, label) ->
+                val sel = s.aiProvider == id
+                val p2 = MaterialTheme.colorScheme.primary
+                OutlinedButton(onClick = { vm.setAiProvider(id) },
+                    modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge,
+                    border = BorderStroke(1.dp, if (sel) p2 else SonaraDivider),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = if (sel) p2 else SonaraTextSecondary)
+                ) { Text(label, style = MaterialTheme.typography.labelSmall) }
+            }
+        }
+        if (s.aiProvider == "openrouter") {
+            Spacer(Modifier.height(8.dp))
+            val p2 = MaterialTheme.colorScheme.primary
+            OutlinedTextField(value = s.openRouterKeyInput, onValueChange = { vm.updateOpenRouterKeyInput(it) },
+                placeholder = { Text(if (s.openRouterApiKey.isNotBlank()) "••••" else "OpenRouter API key", color = SonaraTextTertiary) },
+                modifier = Modifier.fillMaxWidth(), singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
+            Spacer(Modifier.height(4.dp))
+            OutlinedTextField(value = s.openRouterModel, onValueChange = { vm.setOpenRouterModel(it) },
+                label = { Text("Model") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
+            Spacer(Modifier.height(4.dp))
+            OutlinedButton(onClick = { vm.saveOpenRouterKey() }, enabled = s.openRouterKeyInput.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, if (s.openRouterKeyInput.isNotBlank()) p2 else SonaraDivider)
+            ) { Text("Save Key") }
+        }
+        if (s.aiProvider == "groq") {
+            Spacer(Modifier.height(8.dp))
+            val p2 = MaterialTheme.colorScheme.primary
+            OutlinedTextField(value = s.groqKeyInput, onValueChange = { vm.updateGroqKeyInput(it) },
+                placeholder = { Text(if (s.groqApiKey.isNotBlank()) "••••" else "Groq API key", color = SonaraTextTertiary) },
+                modifier = Modifier.fillMaxWidth(), singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
+            Spacer(Modifier.height(4.dp))
+            OutlinedTextField(value = s.groqModel, onValueChange = { vm.setGroqModel(it) },
+                label = { Text("Model") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
+            Spacer(Modifier.height(4.dp))
+            OutlinedButton(onClick = { vm.saveGroqKey() }, enabled = s.groqKeyInput.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, if (s.groqKeyInput.isNotBlank()) p2 else SonaraDivider)
+            ) { Text("Save Key") }
         }
     }
 }

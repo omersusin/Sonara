@@ -12,6 +12,7 @@ import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.sonara.app.SonaraApp
+import com.sonara.app.intelligence.provider.InsightRequest
 import com.sonara.app.data.SonaraLogger
 import com.sonara.app.intelligence.lyrics.LyricsInsightEngine
 import com.sonara.app.intelligence.lyrics.LyricsResolver
@@ -199,13 +200,18 @@ class SonaraNotificationListener : NotificationListenerService() {
                     SonaraLogger.w("NLS", "Lyrics: ${e.message}")
                 }
 
-                // ═══ Source label — HONEST: Unknown = "No Match" ═══
+                // ═══ Source label — HONEST with nuance ═══
                 val isUnknown = prediction.genre == com.sonara.app.intelligence.pipeline.Genre.UNKNOWN || prediction.confidence < 0.1f
-                val sourceLabel = if (isUnknown) {
-                    "No Match"
-                } else {
-                    val sd = PredictionSourceMapper.map(prediction, hasLyrics)
-                    if (sd.detail.isNotBlank()) "${sd.primary} (${sd.detail})" else sd.primary
+                val sourceLabel = when {
+                    isUnknown -> "No Match"
+                    prediction.confidence < 0.5f -> {
+                        val sd = PredictionSourceMapper.map(prediction, hasLyrics)
+                        "Weak (${sd.primary})"
+                    }
+                    else -> {
+                        val sd = PredictionSourceMapper.map(prediction, hasLyrics)
+                        if (sd.detail.isNotBlank()) "${sd.primary} (${sd.detail})" else sd.primary
+                    }
                 }
 
                 _currentGenre.value = prediction.genre.displayName
@@ -252,12 +258,12 @@ class SonaraNotificationListener : NotificationListenerService() {
                 // ═══ Scrobbling: updateNowPlaying ═══
                 sendNowPlaying(app, title, artist)
 
-                // ═══ Madde 10 FIX: Gemini insight (arka planda, UI'ı bloklamaz) ═══
+                // ═══ AI Insight via provider manager (Gemini/OpenRouter/Groq with fallback) ═══
                 scope.launch {
                     try {
                         val geminiEnabled = app.preferences.geminiEnabledFlow.first()
-                        if (geminiEnabled && app.geminiEngine.isEnabled()) {
-                            val insight = app.geminiEngine.getInsight(
+                        if (geminiEnabled) {
+                            val request = InsightRequest(
                                 title = normTitle, artist = normArtist,
                                 genre = prediction.genre.displayName,
                                 subGenre = prediction.subGenre,
@@ -267,13 +273,18 @@ class SonaraNotificationListener : NotificationListenerService() {
                                 confidence = prediction.confidence,
                                 currentEqBands = app.eqState.value.bands
                             )
-                            if (insight.success) {
-                                app.updateGeminiInsight(insight)
-                                SonaraLogger.ai("Gemini insight: ${insight.summary.take(60)}...")
+                            val result = app.insightManager.getInsight(request)
+                            if (result.success) {
+                                app.updateGeminiInsight(com.sonara.app.intelligence.gemini.GeminiInsightEngine.GeminiInsight(
+                                    summary = result.summary, whyThisEq = result.whyThisEq,
+                                    listeningFocus = result.listeningFocus, lyricalTone = result.lyricalTone,
+                                    confidenceNote = result.confidenceNote, success = true
+                                ))
+                                SonaraLogger.ai("${result.provider} insight: ${result.summary.take(60)}...")
                             }
                         }
                     } catch (e: Exception) {
-                        SonaraLogger.w("NLS", "Gemini: ${e.message}")
+                        SonaraLogger.w("NLS", "Insight: ${e.message}")
                     }
                 }
 
