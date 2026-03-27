@@ -16,17 +16,49 @@ import com.sonara.app.preset.Preset
 import com.sonara.app.preset.PresetDao
 import com.sonara.app.intelligence.lastfm.PendingScrobble
 import com.sonara.app.intelligence.lastfm.PendingScrobbleDao
+import com.sonara.app.ai.models.TrainingExample
+import com.sonara.app.ai.models.TrainingExampleDao
 
-@Database(entities = [Preset::class, TrackCacheEntity::class, UserEqPreference::class, UserFeedback::class, PendingScrobble::class], version = 4, exportSchema = false)
+@Database(
+    entities = [
+        Preset::class,
+        TrackCacheEntity::class,
+        UserEqPreference::class,
+        UserFeedback::class,
+        PendingScrobble::class,
+        TrainingExample::class
+    ],
+    version = 5,
+    exportSchema = false
+)
 abstract class SonaraDatabase : RoomDatabase() {
     abstract fun presetDao(): PresetDao
     abstract fun trackCacheDao(): TrackCacheDao
     abstract fun userEqPreferenceDao(): UserEqPreferenceDao
     abstract fun userFeedbackDao(): UserFeedbackDao
     abstract fun pendingScrobbleDao(): PendingScrobbleDao
+    abstract fun trainingExampleDao(): TrainingExampleDao
 
     companion object {
         @Volatile private var INSTANCE: SonaraDatabase? = null
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS sonara_training_examples (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    featureVector TEXT NOT NULL,
+                    genre TEXT NOT NULL,
+                    moodValence REAL NOT NULL,
+                    moodArousal REAL NOT NULL,
+                    energy REAL NOT NULL,
+                    source TEXT NOT NULL,
+                    trackTitle TEXT NOT NULL DEFAULT '',
+                    trackArtist TEXT NOT NULL DEFAULT '',
+                    timestamp INTEGER NOT NULL,
+                    useCount INTEGER NOT NULL DEFAULT 0
+                )""")
+            }
+        }
 
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -47,10 +79,13 @@ abstract class SonaraDatabase : RoomDatabase() {
         fun get(context: Context): SonaraDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(context.applicationContext, SonaraDatabase::class.java, "sonara.db")
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .fallbackToDestructiveMigration()
                     .build().also { INSTANCE = it }
             }
         }
+
+        /** Alias for DailySyncWorker compatibility */
+        fun getInstance(context: Context): SonaraDatabase = get(context)
     }
 }

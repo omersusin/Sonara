@@ -14,9 +14,6 @@ import javax.crypto.spec.GCMParameterSpec
 /**
  * Secure storage for sensitive tokens (API keys, session keys).
  * Uses Android Keystore for encryption.
- *
- * Usage: Replace SonaraPreferences for LASTFM_API_KEY, LASTFM_SHARED_SECRET, LASTFM_SESSION_KEY
- * Non-sensitive settings stay in DataStore.
  */
 class SecureSecrets(private val context: Context) {
     private val TAG = "SecureSecrets"
@@ -49,7 +46,7 @@ class SecureSecrets(private val context: Context) {
             Base64.encodeToString(combined, Base64.NO_WRAP)
         } catch (e: Exception) {
             Log.e(TAG, "Encrypt failed: ${e.message}")
-            plainText // Fallback to plain
+            plainText
         }
     }
 
@@ -64,7 +61,7 @@ class SecureSecrets(private val context: Context) {
             String(cipher.doFinal(encrypted))
         } catch (e: Exception) {
             Log.e(TAG, "Decrypt failed: ${e.message}")
-            encoded // Fallback to raw
+            encoded
         }
     }
 
@@ -77,5 +74,21 @@ class SecureSecrets(private val context: Context) {
     fun getLastFmSessionKey(): String = decrypt(prefs.getString("lfm_session_key", "") ?: "")
     fun setLastFmSessionKey(value: String) { prefs.edit().putString("lfm_session_key", encrypt(value)).apply() }
 
+    /** GitHub PAT for cloud learning sync */
+    fun getGitHubTokenInstance(): String = decrypt(prefs.getString("github_token", "") ?: "")
+    fun setGitHubToken(value: String) { prefs.edit().putString("github_token", encrypt(value)).apply() }
+
     fun clearAll() { prefs.edit().clear().apply() }
+
+    companion object {
+        /**
+         * Static accessor for DailySyncWorker (no instance needed).
+         * Reads GitHub token from SecureSecrets.
+         */
+        fun getGitHubToken(context: Context): String? {
+            val secrets = SecureSecrets(context)
+            val token = secrets.getGitHubTokenInstance()
+            return token.ifBlank { null }
+        }
+    }
 }
