@@ -225,7 +225,7 @@ fun DashboardScreen() {
         item {
             val vizMode = VisualizerStateDetector.detect(hasAudioSession = s.eqActive, hasVisualizerPermission = false, isPlaying = s.isPlaying)
             Column {
-                SonaraVisualizer(isPlaying = s.isPlaying)
+                SonaraVisualizer(isPlaying = s.isPlaying, fftData = s.visualizerData)
                 Spacer(Modifier.height(4.dp))
                 Text("Visualizer: ${vizMode.label}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, modifier = Modifier.padding(start = 8.dp))
             }

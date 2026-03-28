@@ -46,6 +46,9 @@ class SonaraAi private constructor(
     private val _state = MutableStateFlow(SonaraAiState())
     val state: StateFlow<SonaraAiState> = _state.asStateFlow()
 
+    private val _visualizerData = MutableStateFlow<FloatArray?>(null)
+    val visualizerData: StateFlow<FloatArray?> = _visualizerData.asStateFlow()
+
     private var currentFeatures: AudioFeatureVector? = null
     private var analysisJob: Job? = null
     private var reAnalysisJob: Job? = null
@@ -105,7 +108,8 @@ class SonaraAi private constructor(
 
     fun setEqEnabled(enabled: Boolean) { _state.value = _state.value.copy(eqEnabled = enabled) }
 
-    fun release() { analysisJob?.cancel(); reAnalysisJob?.cancel(); capture.release(); scope.cancel() }
+    fun release() {
+        _visualizerData.value = null analysisJob?.cancel(); reAnalysisJob?.cancel(); capture.release(); scope.cancel() }
 
 
     private fun hasRecordPermission(): Boolean {
@@ -139,12 +143,48 @@ class SonaraAi private constructor(
         return false
     }
 
+    private fun parseFFTMagnitudes(fftBytes: ByteArray): FloatArray {
+        // FFT format: [DC, real0, imag0, real1, imag1, ...]
+        val n = (fftBytes.size - 1) / 2
+        if (n <= 0) return FloatArray(0)
+        val magnitudes = FloatArray(n)
+        var maxMag = 1f
+        for (i in 0 until n) {
+            val real = fftBytes[1 + 2 * i].toFloat()
+            val imag = fftBytes[2 + 2 * i].toFloat()
+            val mag = kotlin.math.sqrt(real * real + imag * imag)
+            magnitudes[i] = mag
+            if (mag > maxMag) maxMag = mag
+        }
+        // Normalize to 0-1
+        for (i in magnitudes.indices) {
+            magnitudes[i] = magnitudes[i] / maxMag
+        }
+        return magnitudes
+    }
+
+    fun updateVisualizerFromCapture() {
+        val frames = capture.getFFTFrames()
+        if (frames.isNotEmpty()) {
+            _visualizerData.value = parseFFTMagnitudes(frames.last())
+        }
+    }
+
+
+
     private suspend fun analyze(title: String, artist: String, sessionId: Int?) {
         Log.d(TAG, "analyze() start — title=$title, artist=$artist, sessionId=$sessionId")
         if (tryAttachAudio(sessionId)) {
             capture.clearBuffers(); _state.value = _state.value.copy(status = AiStatus.LISTENING)
             delay(LISTEN_MS); _state.value = _state.value.copy(status = AiStatus.ANALYZING)
-            val features = extractor.extract(capture.getFFTFrames(), capture.getWaveFrames())
+
+            // Start visualizer data feed
+            val vizJob = scope.launch {
+                while (true) {
+                    updateVisualizerFromCapture()
+                    delay(50) // ~20fps
+                }
+            }            val features = extractor.extract(capture.getFFTFrames(), capture.getWaveFrames())
             if (features != null) {
                 currentFeatures = features; val result = classifier.classify(features)
                 val eq = eqGen.generate(result, _state.value.route)

@@ -26,7 +26,8 @@ fun SonaraVisualizer(
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
     barCount: Int = 32
-) {
+,
+    fftData: FloatArray? = null) {
     val primary = MaterialTheme.colorScheme.primary
     val transition = rememberInfiniteTransition(label = "viz")
 

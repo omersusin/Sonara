@@ -43,7 +43,8 @@ data class DashboardUiState(
     val savedMessage: String = "",
     val isLoved: Boolean = false,
     val geminiSummary: String = ""
-) {
+,
+    val visualizerData: FloatArray? = null) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is DashboardUiState) return false
@@ -93,6 +94,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         SonaraAi.getInstance()?.state ?: MutableStateFlow(SonaraAiState()).asStateFlow()
 
     init {
+        viewModelScope.launch {
+            SonaraAi.getInstance()?.visualizerData?.collect { data ->
+                _uiState.update { it.copy(visualizerData = data) }
+            }
+        }
+
         viewModelScope.launch {
             app.preferences.hasSeenHearTheDifferenceFlow.collect { seen ->
                 _uiState.update { it.copy(hasSeenHearTheDifference = seen) }
