@@ -28,7 +28,8 @@ data class DashboardUiState(
     val sourceLabel: String = "None",
     val currentPresetName: String = "Flat",
     val isAiEnabled: Boolean = true,
-    val bands: FloatArray = FloatArray(10),
+    val bands: FloatArray = FloatArray(10,
+    val hasSeenHearTheDifference: Boolean = false),
     val bassBoost: Int = 0,
     val virtualizer: Int = 0,
     val loudness: Int = 0,
@@ -92,6 +93,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         SonaraAi.getInstance()?.state ?: MutableStateFlow(SonaraAiState()).asStateFlow()
 
     init {
+        viewModelScope.launch {
+            app.preferences.hasSeenHearTheDifferenceFlow.collect { seen ->
+                _uiState.update { it.copy(hasSeenHearTheDifference = seen) }
+            }
+        }
+
         viewModelScope.launch { app.eqState.collect { eq -> _uiState.update { it.copy(bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer, loudness = eq.loudness, currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset) } } }
         viewModelScope.launch { SonaraNotificationListener.nowPlaying.collect { np ->
             _uiState.update { it.copy(title = np.title, artist = np.artist, isPlaying = np.isPlaying, hasTrack = np.title.isNotBlank()) }
@@ -156,4 +163,16 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val systemEnabled = SonaraNotificationListener.isEnabled(getApplication())
         _uiState.update { it.copy(notificationListenerEnabled = instanceAlive || systemEnabled) }
     }
+
+
+    fun dismissHearTheDifference() {
+        viewModelScope.launch {
+            app.preferences.setHasSeenHearTheDifference(true)
+        }
+    }
+
+    fun setEqTemporarilyDisabled(disabled: Boolean) {
+        app.audioSessionManager.setEnabled(!disabled)
+    }
+
 }
