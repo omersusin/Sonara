@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import com.sonara.app.BuildConfig
+import android.util.Log
 import com.sonara.app.data.SonaraLogger
 import com.sonara.app.data.preferences.SecureSecrets
 import kotlinx.coroutines.CoroutineScope
@@ -23,9 +24,6 @@ import java.util.concurrent.TimeUnit
 class LastFmAuthManager(private val context: Context) {
     companion object {
         private const val TAG = "LastFmAuth"
-    }
-
-    companion object {
         private const val AUTH_URL = "https://www.last.fm/api/auth/"
         private const val API_URL = "https://ws.audioscrobbler.com/2.0/"
         const val CALLBACK_SCHEME = "sonara"
