@@ -23,6 +23,7 @@ class CloudLearningManager(private val context: Context, private val classifier:
     fun getPendingCount(): Int = queue.size()
     fun getTotalSent(): Int = queue.getTotalSent()
     fun syncNow() {
-        Log.d(TAG, "syncNow() called") DailySyncWorker.runNow(context) }
+        Log.d(TAG, "syncNow() called")
+        DailySyncWorker.runNow(context) }
     fun reset() { queue.reset(); DailySyncWorker.cancel(context) }
 }
