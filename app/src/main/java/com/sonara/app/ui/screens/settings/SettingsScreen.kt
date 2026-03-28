@@ -681,10 +681,12 @@ private fun AboutCard(state: SettingsUiState, vm: SettingsViewModel) {
             Text("${5 - tapCount} more taps for developer options", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
         }
         if (devMode) {
-                // Developer Options
-                Spacer(Modifier.height(8.dp))
-                Text("Developer Options", style = MaterialTheme.typography.titleSmall)
-                Spacer(Modifier.height(8.dp))
+            SettingsDivider()
+            Text("Developer Options", style = MaterialTheme.typography.titleSmall, color = SonaraWarning)
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { vm.disconnectLastFm(); vm.clearAllData() },
+                modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, SonaraError.copy(0.5f)),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
             ) { Text("Reset All Auth") }
         }

@@ -28,8 +28,8 @@ data class DashboardUiState(
     val sourceLabel: String = "None",
     val currentPresetName: String = "Flat",
     val isAiEnabled: Boolean = true,
-    val bands: FloatArray = FloatArray(10,
-    val hasSeenHearTheDifference: Boolean = false),
+    val bands: FloatArray = FloatArray(10),
+    val hasSeenHearTheDifference: Boolean = false,
     val bassBoost: Int = 0,
     val virtualizer: Int = 0,
     val loudness: Int = 0,
@@ -42,8 +42,7 @@ data class DashboardUiState(
     val headphoneName: String = "",
     val savedMessage: String = "",
     val isLoved: Boolean = false,
-    val geminiSummary: String = ""
-,
+    val geminiSummary: String = "",
     val visualizerData: FloatArray? = null) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
