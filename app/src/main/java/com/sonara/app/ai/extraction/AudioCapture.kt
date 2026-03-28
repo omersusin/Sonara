@@ -14,12 +14,15 @@ class AudioCapture {
     private var visualizer: Visualizer? = null
     private val fftBuffer = ConcurrentLinkedDeque<ByteArray>()
     private val waveBuffer = ConcurrentLinkedDeque<ByteArray>()
-
     @Volatile var isAttached = false; private set
     @Volatile var currentSessionId: Int? = null; private set
 
     fun attach(audioSessionId: Int): Boolean {
-        if (isAttached && currentSessionId == audioSessionId) return true
+        Log.d(TAG, "attach() called — sessionId=$audioSessionId, currentlyAttached=$isAttached, currentSession=$currentSessionId")
+        if (isAttached && currentSessionId == audioSessionId) {
+            Log.d(TAG, "Already attached to session $audioSessionId")
+            return true
+        }
         release()
         return try {
             val v = Visualizer(audioSessionId)
@@ -37,10 +40,10 @@ class AudioCapture {
             }, Visualizer.getMaxCaptureRate() / 2, true, true)
             v.enabled = true
             visualizer = v; isAttached = true; currentSessionId = audioSessionId
-            Log.d(TAG, "Attached to session $audioSessionId")
+            Log.d(TAG, "SUCCESS — Attached to session $audioSessionId")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Attach failed: ${e.message}")
+            Log.e(TAG, "FAILED — Attach to session $audioSessionId: ${e.message}")
             isAttached = false; false
         }
     }

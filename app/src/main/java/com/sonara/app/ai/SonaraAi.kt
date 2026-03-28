@@ -1,6 +1,7 @@
 package com.sonara.app.ai
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
 import com.sonara.app.ai.classifier.EmbeddedPrototypes
 import com.sonara.app.ai.classifier.KnnClassifier
@@ -9,6 +10,7 @@ import com.sonara.app.ai.eq.SmartEqGenerator
 import com.sonara.app.ai.explanation.ExplanationBuilder
 import com.sonara.app.ai.extraction.AudioCapture
 import com.sonara.app.ai.extraction.FeatureExtractor
+import com.sonara.app.ai.bridge.AudioSessionTracker
 import com.sonara.app.ai.models.*
 import com.sonara.app.ai.personalization.Personalizer
 import kotlinx.coroutines.*
@@ -105,8 +107,41 @@ class SonaraAi private constructor(
 
     fun release() { analysisJob?.cancel(); reAnalysisJob?.cancel(); capture.release(); scope.cancel() }
 
+
+    private fun hasRecordPermission(): Boolean {
+        val granted = context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        Log.d(TAG, "RECORD_AUDIO permission: $granted")
+        return granted
+    }
+
+    private suspend fun tryAttachAudio(sessionId: Int?): Boolean {
+        if (!hasRecordPermission()) {
+            Log.w(TAG, "Cannot attach — RECORD_AUDIO permission not granted")
+            return false
+        }
+        // Strategy 1: provided session ID
+        if (sessionId != null && sessionId > 0) {
+            Log.d(TAG, "Trying provided session: $sessionId")
+            if (capture.attach(sessionId)) return true
+        }
+        // Strategy 2: global output mix (session 0)
+        Log.d(TAG, "Trying global output mix (session 0)")
+        if (capture.attach(0)) return true
+        // Strategy 3: wait for AudioSessionTracker
+        Log.d(TAG, "Waiting 5s for session from AudioSessionTracker...")
+        delay(5000)
+        val tracked = AudioSessionTracker.get()
+        if (tracked > 0) {
+            Log.d(TAG, "Tracker provided session: $tracked")
+            if (capture.attach(tracked)) return true
+        }
+        Log.w(TAG, "All audio attach strategies failed")
+        return false
+    }
+
     private suspend fun analyze(title: String, artist: String, sessionId: Int?) {
-        if (sessionId != null && capture.attach(sessionId)) {
+        Log.d(TAG, "analyze() start — title=$title, artist=$artist, sessionId=$sessionId")
+        if (tryAttachAudio(sessionId)) {
             capture.clearBuffers(); _state.value = _state.value.copy(status = AiStatus.LISTENING)
             delay(LISTEN_MS); _state.value = _state.value.copy(status = AiStatus.ANALYZING)
             val features = extractor.extract(capture.getFFTFrames(), capture.getWaveFrames())
