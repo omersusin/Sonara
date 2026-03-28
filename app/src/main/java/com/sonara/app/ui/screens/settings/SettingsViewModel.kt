@@ -56,7 +56,9 @@ data class SettingsUiState(
     val communityUploadEnabled: Boolean = false,
     val communityPending: Int = 0,
     val communityTotalSent: Int = 0
-)
+,
+    val githubTokenInput: String = "",
+    val isGithubTokenSet: Boolean = false)
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
@@ -68,6 +70,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
+        _uiState.update { it.copy(isGithubTokenSet = secrets.getGitHubTokenInstance().isNotBlank()) }
+
         viewModelScope.launch { prefs.accentColorFlow.collect { c -> _uiState.update { it.copy(accentColor = c) } } }
         viewModelScope.launch { prefs.lastFmApiKeyFlow.collect { k -> _uiState.update { it.copy(lastFmApiKey = k, isApiKeySet = k.isNotBlank() || secrets.getLastFmApiKey().isNotBlank()) } } }
         viewModelScope.launch { prefs.lastFmSharedSecretFlow.collect { s -> _uiState.update { it.copy(lastFmSharedSecret = s, isSharedSecretSet = s.isNotBlank() || secrets.getLastFmSharedSecret().isNotBlank()) } } }
@@ -288,6 +292,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             if (imported.isNullOrEmpty()) { onResult("No valid presets found."); return@launch }
             imported.forEach { app.presetRepository.save(it) }
             onResult("Imported ${imported.size} presets")
+        }
+    }
+
+    fun updateGithubTokenInput(v: String) {
+        _uiState.update { it.copy(githubTokenInput = v) }
+    }
+
+    fun saveGithubToken() {
+        viewModelScope.launch {
+            val token = _uiState.value.githubTokenInput
+            if (token.isNotBlank()) {
+                secrets.setGitHubToken(token)
+                _uiState.update { it.copy(githubTokenInput = "", isGithubTokenSet = true) }
+            }
         }
     }
 }

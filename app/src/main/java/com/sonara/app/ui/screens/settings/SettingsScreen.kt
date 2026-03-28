@@ -188,6 +188,39 @@ private fun CommunityCard(state: SettingsUiState, vm: SettingsViewModel) {
                 }
             }
         }
+
+            // GitHub PAT for community contributions
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "GitHub Token (for contributions)",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(4.dp))
+            if (state.isGithubTokenSet) {
+                Text(
+                    text = "Token saved",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                OutlinedTextField(
+                    value = state.githubTokenInput,
+                    onValueChange = { vm.updateGithubTokenInput(it) },
+                    label = { Text("Personal Access Token") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation()
+                )
+                Spacer(Modifier.height(4.dp))
+                Button(
+                    onClick = { vm.saveGithubToken() },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = state.githubTokenInput.isNotBlank()
+                ) {
+                    Text("Save Token")
+                }
+            }
     }
 }
 

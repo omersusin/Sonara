@@ -10,9 +10,11 @@ class CloudLearningManager(private val context: Context, private val classifier:
     val queue = ContributionQueue(context)
     private val sync = GitHubSync(context, queue)
 
-    fun scheduleSync() { DailySyncWorker.schedule(context); Log.d(TAG, "Sync scheduled") }
+    fun scheduleSync() {
+        Log.d(TAG, "scheduleSync() called") DailySyncWorker.schedule(context); Log.d(TAG, "Sync scheduled") }
 
     fun addContribution(features: AudioFeatureVector, genre: String, mood: SonaraMood, energy: Float, sourceType: String = "confirmed") {
+        Log.d(TAG, "addContribution() called")
         queue.enqueue(features, genre, mood, energy, sourceType)
     }
 
@@ -20,6 +22,7 @@ class CloudLearningManager(private val context: Context, private val classifier:
     fun isContributionEnabled(): Boolean = queue.isEnabled
     fun getPendingCount(): Int = queue.size()
     fun getTotalSent(): Int = queue.getTotalSent()
-    fun syncNow() { DailySyncWorker.runNow(context) }
+    fun syncNow() {
+        Log.d(TAG, "syncNow() called") DailySyncWorker.runNow(context) }
     fun reset() { queue.reset(); DailySyncWorker.cancel(context) }
 }
