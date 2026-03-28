@@ -1,5 +1,7 @@
 package com.sonara.app.ui.screens.onboarding
 
+import android.content.Context
+import android.media.AudioManager
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -15,11 +17,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.sonara.app.ai.SonaraAi
-import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.theme.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 data class OnboardingPage(val icon: ImageVector, val title: String, val description: String)
@@ -37,8 +40,19 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     val pagerState = rememberPagerState(pageCount = { totalPages })
     val scope = rememberCoroutineScope()
     val p = MaterialTheme.colorScheme.primary
-    val np by SonaraNotificationListener.nowPlaying.collectAsState()
-    val isPlaying = np.isPlaying && np.title.isNotBlank()
+    val ctx = LocalContext.current
+
+    // AudioManager.isMusicActive() — izin gerektirmez, onboarding'de çalışır
+    val audioManager = remember { ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+    var isPlaying by remember { mutableStateOf(audioManager.isMusicActive) }
+
+    // Periyodik kontrol — müzik durumu değişebilir
+    LaunchedEffect(Unit) {
+        while (true) {
+            isPlaying = audioManager.isMusicActive
+            delay(1000)
+        }
+    }
 
     Box(Modifier.fillMaxSize().background(SonaraBackground)) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
