@@ -255,15 +255,42 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
                     border = BorderStroke(1.dp, SonaraInfo),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraInfo)
                 ) { Text("Connect Last.fm") }
-                if (!state.isApiKeySet) {
+
+                // --- API Key & Shared Secret inputs (disconnected) ---
+                if (!state.lastFmConnected) {
+                    Spacer(Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = state.apiKeyInput,
+                        onValueChange = { vm.updateApiKeyInput(it) },
+                        label = { Text("API Key") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation()
+                    )
+
                     Spacer(Modifier.height(8.dp))
-                    Text("Requires a Last.fm API key to connect.", style = MaterialTheme.typography.bodySmall, color = SonaraWarning)
-                    TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.last.fm/api/account/create"))) }) {
-                        Icon(Icons.Rounded.Launch, null, Modifier.size(16.dp), tint = p)
-                        Spacer(Modifier.size(6.dp))
-                        Text("Get API Key", color = p)
+
+                    OutlinedTextField(
+                        value = state.sharedSecretInput,
+                        onValueChange = { vm.updateSharedSecretInput(it) },
+                        label = { Text("Shared Secret") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation()
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Button(
+                        onClick = { vm.saveApiKey(); vm.saveSharedSecret() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = state.apiKeyInput.isNotBlank() && state.sharedSecretInput.isNotBlank()
+                    ) {
+                        Text("Save Keys")
                     }
                 }
+
             }
         }
     }
@@ -621,37 +648,10 @@ private fun AboutCard(state: SettingsUiState, vm: SettingsViewModel) {
             Text("${5 - tapCount} more taps for developer options", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
         }
         if (devMode) {
-            SettingsDivider()
-            Text("Developer Options", style = MaterialTheme.typography.titleSmall, color = SonaraWarning)
-            Spacer(Modifier.height(8.dp))
-            val p = MaterialTheme.colorScheme.primary
-            // API Key
-            Text("Last.fm API Key", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
-            Spacer(Modifier.height(4.dp))
-            OutlinedTextField(value = state.apiKeyInput, onValueChange = { vm.updateApiKeyInput(it) },
-                placeholder = { Text(if (state.isApiKeySet) "\u2022\u2022\u2022\u2022" else "API key", color = SonaraTextTertiary) },
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(), singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p, cursorColor = p))
-            Spacer(Modifier.height(4.dp))
-            // Shared Secret
-            Text("Last.fm Shared Secret", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
-            Spacer(Modifier.height(4.dp))
-            OutlinedTextField(value = state.sharedSecretInput, onValueChange = { vm.updateSharedSecretInput(it) },
-                placeholder = { Text(if (state.isSharedSecretSet) "\u2022\u2022\u2022\u2022" else "Shared secret", color = SonaraTextTertiary) },
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(), singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p, cursorColor = p))
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = { vm.saveApiKey(); vm.saveSharedSecret() },
-                enabled = state.apiKeyInput.isNotBlank() || state.sharedSecretInput.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
-                border = BorderStroke(1.dp, if (state.apiKeyInput.isNotBlank() || state.sharedSecretInput.isNotBlank()) p else SonaraDivider)
-            ) { Text("Save Keys") }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = { vm.disconnectLastFm(); vm.clearAllData() },
-                modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
-                border = BorderStroke(1.dp, SonaraError.copy(0.5f)),
+                // Developer Options
+                Spacer(Modifier.height(8.dp))
+                Text("Developer Options", style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(8.dp))
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
             ) { Text("Reset All Auth") }
         }
