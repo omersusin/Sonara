@@ -218,12 +218,28 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setCommunityDownload(enabled: Boolean) {
-        // Download toggle (future: cloud.setDownloadEnabled)
         _uiState.update { it.copy(communityDownloadEnabled = enabled) }
+        if (enabled) {
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                SonaraAi.getInstance()?.cloudManager?.syncNow()
+            }
+        }
     }
     fun setCommunityUpload(enabled: Boolean) {
         SonaraAi.getInstance()?.cloudManager?.setContributionEnabled(enabled)
         _uiState.update { it.copy(communityUploadEnabled = enabled) }
+        refreshCommunityStats()
+    }
+
+    fun refreshCommunityStats() {
+        val cloud = SonaraAi.getInstance()?.cloudManager
+        if (cloud != null) {
+            _uiState.update { it.copy(
+                communityUploadEnabled = cloud.isContributionEnabled(),
+                communityPending = cloud.getPendingCount(),
+                communityTotalSent = cloud.getTotalSent()
+            ) }
+        }
     }
     fun syncCommunityNow() {
         SonaraAi.getInstance()?.cloudManager?.syncNow()
