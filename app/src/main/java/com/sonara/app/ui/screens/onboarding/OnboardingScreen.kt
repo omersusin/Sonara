@@ -1,7 +1,5 @@
 package com.sonara.app.ui.screens.onboarding
 
-import android.content.Context
-import android.media.AudioManager
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -17,12 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.sonara.app.ai.SonaraAi
 import com.sonara.app.ui.theme.*
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 data class OnboardingPage(val icon: ImageVector, val title: String, val description: String)
@@ -36,56 +31,37 @@ fun OnboardingScreen(onComplete: () -> Unit) {
         OnboardingPage(Icons.Rounded.GraphicEq, "Gets smarter over time",
             "Give feedback and Sonara learns your preferences. Connect Last.fm for even richer analysis."),
     )
-    val totalPages = pages.size + 1
-    val pagerState = rememberPagerState(pageCount = { totalPages })
+    val pagerState = rememberPagerState(pageCount = { pages.size })
     val scope = rememberCoroutineScope()
     val p = MaterialTheme.colorScheme.primary
-    val ctx = LocalContext.current
-
-    // AudioManager.isMusicActive() — izin gerektirmez, onboarding'de çalışır
-    val audioManager = remember { ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
-    var isPlaying by remember { mutableStateOf(audioManager.isMusicActive) }
-
-    // Periyodik kontrol — müzik durumu değişebilir
-    LaunchedEffect(Unit) {
-        while (true) {
-            isPlaying = audioManager.isMusicActive
-            delay(1000)
-        }
-    }
 
     Box(Modifier.fillMaxSize().background(SonaraBackground)) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-            when {
-                page < pages.size -> {
-                    Column(Modifier.fillMaxSize().padding(horizontal = 40.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                        Icon(pages[page].icon, null, Modifier.size(80.dp), tint = p)
-                        Spacer(Modifier.height(32.dp))
-                        Text(pages[page].title, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, color = SonaraTextPrimary)
-                        Spacer(Modifier.height(16.dp))
-                        Text(pages[page].description, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = SonaraTextSecondary)
-                    }
-                }
-                page == pages.size -> {
-                    HearTheDifferenceScreen(isPlaying = isPlaying, onContinue = onComplete,
-                        onSetEqEnabled = { enabled -> SonaraAi.getInstance()?.setEqEnabled(enabled) })
-                }
+            Column(Modifier.fillMaxSize().padding(horizontal = 40.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Icon(pages[page].icon, null, Modifier.size(80.dp), tint = p)
+                Spacer(Modifier.height(32.dp))
+                Text(pages[page].title, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, color = SonaraTextPrimary)
+                Spacer(Modifier.height(16.dp))
+                Text(pages[page].description, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = SonaraTextSecondary)
             }
         }
-        if (pagerState.currentPage < pages.size) {
-            Column(Modifier.align(Alignment.BottomCenter).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    repeat(totalPages) { i ->
-                        Box(Modifier.size(if (i == pagerState.currentPage) 10.dp else 8.dp).clip(CircleShape)
-                            .background(if (i == pagerState.currentPage) p else SonaraCardElevated))
-                    }
+        Column(Modifier.align(Alignment.BottomCenter).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                repeat(pages.size) { i ->
+                    Box(Modifier.size(if (i == pagerState.currentPage) 10.dp else 8.dp).clip(CircleShape)
+                        .background(if (i == pagerState.currentPage) p else SonaraCardElevated))
                 }
-                Spacer(Modifier.height(24.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = onComplete) { Text("Skip", color = SonaraTextTertiary) }
+            }
+            Spacer(Modifier.height(24.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                TextButton(onClick = onComplete) { Text("Skip", color = SonaraTextTertiary) }
+                if (pagerState.currentPage < pages.size - 1) {
                     FilledTonalButton(onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } },
                         colors = ButtonDefaults.filledTonalButtonColors(containerColor = p, contentColor = SonaraBackground)) { Text("Next") }
+                } else {
+                    FilledTonalButton(onClick = onComplete,
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = p, contentColor = SonaraBackground)) { Text("Get Started") }
                 }
             }
         }
