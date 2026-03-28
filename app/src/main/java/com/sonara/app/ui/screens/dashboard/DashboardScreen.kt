@@ -58,6 +58,15 @@ import com.sonara.app.ui.components.StatusChip
 import com.sonara.app.ui.components.VisualizerMode
 import com.sonara.app.ui.components.VisualizerStateDetector
 import com.sonara.app.ui.theme.*
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.material.icons.filled.Hearing
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.CardDefaults
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -92,6 +101,16 @@ fun DashboardScreen() {
 
         if (!s.notificationListenerEnabled) {
             item { PermissionCard(onGrant = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) }
+        if (!s.hasSeenHearTheDifference && s.hasTrack && s.eqActive) {
+            item {
+                HearTheDifferenceBanner(
+                    onHoldStart = { vm.setEqTemporarilyDisabled(true) },
+                    onHoldEnd = { vm.setEqTemporarilyDisabled(false) },
+                    onDismiss = { vm.dismissHearTheDifference() }
+                )
+            }
+        }
+
         }
 
         item {
@@ -206,7 +225,7 @@ fun DashboardScreen() {
         item {
             val vizMode = VisualizerStateDetector.detect(hasAudioSession = s.eqActive, hasVisualizerPermission = false, isPlaying = s.isPlaying)
             Column {
-                SonaraVisualizer(isPlaying = s.isPlaying)
+                SonaraVisualizer(isPlaying = s.isPlaying, fftData = s.visualizerData)
                 Spacer(Modifier.height(4.dp))
                 Text("Visualizer: ${vizMode.label}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, modifier = Modifier.padding(start = 8.dp))
             }
@@ -221,6 +240,143 @@ private fun Pill(label: String, value: String, modifier: Modifier, p: androidx.c
         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
             Text(value, style = MaterialTheme.typography.labelLarge, color = p)
+        }
+    }
+}
+
+
+@Composable
+private fun HearTheDifferenceBanner(
+    onHoldStart: () -> Unit,
+    onHoldEnd: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var isHolding by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Hearing,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Text(
+                    text = "Hear the Difference",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+
+            Text(
+                text = "Hold the button below to hear the original audio without EQ. Release to hear the enhanced version.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Original column
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isHolding)
+                            MaterialTheme.colorScheme.tertiary
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = if (isHolding) "Playing" else "Original",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (isHolding)
+                                MaterialTheme.colorScheme.onTertiary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Enhanced column
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (!isHolding)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = if (!isHolding) "Enhanced" else "Sonara EQ",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (!isHolding)
+                                MaterialTheme.colorScheme.onPrimary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Hold button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.secondary)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onPress = {
+                                isHolding = true
+                                onHoldStart()
+                                try { awaitRelease() } finally {
+                                    isHolding = false
+                                    onHoldEnd()
+                                }
+                            }
+                        )
+                    }
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isHolding) "Release to hear enhanced" else "Hold to hear original",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSecondary
+                )
+            }
+
+            // Got it button
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Got it")
+            }
         }
     }
 }

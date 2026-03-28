@@ -56,21 +56,8 @@ class SonaraService : Service() {
         aiScope.launch(Dispatchers.IO) { sonaraAi?.initialize() }
 
         // AI → EQ bridge: AI sonuç üretince gerçek EQ engine'e uygula
-        aiBridgeJob = aiScope.launch {
-            val ai = sonaraAi ?: return@launch
-            ai.state.collect { aiState ->
-                val result = aiState.result ?: return@collect
-                if (aiState.eqEnabled && aiState.status == AiStatus.COMPLETE) {
-                    try {
-                        val app = application as SonaraApp
-                        app.audioSessionManager.applyBands(result.eqBands)
-                        Log.d("AiEqBridge", "Applied AI EQ: ${result.primaryGenre} bands=${result.eqBands.map { "%.1f".format(it) }}")
-                    } catch (e: Exception) {
-                        Log.e("AiEqBridge", "Apply failed: ${e.message}")
-                    }
-                }
-            }
-        }
+        // AI EQ Bridge disabled — verifying AI logs before enabling
+        Log.d("SonaraService", "AI EQ Bridge DISABLED to prevent pipeline conflict")
 
         // Session tracker listener — yeni session gelince AI'a bildir
         AudioSessionTracker.addListener { sessionId ->

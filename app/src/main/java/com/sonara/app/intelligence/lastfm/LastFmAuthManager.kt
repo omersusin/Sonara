@@ -21,6 +21,9 @@ import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 class LastFmAuthManager(private val context: Context) {
+    companion object {
+        private const val TAG = "LastFmAuth"
+    }
 
     companion object {
         private const val AUTH_URL = "https://www.last.fm/api/auth/"
@@ -51,18 +54,28 @@ class LastFmAuthManager(private val context: Context) {
 
     init {
         val sessionKey = secrets.getLastFmSessionKey()
+        Log.d(TAG, "Init — checking stored session key: ${if (sessionKey.isNotBlank()) "present" else "empty"}")
         if (sessionKey.isNotBlank()) {
             _authState.value = AuthState.CONNECTED
-            CoroutineScope(Dispatchers.IO).launch { loadUsername() }
+            Log.d(TAG, "Auth state → CONNECTED")
+            CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d(TAG, "Init — session key found, loading username...")
+                loadUsername()
+            } catch (e: Exception) {
+                Log.e(TAG, "Init — loadUsername failed: ${e.message}", e)
+            }
+        }
         }
     }
 
     // FIX: Kullanici key ONCE kontrol edilir, BuildConfig sonra
     private fun resolveApiKey(): String {
+        Log.d(TAG, "resolveApiKey() called")
         val userKey = secrets.getLastFmApiKey()
-        if (userKey.isNotBlank()) return userKey
+        if (userKey.isNotBlank()) { Log.d(TAG, "Using user-provided API key"); return userKey }
         val buildKey = BuildConfig.LASTFM_API_KEY
-        if (buildKey.isNotBlank()) return buildKey
+        if (buildKey.isNotBlank()) { Log.d(TAG, "Using BuildConfig API key"); return buildKey }
         return ""
     }
 
@@ -83,6 +96,7 @@ class LastFmAuthManager(private val context: Context) {
     }
 
     suspend fun startAuth(): Intent? {
+        Log.d(TAG, "startAuth() called")
         if (_authState.value == AuthState.AUTHENTICATING && pendingToken != null) return null
 
         val apiKey = resolveApiKey()
@@ -122,6 +136,7 @@ class LastFmAuthManager(private val context: Context) {
     }
 
     suspend fun handleCallback(token: String? = null): Boolean {
+        Log.d(TAG, "handleCallback() — token=${token?.take(8)}..., pendingToken=${pendingToken?.take(8)}...")
         val useToken = token ?: pendingToken ?: return false
         val apiKey = resolveApiKey()
         val sharedSecret = resolveSharedSecret()
@@ -188,6 +203,7 @@ class LastFmAuthManager(private val context: Context) {
     data class ConnectionInfo(val isConnected: Boolean, val username: String, val keySource: String, val hasSession: Boolean)
 
     private suspend fun loadUsername() {
+        Log.d(TAG, "loadUsername() called")
         try {
             val apiKey = resolveApiKey()
             val sk = secrets.getLastFmSessionKey()

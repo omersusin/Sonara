@@ -47,6 +47,7 @@ class SonaraPreferences(private val context: Context) {
     private val SOURCE_LOCAL_AI_ENABLED = booleanPreferencesKey("source_local_ai_enabled")
     private val SOURCE_LYRICS_ENABLED = booleanPreferencesKey("source_lyrics_enabled")
     private val AMOLED_MODE = booleanPreferencesKey("amoled_mode")
+    private val KEY_HAS_SEEN_HEAR_DIFF = booleanPreferencesKey("has_seen_hear_the_difference")
 
     val accentColorFlow: Flow<AccentColor> = context.dataStore.data.map { p ->
         val name = p[ACCENT_COLOR] ?: AccentColor.Amber.name
@@ -132,6 +133,7 @@ class SonaraPreferences(private val context: Context) {
     suspend fun setSourceLyricsEnabled(e: Boolean) { context.dataStore.edit { it[SOURCE_LYRICS_ENABLED] = e } }
 
     val amoledModeFlow: Flow<Boolean> = context.dataStore.data.map { it[AMOLED_MODE] ?: false }
+    val hasSeenHearTheDifferenceFlow: Flow<Boolean> = dataStore.data.map { it[KEY_HAS_SEEN_HEAR_DIFF] ?: false }
     suspend fun setAmoledMode(e: Boolean) { context.dataStore.edit { it[AMOLED_MODE] = e } }
 
     val aiProviderFlow: Flow<String> = context.dataStore.data.map { it[AI_PROVIDER] ?: "gemini" }
@@ -145,7 +147,11 @@ class SonaraPreferences(private val context: Context) {
     val groqApiKeyFlow: Flow<String> = context.dataStore.data.map { it[GROQ_API_KEY] ?: "" }
     suspend fun setGroqApiKey(v: String) { context.dataStore.edit { it[GROQ_API_KEY] = v } }
     val groqModelFlow: Flow<String> = context.dataStore.data.map { it[GROQ_MODEL] ?: "llama-3.3-70b-versatile" }
-    suspend fun setGroqModel(v: String) { context.dataStore.edit { it[GROQ_MODEL] = v } }
+    suspend fun setGroqModel(v: String) { context.dataStore.edit { it[GROQ_MODEL] = v }
+
+    suspend fun setHasSeenHearTheDifference(value: Boolean) {
+        dataStore.edit { it[KEY_HAS_SEEN_HEAR_DIFF] = value }
+    } }
 
     suspend fun resetAll() { context.dataStore.edit { it.clear() } }
 

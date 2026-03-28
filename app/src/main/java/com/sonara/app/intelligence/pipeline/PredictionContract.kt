@@ -36,6 +36,7 @@ enum class Genre(val displayName: String) {
     CLASSICAL("Classical"), COUNTRY("Country"), FOLK("Folk"), REGGAE("Reggae"),
     LATIN("Latin"), AMBIENT("Ambient"), SOUL("Soul"), FUNK("Funk"), PUNK("Punk"),
     INDIE("Indie"), ALTERNATIVE("Alternative"), WORLD("World"),
+    VIDEO("Video"),
     PODCAST("Podcast"), AUDIOBOOK("Audiobook"), SPEECH("Speech"), UNKNOWN("Unknown");
     companion object {
         fun fromString(s: String): Genre {
