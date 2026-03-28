@@ -109,7 +109,8 @@ class SonaraAi private constructor(
     fun setEqEnabled(enabled: Boolean) { _state.value = _state.value.copy(eqEnabled = enabled) }
 
     fun release() {
-        _visualizerData.value = null analysisJob?.cancel(); reAnalysisJob?.cancel(); capture.release(); scope.cancel() }
+        _visualizerData.value = null
+        analysisJob?.cancel(); reAnalysisJob?.cancel(); capture.release(); scope.cancel() }
 
 
     private fun hasRecordPermission(): Boolean {
@@ -184,7 +185,8 @@ class SonaraAi private constructor(
                     updateVisualizerFromCapture()
                     delay(50) // ~20fps
                 }
-            }            val features = extractor.extract(capture.getFFTFrames(), capture.getWaveFrames())
+            }
+            val features = extractor.extract(capture.getFFTFrames(), capture.getWaveFrames())
             if (features != null) {
                 currentFeatures = features; val result = classifier.classify(features)
                 val eq = eqGen.generate(result, _state.value.route)

@@ -11,7 +11,9 @@ class CloudLearningManager(private val context: Context, private val classifier:
     private val sync = GitHubSync(context, queue)
 
     fun scheduleSync() {
-        Log.d(TAG, "scheduleSync() called") DailySyncWorker.schedule(context); Log.d(TAG, "Sync scheduled") }
+        Log.d(TAG, "scheduleSync() called")
+        DailySyncWorker.schedule(context)
+        Log.d(TAG, "Sync scheduled") }
 
     fun addContribution(features: AudioFeatureVector, genre: String, mood: SonaraMood, energy: Float, sourceType: String = "confirmed") {
         Log.d(TAG, "addContribution() called")
