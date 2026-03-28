@@ -47,6 +47,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sonara.app.ai.SonaraAi
+import com.sonara.app.ai.SonaraAiState
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.theme.*
 
@@ -56,12 +58,40 @@ fun InsightsScreen() {
     val s by vm.uiState.collectAsState()
     val art by vm.albumArt.collectAsState()
     val p = MaterialTheme.colorScheme.primary
+    val aiState by (SonaraAi.getInstance()?.state ?: kotlinx.coroutines.flow.MutableStateFlow(SonaraAiState())).collectAsState()
 
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Column(Modifier.padding(vertical = 8.dp)) { Text("Insights", style = MaterialTheme.typography.headlineLarge); Spacer(Modifier.height(2.dp)); Text("How Sonara processes your sound", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary) } }
         item { TrackCard(s, art, p) }
         item { WhyCard(s, p) }
+        // AI Audio Analysis
+        if (aiState.result != null) {
+            item {
+                FluentCard {
+                    Text("Audio AI Analysis", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+                    Spacer(Modifier.height(8.dp))
+                    aiState.result?.let { result ->
+                        Text(result.summary, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                        Spacer(Modifier.height(6.dp))
+                        Text(result.explanation.eqReason, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        Spacer(Modifier.height(6.dp))
+                        Text(result.explanation.sourceHonesty, style = MaterialTheme.typography.bodySmall, color = p)
+                        if (result.topGenres.size > 1) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                result.topGenres.forEach { genre ->
+                                    androidx.compose.material3.SuggestionChip(
+                                        onClick = {},
+                                        label = { Text(genre, style = MaterialTheme.typography.labelSmall) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         item { DetectionCard(s, p) }
         item { AnalysisCard(s, p) }
         item { LearningCard(s, p) }

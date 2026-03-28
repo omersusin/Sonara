@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
+import com.sonara.app.ai.SonaraAi
+import com.sonara.app.ai.SonaraAiState
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.components.DisplayLabelMapper
@@ -41,9 +43,12 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
     val uiState: StateFlow<InsightsUiState> = _uiState.asStateFlow()
     val albumArt: StateFlow<Bitmap?> = SonaraNotificationListener.albumArt
 
+    // AI state
+    val aiState: StateFlow<SonaraAiState> =
+        SonaraAi.getInstance()?.state ?: MutableStateFlow(SonaraAiState()).asStateFlow()
+
     init {
         viewModelScope.launch { SonaraNotificationListener.nowPlaying.collect { np -> _uiState.update { it.copy(trackTitle = np.title, trackArtist = np.artist, isPlaying = np.isPlaying) } } }
-        // Use DisplayLabelMapper for formatted genre/mood/source
         viewModelScope.launch { SonaraNotificationListener.currentGenre.collect { g -> if (g.isNotBlank()) _uiState.update { it.copy(genre = DisplayLabelMapper.formatGenre(g)) } } }
         viewModelScope.launch { SonaraNotificationListener.currentMood.collect { m -> if (m.isNotBlank()) _uiState.update { it.copy(mood = DisplayLabelMapper.formatMood(m)) } } }
         viewModelScope.launch { SonaraNotificationListener.currentEnergy.collect { e -> _uiState.update { it.copy(energy = e) } } }
@@ -58,11 +63,9 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.genreStatsFlow.collect { raw ->
             val map = if (raw.isBlank()) emptyMap()
             else raw.split(";").mapNotNull { entry -> val parts = entry.split(":"); if (parts.size == 2) parts[0] to (parts[1].toIntOrNull() ?: 0) else null }.toMap()
-            // Format genre labels in distribution
             val formatted = map.mapKeys { (k, _) -> DisplayLabelMapper.formatGenre(k) }
             _uiState.update { it.copy(genreDistribution = formatted) }
         } }
-
         viewModelScope.launch {
             app.currentRoute.collect { route ->
                 val isHP = route != com.sonara.app.intelligence.pipeline.AudioRoute.SPEAKER && route != com.sonara.app.intelligence.pipeline.AudioRoute.UNKNOWN
