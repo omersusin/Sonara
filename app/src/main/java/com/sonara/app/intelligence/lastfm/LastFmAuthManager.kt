@@ -6,10 +6,12 @@ import android.net.Uri
 import com.sonara.app.BuildConfig
 import com.sonara.app.data.SonaraLogger
 import com.sonara.app.data.preferences.SecureSecrets
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
@@ -18,21 +20,6 @@ import org.json.JSONObject
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
-/**
- * Last.fm OAuth bağlantı yöneticisi.
- *
- * Key kaynakları (öncelik sırasıyla):
- * 1. BuildConfig — GitHub Actions secret'larından build time'da inject
- * 2. SecureSecrets — kullanıcının Settings'den girdiği key
- *
- * Her iki yolda da source code'da hardcoded key YOKTUR.
- *
- * Akış:
- * 1. auth.getToken → kullanıcı Last.fm'e yönlendirilir
- * 2. Kullanıcı izin verir → deep link ile app'e döner
- * 3. auth.getSession → session key alınır, SecureSecrets'a yazılır
- * 4. Artık scrobble, love, nowPlaying çalışır
- */
 class LastFmAuthManager(private val context: Context) {
 
     companion object {
@@ -63,51 +50,45 @@ class LastFmAuthManager(private val context: Context) {
     private var pendingToken: String? = null
 
     init {
-        if (secrets.getLastFmSessionKey().isNotBlank()) {
+        val sessionKey = secrets.getLastFmSessionKey()
+        if (sessionKey.isNotBlank()) {
             _authState.value = AuthState.CONNECTED
+            CoroutineScope(Dispatchers.IO).launch { loadUsername() }
         }
     }
 
-    // ═══ Key Resolution ═══
-    // BuildConfig varsa onu kullan, yoksa kullanıcının girdiği key'i kullan
+    // FIX: Kullanici key ONCE kontrol edilir, BuildConfig sonra
     private fun resolveApiKey(): String {
+        val userKey = secrets.getLastFmApiKey()
+        if (userKey.isNotBlank()) return userKey
         val buildKey = BuildConfig.LASTFM_API_KEY
         if (buildKey.isNotBlank()) return buildKey
-        return secrets.getLastFmApiKey()
+        return ""
     }
 
     private fun resolveSharedSecret(): String {
+        val userSecret = secrets.getLastFmSharedSecret()
+        if (userSecret.isNotBlank()) return userSecret
         val buildSecret = BuildConfig.LASTFM_SHARED_SECRET
         if (buildSecret.isNotBlank()) return buildSecret
-        return secrets.getLastFmSharedSecret()
+        return ""
     }
 
-    /** Key mevcut mu? (BuildConfig veya kullanıcı girişi) */
     fun hasApiKey(): Boolean = resolveApiKey().isNotBlank()
 
-    /** Hangi kaynaktan geliyor? */
     fun keySource(): String = when {
-        BuildConfig.LASTFM_API_KEY.isNotBlank() -> "built-in"
         secrets.getLastFmApiKey().isNotBlank() -> "user"
+        BuildConfig.LASTFM_API_KEY.isNotBlank() -> "built-in"
         else -> "none"
     }
 
-    /**
-     * Auth akışını başlat.
-     * API key yoksa null döner — Settings'te kullanıcıyı uyar.
-     */
     suspend fun startAuth(): Intent? {
-        // Debounce: if already authenticating, don't create new token
-        if (_authState.value == AuthState.AUTHENTICATING && pendingToken != null) {
-            SonaraLogger.w("LastFmAuth", "Already authenticating, ignoring duplicate")
-            return null
-        }
+        if (_authState.value == AuthState.AUTHENTICATING && pendingToken != null) return null
 
         val apiKey = resolveApiKey()
         if (apiKey.isBlank()) {
             _authState.value = AuthState.ERROR
-            _errorMessage.value = "API key gerekli. Settings'den girin veya uygulamayı güncelleyin."
-            SonaraLogger.w("LastFmAuth", "No API key available")
+            _errorMessage.value = "API key required. Enter in Settings."
             return null
         }
 
@@ -116,80 +97,54 @@ class LastFmAuthManager(private val context: Context) {
 
         return withContext(Dispatchers.IO) {
             try {
-                val params = sortedMapOf(
-                    "method" to "auth.getToken",
-                    "api_key" to apiKey
-                )
+                val params = sortedMapOf("method" to "auth.getToken", "api_key" to apiKey)
                 val sig = generateSignature(params, resolveSharedSecret())
                 val body = FormBody.Builder()
                 params.forEach { (k, v) -> body.add(k, v) }
-                body.add("api_sig", sig)
-                body.add("format", "json")
+                body.add("api_sig", sig).add("format", "json")
 
                 val request = Request.Builder().url(API_URL).post(body.build()).build()
                 val response = client.newCall(request).execute()
-                val json = response.body?.string() ?: throw Exception("Boş yanıt")
-
+                val json = response.body?.string() ?: throw Exception("Empty response")
                 val obj = JSONObject(json)
-                if (obj.has("error")) {
-                    throw Exception(obj.optString("message", "Token alınamadı"))
-                }
+                if (obj.has("error")) throw Exception(obj.optString("message", "Token failed"))
 
                 val token = obj.getString("token")
                 pendingToken = token
-                SonaraLogger.i("LastFmAuth", "Token alındı, web auth açılıyor")
-
                 Intent(Intent.ACTION_VIEW, Uri.parse("${AUTH_URL}?api_key=$apiKey&token=$token&cb=$CALLBACK_URL"))
             } catch (e: Exception) {
-                SonaraLogger.e("LastFmAuth", "Token hatası: ${e.message}")
+                SonaraLogger.e("LastFmAuth", "Token error: ${e.message}")
                 _authState.value = AuthState.ERROR
-                _errorMessage.value = e.message ?: "Bağlantı hatası"
+                _errorMessage.value = e.message ?: "Connection error"
                 null
             }
         }
     }
 
-    /** Deep link callback sonrası session key al */
     suspend fun handleCallback(token: String? = null): Boolean {
         val useToken = token ?: pendingToken ?: return false
         val apiKey = resolveApiKey()
         val sharedSecret = resolveSharedSecret()
 
-        if (apiKey.isBlank()) {
-            _authState.value = AuthState.ERROR
-            _errorMessage.value = "API key bulunamadı"
-            return false
-        }
-        if (sharedSecret.isBlank()) {
-            _authState.value = AuthState.ERROR
-            _errorMessage.value = "Shared secret gerekli. Settings'den girin."
-            SonaraLogger.e("LastFmAuth", "Shared secret is blank — cannot sign auth.getSession")
-            return false
-        }
+        if (apiKey.isBlank()) { _authState.value = AuthState.ERROR; _errorMessage.value = "API key not found"; return false }
+        if (sharedSecret.isBlank()) { _authState.value = AuthState.ERROR; _errorMessage.value = "Shared secret required."; return false }
 
         return withContext(Dispatchers.IO) {
             try {
-                val params = sortedMapOf(
-                    "method" to "auth.getSession",
-                    "api_key" to apiKey,
-                    "token" to useToken
-                )
+                val params = sortedMapOf("method" to "auth.getSession", "api_key" to apiKey, "token" to useToken)
                 val sig = generateSignature(params, sharedSecret)
                 val body = FormBody.Builder()
                 params.forEach { (k, v) -> body.add(k, v) }
-                body.add("api_sig", sig)
-                body.add("format", "json")
+                body.add("api_sig", sig).add("format", "json")
 
                 val request = Request.Builder().url(API_URL).post(body.build()).build()
                 val response = client.newCall(request).execute()
-                val json = response.body?.string() ?: throw Exception("Boş yanıt")
+                val json = response.body?.string() ?: throw Exception("Empty response")
                 val obj = JSONObject(json)
 
                 if (obj.has("error")) {
-                    val msg = obj.optString("message", "Session alınamadı")
-                    SonaraLogger.e("LastFmAuth", "Session hatası: $msg")
-                    _authState.value = AuthState.ERROR
-                    _errorMessage.value = msg
+                    val msg = obj.optString("message", "Session failed")
+                    _authState.value = AuthState.ERROR; _errorMessage.value = msg
                     return@withContext false
                 }
 
@@ -197,27 +152,17 @@ class LastFmAuthManager(private val context: Context) {
                 val sessionKey = session.getString("key")
                 val name = session.getString("name")
 
-                // Session key'i güvenli depoya yaz
                 secrets.setLastFmSessionKey(sessionKey)
-                // Kullanılabilir API key/secret'ı da depola (sonraki kullanımlar için)
-                if (secrets.getLastFmApiKey().isBlank()) {
-                    secrets.setLastFmApiKey(apiKey)
-                }
-                if (secrets.getLastFmSharedSecret().isBlank()) {
-                    secrets.setLastFmSharedSecret(sharedSecret)
-                }
+                if (secrets.getLastFmApiKey().isBlank()) secrets.setLastFmApiKey(apiKey)
+                if (secrets.getLastFmSharedSecret().isBlank()) secrets.setLastFmSharedSecret(sharedSecret)
 
                 _username.value = name
                 _authState.value = AuthState.CONNECTED
                 _errorMessage.value = ""
                 pendingToken = null
-
-                SonaraLogger.i("LastFmAuth", "Bağlantı başarılı: $name")
                 true
             } catch (e: Exception) {
-                SonaraLogger.e("LastFmAuth", "Session hatası: ${e.message}")
-                _authState.value = AuthState.ERROR
-                _errorMessage.value = e.message ?: "Bağlantı hatası"
+                _authState.value = AuthState.ERROR; _errorMessage.value = e.message ?: "Error"
                 false
             }
         }
@@ -226,46 +171,42 @@ class LastFmAuthManager(private val context: Context) {
     fun disconnect() {
         secrets.setLastFmSessionKey("")
         _authState.value = AuthState.DISCONNECTED
-        _username.value = ""
-        _errorMessage.value = ""
-        SonaraLogger.i("LastFmAuth", "Bağlantı kesildi")
+        _username.value = ""; _errorMessage.value = ""
     }
 
-    fun reconnect() {
-        disconnect()
-        // UI tekrar startAuth() çağıracak
-    }
-
+    fun reconnect() { disconnect() }
     fun isConnected(): Boolean = secrets.getLastFmSessionKey().isNotBlank()
-
-    /** Scrobble/love işlemleri için aktif API key */
     fun getActiveApiKey(): String = resolveApiKey()
     fun getActiveSecret(): String = resolveSharedSecret()
     fun getSessionKey(): String = secrets.getLastFmSessionKey()
 
-    /** Pending scrobble sayısı için Session bilgisi */
-    fun getConnectionInfo(): ConnectionInfo {
-        return ConnectionInfo(
-            isConnected = isConnected(),
-            username = _username.value,
-            keySource = keySource(),
-            hasSession = secrets.getLastFmSessionKey().isNotBlank()
-        )
-    }
-
-    data class ConnectionInfo(
-        val isConnected: Boolean,
-        val username: String,
-        val keySource: String,
-        val hasSession: Boolean
+    fun getConnectionInfo(): ConnectionInfo = ConnectionInfo(
+        isConnected = isConnected(), username = _username.value,
+        keySource = keySource(), hasSession = secrets.getLastFmSessionKey().isNotBlank()
     )
 
+    data class ConnectionInfo(val isConnected: Boolean, val username: String, val keySource: String, val hasSession: Boolean)
+
+    private suspend fun loadUsername() {
+        try {
+            val apiKey = resolveApiKey()
+            val sk = secrets.getLastFmSessionKey()
+            if (apiKey.isBlank() || sk.isBlank()) return
+            val url = "${API_URL}?method=user.getInfo&api_key=$apiKey&sk=$sk&format=json"
+            val request = Request.Builder().url(url).get().build()
+            val response = client.newCall(request).execute()
+            val json = response.body?.string() ?: return
+            val obj = JSONObject(json)
+            if (!obj.has("error")) {
+                val name = obj.optJSONObject("user")?.optString("name", "") ?: ""
+                if (name.isNotBlank()) _username.value = name
+            }
+        } catch (_: Exception) {}
+    }
+
     private fun generateSignature(params: Map<String, String>, secret: String): String {
-        val raw = params.entries.sortedBy { it.key }
-            .joinToString("") { "${it.key}${it.value}" } + secret
-        val sig = md5(raw)
-        SonaraLogger.i("LastFmAuth", "Signature: method=${params["method"]} keyLen=${params["api_key"]?.length} secretLen=${secret.length} sigLen=${sig.length}")
-        return sig
+        val raw = params.entries.sortedBy { it.key }.joinToString("") { "${it.key}${it.value}" } + secret
+        return md5(raw)
     }
 
     private fun md5(input: String): String {

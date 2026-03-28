@@ -21,10 +21,6 @@ import com.sonara.app.ui.theme.SonaraTheme
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 
-/**
- * Madde 8 FIX: Deep link callback işleniyor (sonara://lastfm-auth)
- * Madde 9 FIX: Theme ayarları (themeMode, dynamicColors, highContrast) SonaraTheme'e geçiriliyor
- */
 class MainActivity : ComponentActivity() {
 
     private val notificationPermissionLauncher =
@@ -36,8 +32,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         ensureNotificationPermission()
-
-        // Madde 8: Handle deep link if launched via intent
         handleLastFmDeepLink(intent)
 
         setContent {
@@ -48,36 +42,16 @@ class MainActivity : ComponentActivity() {
             val highContrast by prefs.highContrastFlow.collectAsState(initial = false)
             val amoledMode by prefs.amoledModeFlow.collectAsState(initial = false)
 
-            SonaraTheme(
-                accentColor = accent,
-                themeMode = themeMode,
-                dynamicColors = dynamicColors,
-                highContrast = highContrast,
-                amoledMode = amoledMode
-            ) {
+            SonaraTheme(accentColor = accent, themeMode = themeMode, dynamicColors = dynamicColors,
+                highContrast = highContrast, amoledMode = amoledMode) {
                 SonaraNavigation()
             }
         }
     }
 
-    /**
-     * Madde 8 FIX: Deep link callback — Last.fm OAuth dönüşünü işle
-     */
+    // FIX: onResume artik gereksiz handleCallback CAGIRMIYOR
     override fun onResume() {
         super.onResume()
-        // Last.fm does NOT auto-redirect back — user manually returns.
-        // Check if there's a pending auth token and complete the flow.
-        val app = application as SonaraApp
-        if (app.lastFmAuth.authState.value == com.sonara.app.intelligence.lastfm.LastFmAuthManager.AuthState.AUTHENTICATING) {
-            SonaraLogger.i("MainActivity", "Resuming with pending Last.fm auth, completing...")
-            kotlinx.coroutines.MainScope().launch {
-                val success = app.lastFmAuth.handleCallback()
-                if (success) {
-                    SonaraLogger.i("MainActivity", "Last.fm auth completed on resume")
-                    app.reloadPipeline()
-                }
-            }
-        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -88,31 +62,19 @@ class MainActivity : ComponentActivity() {
     private fun handleLastFmDeepLink(intent: Intent?) {
         val uri = intent?.data ?: return
         if (uri.scheme == LastFmAuthManager.CALLBACK_SCHEME && uri.host == LastFmAuthManager.CALLBACK_HOST) {
-            SonaraLogger.i("MainActivity", "Last.fm auth callback received")
             val token = uri.getQueryParameter("token")
             val app = application as SonaraApp
             MainScope().launch {
                 val success = app.lastFmAuth.handleCallback(token)
-                if (success) {
-                    SonaraLogger.i("MainActivity", "Last.fm auth successful")
-                    app.reloadPipeline()
-                } else {
-                    SonaraLogger.w("MainActivity", "Last.fm auth failed")
-                }
+                if (success) app.reloadPipeline()
             }
         }
     }
 
     private fun ensureNotificationPermission() {
-        if (Build.VERSION.SDK_INT < 33) {
+        if (Build.VERSION.SDK_INT < 33) { SonaraService.start(this); return }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
             SonaraService.start(this)
-            return
-        }
-        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        if (granted) {
-            SonaraService.start(this)
-        } else {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
+        else notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 }
