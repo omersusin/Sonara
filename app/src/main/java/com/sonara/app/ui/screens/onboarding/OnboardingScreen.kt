@@ -38,7 +38,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     val scope = rememberCoroutineScope()
     val p = MaterialTheme.colorScheme.primary
     val np by SonaraNotificationListener.nowPlaying.collectAsState()
-    val isPlaying = np != null && np?.title?.isNotBlank() == true
+    val isPlaying = np.isPlaying && np.title.isNotBlank()
 
     Box(Modifier.fillMaxSize().background(SonaraBackground)) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
