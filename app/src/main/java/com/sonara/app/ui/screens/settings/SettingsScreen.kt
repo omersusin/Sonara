@@ -112,6 +112,9 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
 
         item { PresetExportImportCard(vm) }
 
+        item { SectionHeader("Community") }
+        item { CommunityCard(state, vm) }
+
         item { SectionHeader("Data & Developer") }
         item { DataCard(state, vm) }
         item {
@@ -144,6 +147,47 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
         item { AboutCard(state, vm) }
 
         item { Spacer(Modifier.height(16.dp)) }
+    }
+}
+
+@Composable
+private fun CommunityCard(state: SettingsUiState, vm: SettingsViewModel) {
+    val p = MaterialTheme.colorScheme.primary
+    FluentCard {
+        Text("Community", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Use community data", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                Text("Improves accuracy from day one", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+            }
+            Switch(checked = state.communityDownloadEnabled, onCheckedChange = { vm.setCommunityDownload(it) },
+                colors = SwitchDefaults.colors(checkedTrackColor = p))
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Contribute to community", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                Text("Share anonymous audio data to help improve Sonara", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+            }
+            Switch(checked = state.communityUploadEnabled, onCheckedChange = { vm.setCommunityUpload(it) },
+                colors = SwitchDefaults.colors(checkedTrackColor = p))
+        }
+        if (state.communityUploadEnabled) {
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = SonaraDivider.copy(0.3f))
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(state.communityPending.toString(), style = MaterialTheme.typography.titleLarge, color = p)
+                    Text("Pending", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(state.communityTotalSent.toString(), style = MaterialTheme.typography.titleLarge, color = p)
+                    Text("Total sent", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                }
+            }
+        }
     }
 }
 

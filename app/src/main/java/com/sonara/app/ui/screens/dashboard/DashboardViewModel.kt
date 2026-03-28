@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
+import com.sonara.app.ai.SonaraAi
+import com.sonara.app.ai.SonaraAiState
 import com.sonara.app.intelligence.lastfm.LoveStateCache
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.components.DisplayLabelMapper
@@ -85,18 +87,20 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
     val albumArt: StateFlow<Bitmap?> = SonaraNotificationListener.albumArt
 
+    // AI state
+    val aiState: StateFlow<SonaraAiState> =
+        SonaraAi.getInstance()?.state ?: MutableStateFlow(SonaraAiState()).asStateFlow()
+
     init {
         viewModelScope.launch { app.eqState.collect { eq -> _uiState.update { it.copy(bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer, loudness = eq.loudness, currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset) } } }
         viewModelScope.launch { SonaraNotificationListener.nowPlaying.collect { np ->
             _uiState.update { it.copy(title = np.title, artist = np.artist, isPlaying = np.isPlaying, hasTrack = np.title.isNotBlank()) }
-            // Check love cache on track change
             if (np.title.isNotBlank()) {
                 val cached = LoveStateCache.isLoved(np.title, np.artist)
                 if (cached != null) _uiState.update { it.copy(isLoved = cached) }
                 else _uiState.update { it.copy(isLoved = false) }
             }
         } }
-        // Use DisplayLabelMapper for formatted labels
         viewModelScope.launch { SonaraNotificationListener.currentGenre.collect { g -> if (g.isNotBlank()) _uiState.update { it.copy(genre = DisplayLabelMapper.formatGenre(g)) } } }
         viewModelScope.launch { SonaraNotificationListener.currentMood.collect { m -> if (m.isNotBlank()) _uiState.update { it.copy(mood = DisplayLabelMapper.formatMood(m)) } } }
         viewModelScope.launch { SonaraNotificationListener.currentEnergy.collect { e -> _uiState.update { it.copy(energy = e) } } }
@@ -109,7 +113,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch { app.geminiInsight.collect { insight ->
             _uiState.update { it.copy(geminiSummary = insight?.summary ?: "") }
         } }
-
+        // Sync AI learned count
+        viewModelScope.launch { aiState.collect { ai ->
+            if (ai.learnedCount > 0) _uiState.update { it.copy(songsLearned = maxOf(it.songsLearned, ai.learnedCount)) }
+        } }
         checkNotificationListener()
     }
 
@@ -130,18 +137,19 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val s = _uiState.value
         if (s.title.isBlank()) return
         val newState = !s.isLoved
-        // Optimistic update + cache
         _uiState.update { it.copy(isLoved = newState) }
         LoveStateCache.setLoved(s.title, s.artist, newState)
         viewModelScope.launch {
             val ok = app.loveTrack(s.title, s.artist, newState)
             if (!ok) {
-                // Revert on failure
                 _uiState.update { it.copy(isLoved = !newState) }
                 LoveStateCache.setLoved(s.title, s.artist, !newState)
             }
         }
     }
+
+    fun onAiFeedback(type: String) { SonaraAi.getInstance()?.onFeedback(type) }
+    fun onGenreCorrection(genre: String) { SonaraAi.getInstance()?.onGenreCorrection(genre) }
 
     fun checkNotificationListener() {
         val instanceAlive = SonaraNotificationListener.instance != null

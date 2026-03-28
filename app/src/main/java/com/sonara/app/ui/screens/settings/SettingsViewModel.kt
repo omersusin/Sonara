@@ -8,6 +8,7 @@ import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.intelligence.lastfm.LastFmAuthManager
 import com.sonara.app.preset.PresetExporter
 import com.sonara.app.service.SonaraNotificationListener
+import com.sonara.app.ai.SonaraAi
 import com.sonara.app.ui.theme.AccentColor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -50,7 +51,11 @@ data class SettingsUiState(
     val openRouterApiKey: String = "", val openRouterKeyInput: String = "",
     val openRouterModel: String = "google/gemini-2.5-flash",
     val groqApiKey: String = "", val groqKeyInput: String = "",
-    val groqModel: String = "llama-3.3-70b-versatile"
+    val groqModel: String = "llama-3.3-70b-versatile",
+    val communityDownloadEnabled: Boolean = false,
+    val communityUploadEnabled: Boolean = false,
+    val communityPending: Int = 0,
+    val communityTotalSent: Int = 0
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -102,6 +107,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             _uiState.update { it.copy(lastFmUsername = name) }
         } }
 
+        // Community
+        viewModelScope.launch {
+            val cloud = SonaraAi.getInstance()?.cloudManager
+            if (cloud != null) {
+                _uiState.update { it.copy(
+                    communityUploadEnabled = cloud.isContributionEnabled(),
+                    communityPending = cloud.getPendingCount(),
+                    communityTotalSent = cloud.getTotalSent()
+                ) }
+            }
+        }
         refreshCacheSize(); checkNotificationListener(); refreshPendingScrobbles()
         _uiState.update { it.copy(personalSamples = app.personalization.getTotalSamples()) }
     }
@@ -199,6 +215,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update { it.copy(groqKeyInput = "", groqApiKey = k) }
             }
         }
+    }
+
+    fun setCommunityDownload(enabled: Boolean) {
+        // Download toggle (future: cloud.setDownloadEnabled)
+        _uiState.update { it.copy(communityDownloadEnabled = enabled) }
+    }
+    fun setCommunityUpload(enabled: Boolean) {
+        SonaraAi.getInstance()?.cloudManager?.setContributionEnabled(enabled)
+        _uiState.update { it.copy(communityUploadEnabled = enabled) }
+    }
+    fun syncCommunityNow() {
+        SonaraAi.getInstance()?.cloudManager?.syncNow()
     }
 
     fun clearCache() { viewModelScope.launch { cache.clear(); refreshCacheSize() } }

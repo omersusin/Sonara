@@ -7,6 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,11 +22,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -42,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sonara.app.ai.models.FeedbackType
 import com.sonara.app.ui.components.ChipStatus
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.components.MoodRing
@@ -53,11 +59,13 @@ import com.sonara.app.ui.components.VisualizerMode
 import com.sonara.app.ui.components.VisualizerStateDetector
 import com.sonara.app.ui.theme.*
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DashboardScreen() {
     val vm: DashboardViewModel = viewModel()
     val s by vm.uiState.collectAsState()
     val art by vm.albumArt.collectAsState()
+    val aiState by vm.aiState.collectAsState()
     val p = MaterialTheme.colorScheme.primary
     val ctx = LocalContext.current
     val lc = LocalLifecycleOwner.current
@@ -86,10 +94,45 @@ fun DashboardScreen() {
             item { PermissionCard(onGrant = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) }
         }
 
-        // ═══ Madde 17 FIX: NowPlayingBar + Love butonu ═══
         item {
             NowPlayingBar(title = if (s.hasTrack) s.title else "No music playing",
                 artist = s.artist, isPlaying = s.isPlaying, albumArt = art)
+        }
+
+        // AI Status Card
+        if (aiState.isReady && s.hasTrack) {
+            item {
+                FluentCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Rounded.Hearing, null, Modifier.size(18.dp), tint = p)
+                        Text(aiState.status.display, style = MaterialTheme.typography.labelMedium, color = p)
+                    }
+                    aiState.result?.let { result ->
+                        Spacer(Modifier.height(10.dp))
+                        Text(result.summary, style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                        Spacer(Modifier.height(4.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            StatusChip(result.sourceBadge, ChipStatus.Active, Icons.Rounded.Memory)
+                            StatusChip(result.confidenceLevel.label, if (result.confidence > 0.5f) ChipStatus.Active else ChipStatus.Inactive)
+                        }
+                        if (result.explanation.sourceHonesty.isNotBlank()) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(result.explanation.sourceHonesty, style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                        }
+                        // Feedback buttons
+                        Spacer(Modifier.height(10.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            FeedbackType.quickOptions.forEach { fb ->
+                                AssistChip(
+                                    onClick = { vm.onAiFeedback(fb.id) },
+                                    label = { Text("${fb.emoji} ${fb.label}", style = MaterialTheme.typography.labelSmall) },
+                                    colors = AssistChipDefaults.assistChipColors(containerColor = SonaraCardElevated)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         if (s.hasTrack) {
@@ -114,7 +157,6 @@ fun DashboardScreen() {
                             }
                         }
                     }
-                    // ═══ Madde 10: Gemini insight gösterimi ═══
                     if (s.geminiSummary.isNotBlank()) {
                         Spacer(Modifier.height(8.dp))
                         Text(s.geminiSummary, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
@@ -161,22 +203,12 @@ fun DashboardScreen() {
             }
         }
 
-        // ═══ Madde 18 FIX: Visualizer + mode göstergesi ═══
         item {
-            val vizMode = VisualizerStateDetector.detect(
-                hasAudioSession = s.eqActive,
-                hasVisualizerPermission = false, // Real visualizer API değil henüz
-                isPlaying = s.isPlaying
-            )
+            val vizMode = VisualizerStateDetector.detect(hasAudioSession = s.eqActive, hasVisualizerPermission = false, isPlaying = s.isPlaying)
             Column {
                 SonaraVisualizer(isPlaying = s.isPlaying)
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    "Visualizer: ${vizMode.label}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = SonaraTextTertiary,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
+                Text("Visualizer: ${vizMode.label}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, modifier = Modifier.padding(start = 8.dp))
             }
         }
         item { Spacer(Modifier.height(8.dp)) }
