@@ -1,0 +1,26 @@
+[
+    {
+        "merged": "com.sonara.app-debug-63:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.sonara.app-main-65:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "com.sonara.app-debug-63:/drawable_ic_heart_filled.xml.flat",
+        "source": "com.sonara.app-main-65:/drawable/ic_heart_filled.xml"
+    },
+    {
+        "merged": "com.sonara.app-debug-63:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.sonara.app-main-65:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "com.sonara.app-debug-63:/drawable_ic_heart_outline.xml.flat",
+        "source": "com.sonara.app-main-65:/drawable/ic_heart_outline.xml"
+    },
+    {
+        "merged": "com.sonara.app-debug-63:/drawable_ic_launcher_monochrome.xml.flat",
+        "source": "com.sonara.app-main-65:/drawable/ic_launcher_monochrome.xml"
+    },
+    {
+        "merged": "com.sonara.app-debug-63:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.sonara.app-main-65:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    }
+]

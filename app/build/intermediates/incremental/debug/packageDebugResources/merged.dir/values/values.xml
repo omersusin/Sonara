@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#111113</color>
+    <color name="sonara_background">#FF111113</color>
+    <color name="sonara_primary">#FFD4A574</color>
+    <color name="sonara_surface">#FF1C1C1F</color>
+    <string name="app_name">Sonara</string>
+    <style name="Theme.Sonara" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/sonara_background</item>
+        <item name="android:statusBarColor">@color/sonara_background</item>
+        <item name="android:navigationBarColor">@color/sonara_background</item>
+    </style>
+</resources>

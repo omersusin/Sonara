@@ -13,6 +13,8 @@ import android.os.IBinder
 import com.sonara.app.MainActivity
 import com.sonara.app.R
 import com.sonara.app.SonaraApp
+import com.sonara.app.ai.SonaraAi
+import com.sonara.app.data.SonaraDatabase
 import com.sonara.app.data.SonaraLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,11 +26,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-/**
- * Madde 16 FIX: keepNotificationPaused toggle artık uygulanıyor.
- * keepNotificationPaused = false → müzik durduğunda notification 5 saniye sonra kaybolur.
- * keepNotificationPaused = true (default) → notification sürekli kalır.
- */
 class SonaraService : Service() {
     companion object {
         const val CHANNEL_ID = "sonara_engine"
@@ -39,6 +36,8 @@ class SonaraService : Service() {
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val aiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var sonaraAi: SonaraAi? = null
     private var isLoved = false
     private var hasSessionKey = false
     private var lastTrackKey = ""
@@ -46,19 +45,36 @@ class SonaraService : Service() {
 
     override fun onCreate() {
         super.onCreate(); createChannel()
+
+        // AI initialization
+        val db = SonaraDatabase.get(applicationContext)
+        sonaraAi = SonaraAi.create(applicationContext, db.trainingExampleDao())
+        aiScope.launch(Dispatchers.IO) {
+            sonaraAi?.initialize()
+        }
+
         scope.launch {
             combine(SonaraNotificationListener.nowPlaying, SonaraNotificationListener.albumArt) { np, art -> np to art }
                 .collect { (np, art) ->
                     val key = "${np.title}::${np.artist}"
-                    if (key != lastTrackKey) { isLoved = false; lastTrackKey = key }
+                    if (key != lastTrackKey) {
+                        isLoved = false; lastTrackKey = key
+                        // Notify AI of track change
+                        if (np.title.isNotBlank()) {
+                            sonaraAi?.onTrackChanged(
+                                title = np.title,
+                                artist = np.artist,
+                                albumArt = null,
+                                audioSessionId = null
+                            )
+                        }
+                    }
                     val n = buildNotification(np.title.ifBlank { "Sonara" }, np.artist, np.isPlaying, art)
                     getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, n)
 
-                    // ═══ Madde 16 FIX: Pause lifecycle ═══
                     if (!np.isPlaying && np.title.isNotBlank()) {
                         handlePausedState()
                     } else {
-                        // Müzik çalıyorsa dismiss'i iptal et
                         dismissJob?.cancel()
                         dismissJob = null
                     }
@@ -66,9 +82,6 @@ class SonaraService : Service() {
         }
     }
 
-    /**
-     * Madde 16 FIX: Müzik durduğunda keepNotificationPaused kontrolü
-     */
     private fun handlePausedState() {
         dismissJob?.cancel()
         dismissJob = scope.launch {
@@ -76,9 +89,7 @@ class SonaraService : Service() {
                 val app = application as SonaraApp
                 val keepNotification = app.preferences.keepNotificationPausedFlow.first()
                 if (!keepNotification) {
-                    // 5 saniye bekle — kullanıcı geri açabilir
                     delay(5000)
-                    // Hâlâ pause'daysa notification'ı kaldır
                     val stillPaused = !SonaraNotificationListener.nowPlaying.value.isPlaying
                     if (stillPaused) {
                         SonaraLogger.i("Service", "Removing notification (keepNotification=false, paused)")
@@ -86,7 +97,6 @@ class SonaraService : Service() {
                         stopSelf()
                     }
                 }
-                // keepNotification=true → notification kalır (default davranış)
             } catch (_: Exception) {}
         }
     }
@@ -132,7 +142,13 @@ class SonaraService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
-    override fun onDestroy() { dismissJob?.cancel(); scope.cancel(); super.onDestroy() }
+    override fun onDestroy() {
+        dismissJob?.cancel()
+        sonaraAi?.release()
+        aiScope.cancel()
+        scope.cancel()
+        super.onDestroy()
+    }
 
     private fun updateNotification() {
         val np = SonaraNotificationListener.nowPlaying.value
@@ -171,7 +187,7 @@ class SonaraService : Service() {
             .setContentIntent(open)
             .also { if (heartAction != null) it.addAction(heartAction) }
             .addAction(stopAction)
-            .setOngoing(isPlaying) // Madde 16: Pause'dayken swipe ile kapatılabilir
+            .setOngoing(isPlaying)
             .setShowWhen(false)
 
         if (art != null && !art.isRecycled) {

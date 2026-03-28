@@ -1,0 +1,14 @@
+R_DEF: Internal format may change without notice
+local
+color ic_launcher_background
+color sonara_background
+color sonara_primary
+color sonara_surface
+drawable ic_heart_filled
+drawable ic_heart_outline
+drawable ic_launcher_foreground
+drawable ic_launcher_monochrome
+mipmap ic_launcher
+mipmap ic_launcher_round
+string app_name
+style Theme.Sonara
