@@ -17,7 +17,7 @@ class GitHubSync(private val context: Context, private val queue: ContributionQu
     companion object {
         private const val TAG = "SonaraGitHub"
         private const val REPO_OWNER = "omersusin"
-        private const val REPO_NAME = "sonara-models"
+        private const val REPO_NAME = "Sonara-models"
         private const val BRANCH = "main"
         private const val API_BASE = "https://api.github.com"
         private const val RAW_BASE = "https://raw.githubusercontent.com"
