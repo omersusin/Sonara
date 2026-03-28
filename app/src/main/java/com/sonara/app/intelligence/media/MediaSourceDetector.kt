@@ -1,7 +1,7 @@
 package com.sonara.app.intelligence.media
 
 import android.util.Log
-import com.sonara.app.model.MediaType
+import com.sonara.app.intelligence.pipeline.MediaType
 
 object MediaSourceDetector {
     private const val TAG = "MediaSourceDetector"

@@ -34,7 +34,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.sonara.app.intelligence.media.MediaSourceDetector
-import com.sonara.app.model.MediaType
+import android.util.Log
+import com.sonara.app.intelligence.pipeline.MediaType
 
 data class ListenerNowPlaying(
     val title: String = "", val artist: String = "", val album: String = "",

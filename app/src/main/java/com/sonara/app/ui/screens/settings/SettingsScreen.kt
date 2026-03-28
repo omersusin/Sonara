@@ -213,7 +213,7 @@ private fun CommunityCard(state: SettingsUiState, vm: SettingsViewModel) {
                     visualTransformation = PasswordVisualTransformation()
                 )
                 Spacer(Modifier.height(4.dp))
-                Button(
+                OutlinedButton(
                     onClick = { vm.saveGithubToken() },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = state.githubTokenInput.isNotBlank()
@@ -315,7 +315,7 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
 
                     Spacer(Modifier.height(8.dp))
 
-                    Button(
+                    OutlinedButton(
                         onClick = { vm.saveApiKey(); vm.saveSharedSecret() },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = state.apiKeyInput.isNotBlank() && state.sharedSecretInput.isNotBlank()
