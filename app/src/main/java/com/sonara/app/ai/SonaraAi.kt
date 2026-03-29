@@ -166,9 +166,15 @@ class SonaraAi private constructor(
 
     fun updateVisualizerFromCapture() {
         val frames = capture.getFFTFrames()
-        if (frames.isNotEmpty()) {
-            _visualizerData.value = parseFFTMagnitudes(frames.last())
-        }
+        if (frames.isEmpty()) return
+        // Smooth: average last 4 frames to reduce jitter
+        val recent = frames.takeLast(4).map { parseFFTMagnitudes(it) }.filter { it.isNotEmpty() }
+        if (recent.isEmpty()) return
+        val n = recent.first().size
+        val avg = FloatArray(n)
+        for (frame in recent) { for (i in 0 until minOf(n, frame.size)) avg[i] += frame[i] }
+        for (i in avg.indices) avg[i] /= recent.size
+        _visualizerData.value = avg
     }
 
 

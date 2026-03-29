@@ -711,7 +711,20 @@ private fun AboutCard(state: SettingsUiState, vm: SettingsViewModel) {
         if (devMode) {
             SettingsDivider()
             Text("Developer Options", style = MaterialTheme.typography.titleSmall, color = SonaraWarning)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
+            // Community sync interval
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Sync every N songs", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                var intervalText by remember { mutableStateOf("50") }
+                OutlinedTextField(
+                    value = intervalText,
+                    onValueChange = { v -> intervalText = v.filter { it.isDigit() }.take(4) },
+                    modifier = Modifier.width(80.dp),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Spacer(Modifier.height(12.dp))
             OutlinedButton(onClick = { vm.disconnectLastFm(); vm.clearAllData() },
                 modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
                 border = BorderStroke(1.dp, SonaraError.copy(0.5f)),

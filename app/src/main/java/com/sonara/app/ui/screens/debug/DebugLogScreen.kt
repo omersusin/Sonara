@@ -1,6 +1,8 @@
 package com.sonara.app.ui.screens.debug
 
+import android.os.Environment
 import android.widget.Toast
+import java.io.File
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -91,6 +94,19 @@ fun DebugLogScreen(onBack: () -> Unit) {
                     Toast.makeText(context, "Log copied (${logs.size} entries)", Toast.LENGTH_SHORT).show()
                 }) {
                     Icon(Icons.Rounded.ContentCopy, "Copy", tint = p)
+                }
+                IconButton(onClick = {
+                    try {
+                        val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "SonaraLogs")
+                        dir.mkdirs()
+                        val file = File(dir, "sonara_log_${System.currentTimeMillis()}.txt")
+                        file.writeText(SonaraLogger.exportAsText())
+                        Toast.makeText(context, "Saved to Downloads/SonaraLogs/", Toast.LENGTH_LONG).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Save failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }) {
+                    Icon(Icons.Rounded.Save, "Save", tint = p)
                 }
                 IconButton(onClick = { SonaraLogger.clear() }) {
                     Icon(Icons.Rounded.Delete, "Clear", tint = SonaraError)
