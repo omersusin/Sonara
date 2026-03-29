@@ -62,7 +62,10 @@ fun SonaraVisualizer(
             val gap = (w / barCount) * 0.35f
 
             for (i in 0 until barCount) {
-                val barHeight = if (isPlaying) {
+                val barHeight = if (fftData != null && fftData.size >= barCount && isPlaying) {
+                    // Real FFT data
+                    (fftData[i].coerceIn(0.05f, 1f)) * h
+                } else if (isPlaying) {
                     val wave1 = sin(phase + seeds[i]).toFloat() * 0.3f
                     val wave2 = sin(phase * 1.7f + seeds[i] * 0.5f).toFloat() * 0.2f
                     val wave3 = sin(phase * 0.5f + seeds[i] * 1.3f).toFloat() * 0.15f

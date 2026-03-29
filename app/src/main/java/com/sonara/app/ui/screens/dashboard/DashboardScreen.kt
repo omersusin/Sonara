@@ -128,30 +128,33 @@ fun DashboardScreen() {
                         Icon(Icons.Rounded.Hearing, null, Modifier.size(18.dp), tint = p)
                         Text(aiState.status.display, style = MaterialTheme.typography.labelMedium, color = p)
                     }
-                    aiState.result?.let { result ->
-                        Spacer(Modifier.height(10.dp))
-                        Text(result.summary, style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                    Spacer(Modifier.height(10.dp))
+                        Text("${s.genre} \u00b7 ${s.mood} \u00b7 Confidence ${(s.confidence * 100).toInt()}%",
+                            style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
                         Spacer(Modifier.height(4.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StatusChip(result.sourceBadge, ChipStatus.Active, Icons.Rounded.Memory)
-                            StatusChip(result.confidenceLevel.label, if (result.confidence > 0.5f) ChipStatus.Active else ChipStatus.Inactive)
+                            StatusChip(s.sourceLabel, ChipStatus.Active, Icons.Rounded.Memory)
+                            StatusChip(if (s.confidence > 0.7f) "High" else if (s.confidence > 0.4f) "Medium" else "Low",
+                                if (s.confidence > 0.5f) ChipStatus.Active else ChipStatus.Inactive)
                         }
-                        if (result.explanation.sourceHonesty.isNotBlank()) {
+                        if (aiState.result?.explanation?.sourceHonesty?.isNotBlank() == true) {
                             Spacer(Modifier.height(6.dp))
-                            Text(result.explanation.sourceHonesty, style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                            Text(aiState.result!!.explanation.sourceHonesty, style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
                         }
                         // Feedback buttons
                         Spacer(Modifier.height(10.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             FeedbackType.quickOptions.forEach { fb ->
                                 AssistChip(
-                                    onClick = { vm.onAiFeedback(fb.id) },
+                                    onClick = {
+                                        vm.onAiFeedback(fb.id)
+                                        Toast.makeText(ctx, "${fb.emoji} ${fb.label}", Toast.LENGTH_SHORT).show()
+                                    },
                                     label = { Text("${fb.emoji} ${fb.label}", style = MaterialTheme.typography.labelSmall) },
                                     colors = AssistChipDefaults.assistChipColors(containerColor = SonaraCardElevated)
                                 )
                             }
                         }
-                    }
                 }
             }
         }
@@ -229,7 +232,7 @@ fun DashboardScreen() {
             Column {
                 SonaraVisualizer(isPlaying = s.isPlaying, fftData = s.visualizerData)
                 Spacer(Modifier.height(4.dp))
-                Text("Visualizer: ${vizMode.label}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, modifier = Modifier.padding(start = 8.dp))
+                Text("Visualizer: ${if (s.visualizerData != null) "Live" else vizMode.label}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, modifier = Modifier.padding(start = 8.dp))
             }
         }
         item { Spacer(Modifier.height(8.dp)) }
