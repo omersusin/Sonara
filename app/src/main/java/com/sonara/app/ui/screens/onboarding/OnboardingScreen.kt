@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -11,13 +12,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,8 +46,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
         OnboardingPage(Icons.Rounded.GraphicEq, "Gets smarter over time",
             "Give feedback and Sonara learns your preferences. Connect Last.fm for even richer analysis."),
     )
-    // info pages + permissions + lastfm setup
-    val totalPages = pages.size + 2
+    val totalPages = pages.size + 2  // info pages + permissions + API keys
     val pagerState = rememberPagerState(pageCount = { totalPages })
     val scope = rememberCoroutineScope()
     val p = MaterialTheme.colorScheme.primary
@@ -66,109 +68,8 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                         Text(pages[page].description, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = SonaraTextSecondary)
                     }
                 }
-                page == pages.size -> {
-                    // Permissions page
-                    Column(Modifier.fillMaxSize().padding(horizontal = 40.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                        Icon(Icons.Rounded.Mic, null, Modifier.size(80.dp), tint = p)
-                        Spacer(Modifier.height(32.dp))
-                        Text("Permissions", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, color = SonaraTextPrimary)
-                        Spacer(Modifier.height(16.dp))
-                        Text("Sonara needs a few permissions to work properly.",
-                            style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = SonaraTextSecondary)
-                        Spacer(Modifier.height(32.dp))
-                        OutlinedButton(
-                            onClick = { audioLauncher.launch(Manifest.permission.RECORD_AUDIO) },
-                            modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = if (audioGranted) SonaraSuccess else p)
-                        ) {
-                            Icon(Icons.Rounded.Mic, null, Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(if (audioGranted) "Audio Access Granted" else "Allow Audio Access")
-                        }
-                        Text("For real-time audio analysis", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary, textAlign = TextAlign.Center)
-                        Spacer(Modifier.height(16.dp))
-                        OutlinedButton(
-                            onClick = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
-                            modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
-                        ) {
-                            Icon(Icons.Rounded.Notifications, null, Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Enable Notification Access")
-                        }
-                        Text("To detect which song is playing", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary, textAlign = TextAlign.Center)
-                    }
-                }
-                page == pages.size + 1 -> {
-                    // Last.fm setup (optional)
-                    var apiKey by remember { mutableStateOf("") }
-                    var secret by remember { mutableStateOf("") }
-                    var saved by remember { mutableStateOf(false) }
-                    var showGuide by remember { mutableStateOf(false) }
-
-                    if (showGuide) {
-                        AlertDialog(
-                            onDismissRequest = { showGuide = false },
-                            containerColor = SonaraCard,
-                            title = { Text("How to get API keys") },
-                            text = {
-                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text("1. Go to last.fm/api/account/create", color = SonaraTextPrimary)
-                                    Text("2. Application Name: Sonara", color = SonaraTextPrimary)
-                                    Text("3. Leave Callback URL empty", color = SonaraTextPrimary)
-                                    Text("4. Submit and copy API Key + Shared Secret", color = SonaraTextPrimary)
-                                }
-                            },
-                            confirmButton = {
-                                TextButton(onClick = {
-                                    showGuide = false
-                                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.last.fm/api/account/create")))
-                                }) { Text("Open Last.fm") }
-                            },
-                            dismissButton = { TextButton(onClick = { showGuide = false }) { Text("Close") } }
-                        )
-                    }
-
-                    Column(Modifier.fillMaxSize().padding(horizontal = 40.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                        Icon(Icons.Rounded.Public, null, Modifier.size(80.dp), tint = p)
-                        Spacer(Modifier.height(32.dp))
-                        Text("Last.fm (Optional)", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, color = SonaraTextPrimary)
-                        Spacer(Modifier.height(16.dp))
-                        Text("Connect Last.fm for better genre detection. You can skip this and set it up later in Settings.",
-                            style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, color = SonaraTextSecondary)
-                        Spacer(Modifier.height(8.dp))
-                        TextButton(onClick = { showGuide = true }) { Text("How to get API keys?", color = p) }
-                        Spacer(Modifier.height(16.dp))
-                        OutlinedTextField(value = apiKey, onValueChange = { apiKey = it },
-                            label = { Text("API Key") }, modifier = Modifier.fillMaxWidth(),
-                            singleLine = true, visualTransformation = PasswordVisualTransformation())
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(value = secret, onValueChange = { secret = it },
-                            label = { Text("Shared Secret") }, modifier = Modifier.fillMaxWidth(),
-                            singleLine = true, visualTransformation = PasswordVisualTransformation())
-                        Spacer(Modifier.height(12.dp))
-                        OutlinedButton(
-                            onClick = {
-                                if (apiKey.isNotBlank() && secret.isNotBlank()) {
-                                    val app = SonaraApp.instance
-                                    kotlinx.coroutines.MainScope().launch {
-                                        app.secureSecrets.setLastFmApiKey(apiKey)
-                                        app.secureSecrets.setLastFmSharedSecret(secret)
-                                        app.preferences.setLastFmApiKey(apiKey)
-                                        app.preferences.setLastFmSharedSecret(secret)
-                                        app.reloadPipeline()
-                                        saved = true
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
-                            enabled = apiKey.isNotBlank() && secret.isNotBlank(),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = if (saved) SonaraSuccess else p)
-                        ) { Text(if (saved) "Keys Saved!" else "Save Keys") }
-                    }
-                }
+                page == pages.size -> PermissionsPage(p, audioGranted, audioLauncher, ctx)
+                page == pages.size + 1 -> ApiKeysPage(p, ctx)
             }
         }
         Column(Modifier.align(Alignment.BottomCenter).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -190,5 +91,159 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PermissionsPage(
+    p: androidx.compose.ui.graphics.Color,
+    audioGranted: Boolean,
+    audioLauncher: androidx.activity.result.ActivityResultLauncher<String>,
+    ctx: android.content.Context
+) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Icon(Icons.Rounded.Mic, null, Modifier.size(80.dp), tint = p)
+        Spacer(Modifier.height(32.dp))
+        Text("Permissions", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, color = SonaraTextPrimary)
+        Spacer(Modifier.height(16.dp))
+        Text("Sonara needs these permissions to work properly.",
+            style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = SonaraTextSecondary)
+        Spacer(Modifier.height(32.dp))
+        OutlinedButton(
+            onClick = { audioLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+            modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = if (audioGranted) SonaraSuccess else p)
+        ) {
+            Icon(Icons.Rounded.Mic, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+            Text(if (audioGranted) "Audio Access Granted" else "Allow Audio Access")
+        }
+        Text("For real-time audio analysis and visualizer", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(16.dp))
+        OutlinedButton(
+            onClick = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+            modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
+        ) {
+            Icon(Icons.Rounded.Notifications, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+            Text("Enable Notification Access")
+        }
+        Text("To detect which media is playing", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+private fun ApiKeysPage(p: androidx.compose.ui.graphics.Color, ctx: android.content.Context) {
+    val app = SonaraApp.instance
+    val scope = rememberCoroutineScope()
+
+    // Key states
+    var lastfmKey by remember { mutableStateOf("") }
+    var lastfmSecret by remember { mutableStateOf("") }
+    var geminiKey by remember { mutableStateOf("") }
+    var openRouterKey by remember { mutableStateOf("") }
+    var groqKey by remember { mutableStateOf("") }
+    var githubToken by remember { mutableStateOf("") }
+    var saved by remember { mutableStateOf(false) }
+    var showGuide by remember { mutableStateOf(false) }
+
+    if (showGuide) {
+        AlertDialog(
+            onDismissRequest = { showGuide = false },
+            containerColor = SonaraCard,
+            title = { Text("Where to get API keys") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Last.fm:", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                    Text("last.fm/api/account/create\nCreate app, copy API Key + Shared Secret", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                    Text("Gemini:", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                    Text("aistudio.google.com/apikey\nCreate API key, copy it", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                    Text("OpenRouter:", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                    Text("openrouter.ai/keys\nCreate key, copy it", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                    Text("Groq:", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                    Text("console.groq.com/keys\nCreate key, copy it", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                    Text("GitHub PAT:", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                    Text("github.com/settings/tokens\nFine-grained, repo: sonara-models, contents: read/write", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                }
+            },
+            confirmButton = { TextButton(onClick = { showGuide = false }) { Text("Got it") } }
+        )
+    }
+
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 32.dp).padding(top = 60.dp, bottom = 120.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(Icons.Rounded.Key, null, Modifier.size(48.dp), tint = p)
+        Spacer(Modifier.height(8.dp))
+        Text("API Keys (Optional)", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center, color = SonaraTextPrimary)
+        Text("You can set these up now or later in Settings. All keys are stored securely on your device.",
+            style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, color = SonaraTextSecondary)
+        TextButton(onClick = { showGuide = true }) { Text("Where to get these keys?", color = p) }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Last.fm
+        Text("Last.fm", style = MaterialTheme.typography.labelLarge, color = SonaraTextPrimary, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = lastfmKey, onValueChange = { lastfmKey = it }, label = { Text("API Key") },
+            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+        OutlinedTextField(value = lastfmSecret, onValueChange = { lastfmSecret = it }, label = { Text("Shared Secret") },
+            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+
+        Spacer(Modifier.height(4.dp))
+
+        // Gemini
+        Text("Gemini", style = MaterialTheme.typography.labelLarge, color = SonaraTextPrimary, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = geminiKey, onValueChange = { geminiKey = it }, label = { Text("API Key") },
+            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+
+        Spacer(Modifier.height(4.dp))
+
+        // OpenRouter
+        Text("OpenRouter", style = MaterialTheme.typography.labelLarge, color = SonaraTextPrimary, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = openRouterKey, onValueChange = { openRouterKey = it }, label = { Text("API Key") },
+            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+
+        Spacer(Modifier.height(4.dp))
+
+        // Groq
+        Text("Groq", style = MaterialTheme.typography.labelLarge, color = SonaraTextPrimary, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = groqKey, onValueChange = { groqKey = it }, label = { Text("API Key") },
+            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+
+        Spacer(Modifier.height(4.dp))
+
+        // GitHub PAT
+        Text("GitHub (Community)", style = MaterialTheme.typography.labelLarge, color = SonaraTextPrimary, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = githubToken, onValueChange = { githubToken = it }, label = { Text("Personal Access Token") },
+            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+
+        Spacer(Modifier.height(12.dp))
+
+        // Save all
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    if (lastfmKey.isNotBlank()) { app.secureSecrets.setLastFmApiKey(lastfmKey); app.preferences.setLastFmApiKey(lastfmKey) }
+                    if (lastfmSecret.isNotBlank()) { app.secureSecrets.setLastFmSharedSecret(lastfmSecret); app.preferences.setLastFmSharedSecret(lastfmSecret) }
+                    if (geminiKey.isNotBlank()) { app.preferences.setGeminiApiKey(geminiKey) }
+                    if (openRouterKey.isNotBlank()) { app.preferences.setOpenRouterApiKey(openRouterKey); app.insightManager.configureOpenRouter(openRouterKey, "google/gemini-2.5-flash") }
+                    if (groqKey.isNotBlank()) { app.preferences.setGroqApiKey(groqKey); app.insightManager.configureGroq(groqKey, "llama-3.3-70b-versatile") }
+                    if (githubToken.isNotBlank()) { app.secureSecrets.setGitHubToken(githubToken) }
+                    if (lastfmKey.isNotBlank()) app.reloadPipeline()
+                    saved = true
+                    Toast.makeText(ctx, "Keys saved!", Toast.LENGTH_SHORT).show()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+            enabled = lastfmKey.isNotBlank() || geminiKey.isNotBlank() || openRouterKey.isNotBlank() || groqKey.isNotBlank() || githubToken.isNotBlank(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = if (saved) SonaraSuccess else p)
+        ) { Text(if (saved) "All Keys Saved!" else "Save All Keys") }
     }
 }
