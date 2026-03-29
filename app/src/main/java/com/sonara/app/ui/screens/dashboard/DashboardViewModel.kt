@@ -42,8 +42,7 @@ data class DashboardUiState(
     val headphoneName: String = "",
     val savedMessage: String = "",
     val isLoved: Boolean = false,
-    val geminiSummary: String = "",
-    val visualizerData: FloatArray? = null) {
+    val geminiSummary: String = "") {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is DashboardUiState) return false
@@ -86,6 +85,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         route = app.currentRoute.value.displayName
     ))
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
+
+    // Visualizer data as separate flow (changes ~20fps, too fast for UiState equals)
+    val visualizerData: StateFlow<FloatArray?> =
+        SonaraAi.getInstance()?.visualizerData ?: MutableStateFlow<FloatArray?>(null)
     val albumArt: StateFlow<Bitmap?> = SonaraNotificationListener.albumArt
 
     // AI state
@@ -93,11 +96,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         SonaraAi.getInstance()?.state ?: MutableStateFlow(SonaraAiState()).asStateFlow()
 
     init {
-        viewModelScope.launch {
-            SonaraAi.getInstance()?.visualizerData?.collect { data ->
-                _uiState.update { it.copy(visualizerData = data) }
-            }
-        }
+
 
         viewModelScope.launch {
             app.preferences.hasSeenHearTheDifferenceFlow.collect { seen ->

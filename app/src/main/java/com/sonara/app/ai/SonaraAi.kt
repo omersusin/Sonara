@@ -177,15 +177,16 @@ class SonaraAi private constructor(
         Log.d(TAG, "analyze() start — title=$title, artist=$artist, sessionId=$sessionId")
         if (tryAttachAudio(sessionId)) {
             capture.clearBuffers(); _state.value = _state.value.copy(status = AiStatus.LISTENING)
-            delay(LISTEN_MS); _state.value = _state.value.copy(status = AiStatus.ANALYZING)
 
-            // Start visualizer data feed
+            // Start visualizer data feed immediately (during listen + after)
             val vizJob = scope.launch {
                 while (true) {
                     updateVisualizerFromCapture()
                     delay(50) // ~20fps
                 }
             }
+
+            delay(LISTEN_MS); _state.value = _state.value.copy(status = AiStatus.ANALYZING)
             val features = extractor.extract(capture.getFFTFrames(), capture.getWaveFrames())
             if (features != null) {
                 currentFeatures = features; val result = classifier.classify(features)
