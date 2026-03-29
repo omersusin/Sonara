@@ -77,6 +77,7 @@ fun DashboardScreen() {
     val s by vm.uiState.collectAsState()
     val art by vm.albumArt.collectAsState()
     val aiState by vm.aiState.collectAsState()
+    val vizData by vm.visualizerData.collectAsState()
     val p = MaterialTheme.colorScheme.primary
     val ctx = LocalContext.current
     val lc = LocalLifecycleOwner.current
@@ -230,9 +231,9 @@ fun DashboardScreen() {
         item {
             val vizMode = VisualizerStateDetector.detect(hasAudioSession = s.eqActive, hasVisualizerPermission = false, isPlaying = s.isPlaying)
             Column {
-                SonaraVisualizer(isPlaying = s.isPlaying, fftData = s.visualizerData)
+                SonaraVisualizer(isPlaying = s.isPlaying, fftData = vizData)
                 Spacer(Modifier.height(4.dp))
-                Text("Visualizer: ${if (s.visualizerData != null) "Live" else vizMode.label}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, modifier = Modifier.padding(start = 8.dp))
+                Text("Visualizer: ${if (vizData != null) "Live" else vizMode.label}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, modifier = Modifier.padding(start = 8.dp))
             }
         }
         item { Spacer(Modifier.height(8.dp)) }

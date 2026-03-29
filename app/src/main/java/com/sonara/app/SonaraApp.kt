@@ -148,6 +148,17 @@ class SonaraApp : Application() {
             if (prediction.source == PredictionSource.LASTFM || prediction.source == PredictionSource.MERGED) {
                 adaptiveClassifier.train(prediction.genre.name.lowercase(), track.title, track.artist, track.album)
             }
+            appScope.launch {
+                try {
+                    val info = com.sonara.app.data.models.TrackInfo(
+                        title = track.title, artist = track.artist,
+                        genre = prediction.genre.name, mood = prediction.mood.name,
+                        energy = prediction.energy, confidence = prediction.confidence,
+                        source = prediction.source.name
+                    )
+                    TrackCache(database.trackCacheDao()).put(info)
+                } catch (_: Exception) {}
+            }
         }
 
         val am = getSystemService(AUDIO_SERVICE) as AudioManager
@@ -337,6 +348,17 @@ class SonaraApp : Application() {
         inferencePipeline.onPrediction = { track, prediction ->
             if (prediction.source == PredictionSource.LASTFM || prediction.source == PredictionSource.MERGED) {
                 adaptiveClassifier.train(prediction.genre.name.lowercase(), track.title, track.artist, track.album)
+            }
+            appScope.launch {
+                try {
+                    val info = com.sonara.app.data.models.TrackInfo(
+                        title = track.title, artist = track.artist,
+                        genre = prediction.genre.name, mood = prediction.mood.name,
+                        energy = prediction.energy, confidence = prediction.confidence,
+                        source = prediction.source.name
+                    )
+                    TrackCache(database.trackCacheDao()).put(info)
+                } catch (_: Exception) {}
             }
         }
         nextTrackPreloader = NextTrackPreloader(inferencePipeline, appScope)

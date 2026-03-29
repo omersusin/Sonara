@@ -48,6 +48,7 @@ class SonaraPreferences(private val context: Context) {
     private val SOURCE_LYRICS_ENABLED = booleanPreferencesKey("source_lyrics_enabled")
     private val AMOLED_MODE = booleanPreferencesKey("amoled_mode")
     private val KEY_HAS_SEEN_HEAR_DIFF = booleanPreferencesKey("has_seen_hear_the_difference")
+    private val COMMUNITY_SYNC_INTERVAL = intPreferencesKey("community_sync_interval")
 
     val accentColorFlow: Flow<AccentColor> = context.dataStore.data.map { p ->
         val name = p[ACCENT_COLOR] ?: AccentColor.Amber.name
@@ -148,6 +149,9 @@ class SonaraPreferences(private val context: Context) {
     suspend fun setGroqApiKey(v: String) { context.dataStore.edit { it[GROQ_API_KEY] = v } }
     val groqModelFlow: Flow<String> = context.dataStore.data.map { it[GROQ_MODEL] ?: "llama-3.3-70b-versatile" }
     suspend fun setGroqModel(v: String) { context.dataStore.edit { it[GROQ_MODEL] = v } }
+
+    val communitySyncIntervalFlow: Flow<Int> = context.dataStore.data.map { it[COMMUNITY_SYNC_INTERVAL] ?: 50 }
+    suspend fun setCommunitySyncInterval(value: Int) { context.dataStore.edit { it[COMMUNITY_SYNC_INTERVAL] = value } }
 
     suspend fun setHasSeenHearTheDifference(value: Boolean) {
         context.dataStore.edit { it[KEY_HAS_SEEN_HEAR_DIFF] = value }

@@ -66,26 +66,21 @@ fun InsightsScreen() {
         item { TrackCard(s, art, p) }
         item { WhyCard(s, p) }
         // AI Audio Analysis
-        if (aiState.result != null) {
+        if (aiState.status.display != "Ready") {
             item {
                 FluentCard {
-                    Text("Audio AI Analysis", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+                    Text("Audio AI Status", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
                     Spacer(Modifier.height(8.dp))
-                    aiState.result?.let { result ->
-                        Text(result.summary, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                    Text(aiState.status.display, style = MaterialTheme.typography.bodyMedium, color = p)
+                    if (aiState.result != null) {
                         Spacer(Modifier.height(6.dp))
-                        Text(result.explanation.eqReason, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                        Spacer(Modifier.height(6.dp))
-                        Text(result.explanation.sourceHonesty, style = MaterialTheme.typography.bodySmall, color = p)
-                        if (result.topGenres.size > 1) {
-                            Spacer(Modifier.height(8.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                result.topGenres.forEach { genre ->
-                                    androidx.compose.material3.SuggestionChip(
-                                        onClick = {},
-                                        label = { Text(genre, style = MaterialTheme.typography.labelSmall) }
-                                    )
-                                }
+                        aiState.result?.explanation?.let { exp ->
+                            if (exp.eqReason.isNotBlank()) {
+                                Text(exp.eqReason, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                            }
+                            if (exp.sourceHonesty.isNotBlank()) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(exp.sourceHonesty, style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
                             }
                         }
                     }
