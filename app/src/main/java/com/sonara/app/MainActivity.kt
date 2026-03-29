@@ -52,6 +52,13 @@ class MainActivity : ComponentActivity() {
     // FIX: onResume artik gereksiz handleCallback CAGIRMIYOR
     override fun onResume() {
         super.onResume()
+        val app = application as SonaraApp
+        if (app.lastFmAuth.authState.value == LastFmAuthManager.AuthState.AUTHENTICATING) {
+            MainScope().launch {
+                val success = app.lastFmAuth.handleCallback()
+                if (success) app.reloadPipeline()
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

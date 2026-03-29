@@ -289,8 +289,36 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraInfo)
                 ) { Text("Connect Last.fm") }
 
-                // --- API Key & Shared Secret inputs (disconnected) ---
+                // --- API Key guide + inputs ---
+                var showApiGuide by remember { mutableStateOf(false) }
+                if (showApiGuide) {
+                    AlertDialog(
+                        onDismissRequest = { showApiGuide = false },
+                        containerColor = SonaraCard,
+                        title = { Text("How to get Last.fm API Key") },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("1. Open last.fm/api/account/create", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                                Text("2. Application Name: Sonara", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                                Text("3. Leave Callback URL empty", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                                Text("4. Click Submit", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                                Text("5. Copy API Key and Shared Secret", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                                Text("6. Paste them below and tap Save Keys", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showApiGuide = false
+                                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.last.fm/api/account/create")))
+                            }) { Text("Open Last.fm") }
+                        },
+                        dismissButton = { TextButton(onClick = { showApiGuide = false }) { Text("Close") } }
+                    )
+                }
                 if (!state.lastFmConnected) {
+                    TextButton(onClick = { showApiGuide = true }) {
+                        Text("How to get API keys?", color = p, style = MaterialTheme.typography.labelMedium)
+                    }
                     Spacer(Modifier.height(12.dp))
 
                     OutlinedTextField(
@@ -422,9 +450,9 @@ private fun PresetExportImportCard(vm: SettingsViewModel) {
     val p = MaterialTheme.colorScheme.primary
 
     FluentCard {
-        Text("Preset Management", style = MaterialTheme.typography.titleMedium)
+        Text("Backup & Restore", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
-        Text("Export your custom presets to share or backup, import presets from JSON",
+        Text("Export your EQ presets to backup, import from JSON to restore",
             style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -458,7 +486,7 @@ private fun PresetExportImportCard(vm: SettingsViewModel) {
         AlertDialog(
             onDismissRequest = { showImportDialog = false; importInput = ""; importResult = "" },
             containerColor = SonaraCard,
-            title = { Text("Import Presets") },
+            title = { Text("Restore Backup") },
             text = {
                 Column {
                     Text("Paste exported Sonara preset JSON:", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
