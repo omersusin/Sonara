@@ -188,7 +188,8 @@ class LastFmAuthManager(private val context: Context) {
         secrets.setLastFmSessionKey("")
         _authState.value = AuthState.DISCONNECTED
         _username.value = ""; _errorMessage.value = ""
-        pendingToken = null; authNonce = null""
+        pendingToken = null
+        authNonce = null
     }
 
     fun reconnect() { disconnect() }
