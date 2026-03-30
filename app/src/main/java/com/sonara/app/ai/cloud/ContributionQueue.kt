@@ -25,7 +25,7 @@ class ContributionQueue(context: Context) {
             put("features", JSONArray().apply { features.toFloatArray().forEach { put(it.toDouble()) } })
             put("genre", genre.lowercase().trim()); put("valence", "%.3f".format(mood.valence).toDouble())
             put("arousal", "%.3f".format(mood.arousal).toDouble()); put("energy", "%.3f".format(energy).toDouble())
-            put("source", sourceType); put("timestamp", System.currentTimeMillis())
+            put("source", sourceType); put("timestamp", (System.currentTimeMillis() / 3600000) * 3600000) // rounded to hour
         }
         val q = getQueue(); while (q.length() >= MAX_QUEUE_SIZE) q.remove(0)
         q.put(c); saveQueue(q); Log.d(TAG, "Enqueued: $genre ($sourceType). Size: ${q.length()}")
