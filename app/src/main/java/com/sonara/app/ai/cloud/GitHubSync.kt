@@ -34,6 +34,11 @@ class GitHubSync(private val context: Context, private val queue: ContributionQu
             val rv = JSONObject(vJson).optInt("version", 0)
             if (rv <= cv) return@withContext 0
             val pJson = httpGet("$RAW_BASE/$REPO_OWNER/$REPO_NAME/$BRANCH/prototypes.json") ?: return@withContext 0
+            // Basic integrity check
+            if (!pJson.trimStart().startsWith("[") || pJson.length < 100) {
+                Log.w(TAG, "prototypes.json failed integrity check, skipping")
+                return@withContext 0
+            }
             val protos = parsePrototypes(pJson)
             if (protos.isNotEmpty()) prefs.edit().putInt("version", rv).apply()
             protos.size

@@ -49,10 +49,11 @@ class LastFmAuthManager(private val context: Context) {
 
     private val secrets = SecureSecrets(context)
     private var pendingToken: String? = null
+    private var authNonce: String? = null
 
     init {
         val sessionKey = secrets.getLastFmSessionKey()
-        Log.d(TAG, "Init — checking stored session key: ${if (sessionKey.isNotBlank()) "present" else "empty"}")
+        Log.d(TAG, "Init — checking auth state")
         if (sessionKey.isNotBlank()) {
             _authState.value = AuthState.CONNECTED
             Log.d(TAG, "Auth state → CONNECTED")
@@ -69,11 +70,11 @@ class LastFmAuthManager(private val context: Context) {
 
     // FIX: Kullanici key ONCE kontrol edilir, BuildConfig sonra
     private fun resolveApiKey(): String {
-        Log.d(TAG, "resolveApiKey() called")
+        // resolveApiKey called
         val userKey = secrets.getLastFmApiKey()
-        if (userKey.isNotBlank()) { Log.d(TAG, "Using user-provided API key"); return userKey }
+        if (userKey.isNotBlank()) return userKey
         val buildKey = BuildConfig.LASTFM_API_KEY
-        if (buildKey.isNotBlank()) { Log.d(TAG, "Using BuildConfig API key"); return buildKey }
+        if (buildKey.isNotBlank()) return buildKey
         return ""
     }
 
@@ -123,6 +124,7 @@ class LastFmAuthManager(private val context: Context) {
 
                 val token = obj.getString("token")
                 pendingToken = token
+                authNonce = java.util.UUID.randomUUID().toString().take(16)
                 Intent(Intent.ACTION_VIEW, Uri.parse("${AUTH_URL}?api_key=$apiKey&token=$token&cb=$CALLBACK_URL"))
             } catch (e: Exception) {
                 SonaraLogger.e("LastFmAuth", "Token error: ${e.message}")
@@ -134,7 +136,7 @@ class LastFmAuthManager(private val context: Context) {
     }
 
     suspend fun handleCallback(token: String? = null): Boolean {
-        Log.d(TAG, "handleCallback() — token=${token?.take(8)}..., pendingToken=${pendingToken?.take(8)}...")
+        Log.d(TAG, "handleCallback() called")
         val useToken = token ?: pendingToken ?: return false
         val apiKey = resolveApiKey()
         val sharedSecret = resolveSharedSecret()
@@ -173,6 +175,7 @@ class LastFmAuthManager(private val context: Context) {
                 _authState.value = AuthState.CONNECTED
                 _errorMessage.value = ""
                 pendingToken = null
+                authNonce = null
                 true
             } catch (e: Exception) {
                 _authState.value = AuthState.ERROR; _errorMessage.value = e.message ?: "Error"
@@ -185,6 +188,7 @@ class LastFmAuthManager(private val context: Context) {
         secrets.setLastFmSessionKey("")
         _authState.value = AuthState.DISCONNECTED
         _username.value = ""; _errorMessage.value = ""
+        pendingToken = null; authNonce = null""
     }
 
     fun reconnect() { disconnect() }
