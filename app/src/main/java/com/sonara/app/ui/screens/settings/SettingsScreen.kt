@@ -68,6 +68,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonara.app.SonaraApp
+import com.sonara.app.data.BackupManager
 import com.sonara.app.autoeq.AutoEqImporter
 import com.sonara.app.preset.PresetExporter
 import com.sonara.app.ui.components.ChipStatus
@@ -157,7 +158,31 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
 private fun CommunityCard(state: SettingsUiState, vm: SettingsViewModel) {
     val p = MaterialTheme.colorScheme.primary
     FluentCard {
-        Text("Community", style = MaterialTheme.typography.titleMedium)
+        var showCommunityHelp by remember { mutableStateOf(false) }
+        if (showCommunityHelp) {
+            AlertDialog(
+                onDismissRequest = { showCommunityHelp = false },
+                containerColor = SonaraCard,
+                title = { Text("How Community Works") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Download", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                        Text("Downloads community-trained audio classification data to improve accuracy from day one.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                        Text("Contribute", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                        Text("Shares anonymous audio feature vectors (NOT audio recordings) to help improve the model for everyone.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                        Text("GitHub Token", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                        Text("Required for contributions. Create a fine-grained token at github.com/settings/tokens with repo:sonara-models read/write access.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    }
+                },
+                confirmButton = { TextButton(onClick = { showCommunityHelp = false }) { Text("Got it") } }
+            )
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Community", style = MaterialTheme.typography.titleMedium)
+            TextButton(onClick = { showCommunityHelp = true }) { Text("How it works?", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
+        }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -370,7 +395,30 @@ private fun AutoEqImportCard() {
     val p = MaterialTheme.colorScheme.primary
 
     FluentCard {
-        Text("Import AutoEQ Profile", style = MaterialTheme.typography.titleMedium)
+        var showAutoEqHelp by remember { mutableStateOf(false) }
+        if (showAutoEqHelp) {
+            AlertDialog(
+                onDismissRequest = { showAutoEqHelp = false },
+                containerColor = SonaraCard,
+                title = { Text("How AutoEQ Works") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("AutoEQ compensates for your headphone's frequency response to deliver a flatter, more accurate sound.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                        Text("How to get your profile:", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                        Text("1. Go to github.com/jaakkopasanen/AutoEq", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        Text("2. Find your headphone model", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        Text("3. Copy the GraphicEQ line from the README", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        Text("4. Paste it here and tap Parse → Apply", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    }
+                },
+                confirmButton = { TextButton(onClick = { showAutoEqHelp = false }) { Text("Got it") } }
+            )
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Import AutoEQ Profile", style = MaterialTheme.typography.titleMedium)
+            TextButton(onClick = { showAutoEqHelp = true }) { Text("How to?", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
+        }
         Spacer(Modifier.height(4.dp))
         Text("Paste AutoEQ GraphicEQ data or 10 comma-separated gain values (dB)",
             style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
@@ -455,24 +503,18 @@ private fun PresetExportImportCard(vm: SettingsViewModel) {
     FluentCard {
         Text("Backup & Restore", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
-        Text("Export your EQ presets to backup, import from JSON to restore",
+        Text("Full backup: all settings, presets, and learning data",
             style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
-                onClick = { vm.exportPresets { json ->
-                    if (json.isNotBlank()) {
-                        try {
-                            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                            val file = File(dir, "sonara_backup_${System.currentTimeMillis() / 1000}.json")
-                            file.writeText(json)
-                            Toast.makeText(ctx, "Saved to Downloads/${file.name}", Toast.LENGTH_LONG).show()
-                        } catch (e: Exception) {
-                            clipboard.setText(AnnotatedString(json))
-                            Toast.makeText(ctx, "File failed, copied to clipboard", Toast.LENGTH_SHORT).show()
-                        }
+                onClick = { vm.exportFullBackup { json ->
+                    val file = BackupManager.saveToFile(json)
+                    if (file != null) {
+                        Toast.makeText(ctx, "Saved to Downloads/${file.name}", Toast.LENGTH_LONG).show()
                     } else {
-                        Toast.makeText(ctx, "No presets to export", Toast.LENGTH_SHORT).show()
+                        clipboard.setText(AnnotatedString(json))
+                        Toast.makeText(ctx, "File failed, copied to clipboard", Toast.LENGTH_SHORT).show()
                     }
                 } },
                 modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge,
@@ -522,7 +564,7 @@ private fun PresetExportImportCard(vm: SettingsViewModel) {
             },
             confirmButton = {
                 TextButton(onClick = {
-                    vm.importPresets(importInput) { msg -> importResult = msg }
+                    vm.importFullBackup(importInput) { msg -> importResult = msg }
                 }) { Text("Import", color = p) }
             },
             dismissButton = {
@@ -613,7 +655,34 @@ private fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
 @Composable
 private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
     FluentCard {
-        Text("AI Sources", style = MaterialTheme.typography.titleMedium)
+        var showAiSourcesHelp by remember { mutableStateOf(false) }
+        if (showAiSourcesHelp) {
+            AlertDialog(
+                onDismissRequest = { showAiSourcesHelp = false },
+                containerColor = SonaraCard,
+                title = { Text("How AI Sources Work") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Last.fm", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                        Text("Fetches genre tags and metadata from the Last.fm database. Most accurate source for well-known tracks.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                        Text("Local AI", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                        Text("On-device classification using artist/title patterns and audio features. Works offline.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                        Text("Lyrics", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                        Text("Analyzes lyrics tone and language for mood detection. Adds emotional context to EQ choices.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                        Text("Merged", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                        Text("When multiple sources agree, confidence is higher and the result is marked as Merged.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    }
+                },
+                confirmButton = { TextButton(onClick = { showAiSourcesHelp = false }) { Text("Got it") } }
+            )
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("AI Sources", style = MaterialTheme.typography.titleMedium)
+            TextButton(onClick = { showAiSourcesHelp = true }) { Text("How it works?", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
+        }
         Spacer(Modifier.height(4.dp))
         Text("Choose which sources AI uses for genre detection", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
         Spacer(Modifier.height(8.dp))
@@ -622,8 +691,6 @@ private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
         SwitchRow("Local AI", "On-device title/artist classification", s.sourceLocalAi) { vm.setSourceLocalAi(it) }
         SettingsDivider()
         SwitchRow("Lyrics", "Lyrics-based tone and mood analysis", s.sourceLyrics) { vm.setSourceLyrics(it) }
-        SettingsDivider()
-
         SettingsDivider()
         Text("AI Provider", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
