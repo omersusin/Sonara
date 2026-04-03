@@ -7,6 +7,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.os.Environment
+import java.io.File
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -459,8 +461,19 @@ private fun PresetExportImportCard(vm: SettingsViewModel) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = { vm.exportPresets { json ->
-                    clipboard.setText(AnnotatedString(json))
-                    Toast.makeText(ctx, "Presets copied to clipboard", Toast.LENGTH_SHORT).show()
+                    if (json.isNotBlank()) {
+                        try {
+                            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                            val file = File(dir, "sonara_backup_${System.currentTimeMillis() / 1000}.json")
+                            file.writeText(json)
+                            Toast.makeText(ctx, "Saved to Downloads/${file.name}", Toast.LENGTH_LONG).show()
+                        } catch (e: Exception) {
+                            clipboard.setText(AnnotatedString(json))
+                            Toast.makeText(ctx, "File failed, copied to clipboard", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(ctx, "No presets to export", Toast.LENGTH_SHORT).show()
+                    }
                 } },
                 modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge,
                 border = BorderStroke(1.dp, p),
@@ -716,10 +729,14 @@ private fun AboutCard(state: SettingsUiState, vm: SettingsViewModel) {
             // Community sync interval
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Sync every N songs", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
-                var intervalText by remember { mutableStateOf("50") }
+                var intervalText by remember { mutableStateOf(state.syncInterval.toString()) }
                 OutlinedTextField(
                     value = intervalText,
-                    onValueChange = { v -> intervalText = v.filter { it.isDigit() }.take(4) },
+                    onValueChange = { v ->
+                        intervalText = v.filter { it.isDigit() }.take(4)
+                        val num = intervalText.toIntOrNull()
+                        if (num != null && num > 0) vm.setSyncInterval(num)
+                    },
                     modifier = Modifier.width(80.dp),
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodyMedium

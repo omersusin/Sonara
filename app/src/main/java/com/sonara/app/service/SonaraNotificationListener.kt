@@ -45,7 +45,7 @@ data class ListenerNowPlaying(
 class SonaraNotificationListener : NotificationListenerService() {
     private var sessionManager: MediaSessionManager? = null
     private var sessionListenerRegistered = false
-    private var activeController: MediaController? = null
+    internal var activeController: MediaController? = null
     private var lastTrackKey = ""
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -415,6 +415,23 @@ class SonaraNotificationListener : NotificationListenerService() {
             val cn = ComponentName(ctx, SonaraNotificationListener::class.java)
             val flat = Settings.Secure.getString(ctx.contentResolver, "enabled_notification_listeners")
             return flat?.contains(cn.flattenToString()) == true
+        }
+
+        /** Mini player transport controls */
+        fun sendPlayPause() {
+            try {
+                instance?.activeController?.transportControls?.let { tc ->
+                    if (_nowPlaying.value.isPlaying) tc.pause() else tc.play()
+                }
+            } catch (_: Exception) {}
+        }
+
+        fun sendNext() {
+            try { instance?.activeController?.transportControls?.skipToNext() } catch (_: Exception) {}
+        }
+
+        fun sendPrevious() {
+            try { instance?.activeController?.transportControls?.skipToPrevious() } catch (_: Exception) {}
         }
     }
 }

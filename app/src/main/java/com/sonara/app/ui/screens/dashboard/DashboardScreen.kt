@@ -104,6 +104,8 @@ fun DashboardScreen() {
 
         if (!s.notificationListenerEnabled) {
             item { PermissionCard(onGrant = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) }
+        }
+
         if (!s.hasSeenHearTheDifference && s.hasTrack && s.eqActive) {
             item {
                 HearTheDifferenceBanner(
@@ -112,8 +114,6 @@ fun DashboardScreen() {
                     onDismiss = { vm.dismissHearTheDifference() }
                 )
             }
-        }
-
         }
 
         item {

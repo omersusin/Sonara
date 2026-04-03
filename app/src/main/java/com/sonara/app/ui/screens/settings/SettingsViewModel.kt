@@ -58,7 +58,8 @@ data class SettingsUiState(
     val communityTotalSent: Int = 0
 ,
     val githubTokenInput: String = "",
-    val isGithubTokenSet: Boolean = false)
+    val isGithubTokenSet: Boolean = false,
+    val syncInterval: Int = 50)
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
@@ -122,6 +123,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 ) }
             }
         }
+        viewModelScope.launch { prefs.communitySyncIntervalFlow.collect { v -> _uiState.update { it.copy(syncInterval = v) } } }
         refreshCacheSize(); checkNotificationListener(); refreshPendingScrobbles()
         _uiState.update { it.copy(personalSamples = app.personalization.getTotalSamples()) }
     }
@@ -306,6 +308,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 secrets.setGitHubToken(token)
                 _uiState.update { it.copy(githubTokenInput = "", isGithubTokenSet = true) }
             }
+        }
+    }
+
+    fun setSyncInterval(value: Int) {
+        viewModelScope.launch {
+            prefs.setCommunitySyncInterval(value.coerceIn(1, 9999))
+            _uiState.update { it.copy(syncInterval = value.coerceIn(1, 9999)) }
         }
     }
 }
