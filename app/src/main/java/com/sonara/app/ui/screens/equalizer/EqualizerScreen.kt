@@ -195,6 +195,66 @@ fun EqualizerScreen() {
             }
         }
 
+        // ═══ AutoEQ Headphone Correction ═══
+        item {
+            var autoEqExpanded by remember { mutableStateOf(false) }
+            var searchQuery by remember { mutableStateOf("") }
+            var searchResults by remember { mutableStateOf<List<String>>(emptyList()) }
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            val autoEqState by SonaraApp.instance.autoEqManager.state.collectAsState()
+
+            FluentCard {
+                Row(Modifier.fillMaxWidth().clickable { autoEqExpanded = !autoEqExpanded },
+                    horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Rounded.Headphones, null, tint = if (autoEqState.isActive) p else SonaraTextTertiary, modifier = Modifier.size(18.dp))
+                        Column {
+                            Text("Headphone EQ", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+                            Text(if (autoEqState.isActive) "Active: ${autoEqState.profile?.name ?: "Unknown"}" else "Tap to select headphone",
+                                style = MaterialTheme.typography.bodySmall, color = if (autoEqState.isActive) p else SonaraTextTertiary)
+                        }
+                    }
+                    Text("${WaveletAutoEqLoader.profileCount(ctx) + AutoEqDatabase.profileCount()} profiles",
+                        style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                }
+                if (autoEqExpanded) {
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { q ->
+                            searchQuery = q
+                            searchResults = if (q.length >= 2) WaveletAutoEqLoader.searchProfiles(q, ctx, 15) else emptyList()
+                        },
+                        placeholder = { Text("Search headphone...", color = SonaraTextTertiary) },
+                        leadingIcon = { Icon(Icons.Rounded.Search, null, tint = SonaraTextTertiary, modifier = Modifier.size(18.dp)) },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = p, unfocusedBorderColor = SonaraDivider.copy(0.5f),
+                            cursorColor = p, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary)
+                    )
+                    if (searchResults.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        searchResults.forEach { name ->
+                            Row(Modifier.fillMaxWidth().clickable {
+                                SonaraApp.instance.autoEqManager.setManualProfile(name)
+                                autoEqExpanded = false; searchQuery = ""
+                            }.padding(vertical = 6.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Text(name, style = MaterialTheme.typography.bodySmall, color = SonaraTextPrimary, modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                    if (autoEqState.isActive) {
+                        Spacer(Modifier.height(8.dp))
+                        TextButton(onClick = { SonaraApp.instance.autoEqManager.disable() }) {
+                            Text("Disable Correction", color = SonaraError, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        }
+
         item { FluentCard {
             Text("Effects", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Spacer(Modifier.height(12.dp))
             EffRow("Bass Boost", s.bassBoost, { vm.setBassBoost(it) }, s.isEnabled, p, 1000f) { "${(it / 10f).roundToInt()}%" }
