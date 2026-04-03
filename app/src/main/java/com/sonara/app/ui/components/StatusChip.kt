@@ -23,7 +23,8 @@ enum class ChipStatus { Active, Warning, Error, Inactive }
 fun StatusChip(
     label: String,
     status: ChipStatus = ChipStatus.Inactive,
-    icon: ImageVector? = null
+    icon: ImageVector? = null,
+    compact: Boolean = false
 ) {
     val bgColor: Color
     val textColor: Color
@@ -35,14 +36,17 @@ fun StatusChip(
     }
     Surface(shape = RoundedCornerShape(50), color = bgColor) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(
+                horizontal = if (compact) 6.dp else 10.dp,
+                vertical = if (compact) 3.dp else 6.dp
+            ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 4.dp)
         ) {
             if (icon != null) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp), tint = textColor)
+                Icon(icon, contentDescription = null, modifier = Modifier.size(if (compact) 12.dp else 14.dp), tint = textColor)
             }
-            Text(label, style = MaterialTheme.typography.labelMedium, color = textColor)
+            Text(label, style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium, color = textColor)
         }
     }
 }

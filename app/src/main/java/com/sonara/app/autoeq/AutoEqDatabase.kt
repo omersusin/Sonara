@@ -140,6 +140,17 @@ object AutoEqDatabase {
         return null
     }
 
+    /**
+     * Extended search: built-in DB first, then Wavelet DB (5621 profiles).
+     * Call this from AutoEqManager for comprehensive matching.
+     */
+    fun findProfileExtended(deviceName: String, context: android.content.Context): HeadphoneProfile? {
+        // Try built-in first (curated, higher quality)
+        findProfile(deviceName)?.let { return it }
+        // Fallback to Wavelet DB (5621 profiles)
+        return WaveletAutoEqLoader.findProfile(deviceName, context)
+    }
+
     fun allProfileNames(): List<String> = profiles.keys.toList().sorted()
     fun getProfileByName(name: String): HeadphoneProfile? {
         val key = name.lowercase().trim()

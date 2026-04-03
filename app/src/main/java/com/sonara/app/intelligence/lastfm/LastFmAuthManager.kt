@@ -48,7 +48,10 @@ class LastFmAuthManager(private val context: Context) {
         .build()
 
     private val secrets = SecureSecrets(context)
-    private var pendingToken: String? = null
+    private val authPrefs = context.getSharedPreferences("sonara_auth_state", Context.MODE_PRIVATE)
+    private var pendingToken: String?
+        get() = authPrefs.getString("pending_token", null)
+        set(value) { authPrefs.edit().putString("pending_token", value).apply() }
     private var authNonce: String? = null
 
     init {
@@ -58,13 +61,16 @@ class LastFmAuthManager(private val context: Context) {
             _authState.value = AuthState.CONNECTED
             Log.d(TAG, "Auth state → CONNECTED")
             CoroutineScope(Dispatchers.IO).launch {
-            try {
-                Log.d(TAG, "Init — session key found, loading username...")
-                loadUsername()
-            } catch (e: Exception) {
-                Log.e(TAG, "Init — loadUsername failed: ${e.message}", e)
+                try {
+                    Log.d(TAG, "Init — session key found, loading username...")
+                    loadUsername()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Init — loadUsername failed: ${e.message}", e)
+                }
             }
-        }
+        } else if (pendingToken != null) {
+            _authState.value = AuthState.AUTHENTICATING
+            Log.d(TAG, "Auth state → AUTHENTICATING (pending token exists)")
         }
     }
 
@@ -192,6 +198,7 @@ class LastFmAuthManager(private val context: Context) {
         authNonce = null
     }
 
+    fun hasPendingAuth(): Boolean = pendingToken != null
     fun reconnect() { disconnect() }
     fun isConnected(): Boolean = secrets.getLastFmSessionKey().isNotBlank()
     fun getActiveApiKey(): String = resolveApiKey()

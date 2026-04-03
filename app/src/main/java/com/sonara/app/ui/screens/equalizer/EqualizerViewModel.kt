@@ -54,7 +54,8 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             app.eqState.collect { eq ->
                 _uiState.update {
-                    it.copy(bands = if (eq.bands.size > 10) eq.bands.take(10).toFloatArray() else eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer,
+                    it.copy(bands = if (eq.bands.size > 10) eq.bands.take(10).toFloatArray() else eq.bands,
+                        preamp = eq.preamp, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer,
                         loudness = eq.loudness, currentPresetName = eq.presetName, isEnabled = eq.isEnabled)
                 }
             }

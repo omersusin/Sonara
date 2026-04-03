@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,6 +32,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.SonaraApp
 import com.sonara.app.ui.theme.*
 import kotlinx.coroutines.launch
@@ -120,13 +125,20 @@ private fun PermissionsPage(
         }
         Text("For real-time audio analysis and visualizer", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary, textAlign = TextAlign.Center)
         Spacer(Modifier.height(16.dp))
+        var notifGranted by remember { mutableStateOf(SonaraNotificationListener.isEnabled(ctx)) }
+        val lifecycleOwner = LocalLifecycleOwner.current
+        LaunchedEffect(lifecycleOwner) {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                notifGranted = SonaraNotificationListener.isEnabled(ctx)
+            }
+        }
         OutlinedButton(
-            onClick = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+            onClick = { if (!notifGranted) ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
             modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = if (notifGranted) SonaraSuccess else p)
         ) {
             Icon(Icons.Rounded.Notifications, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
-            Text("Enable Notification Access")
+            Text(if (notifGranted) "Notification Access Granted" else "Enable Notification Access")
         }
         Text("To detect which media is playing", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary, textAlign = TextAlign.Center)
     }

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.intelligence.lastfm.LastFmAuthManager
+import com.sonara.app.data.BackupManager
 import com.sonara.app.preset.PresetExporter
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ai.SonaraAi
@@ -58,7 +59,8 @@ data class SettingsUiState(
     val communityTotalSent: Int = 0
 ,
     val githubTokenInput: String = "",
-    val isGithubTokenSet: Boolean = false)
+    val isGithubTokenSet: Boolean = false,
+    val syncInterval: Int = 50)
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
@@ -122,6 +124,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 ) }
             }
         }
+        viewModelScope.launch { prefs.communitySyncIntervalFlow.collect { v -> _uiState.update { it.copy(syncInterval = v) } } }
         refreshCacheSize(); checkNotificationListener(); refreshPendingScrobbles()
         _uiState.update { it.copy(personalSamples = app.personalization.getTotalSamples()) }
     }
@@ -306,6 +309,27 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 secrets.setGitHubToken(token)
                 _uiState.update { it.copy(githubTokenInput = "", isGithubTokenSet = true) }
             }
+        }
+    }
+
+    fun setSyncInterval(value: Int) {
+        viewModelScope.launch {
+            prefs.setCommunitySyncInterval(value.coerceIn(1, 9999))
+            _uiState.update { it.copy(syncInterval = value.coerceIn(1, 9999)) }
+        }
+    }
+
+    fun exportFullBackup(onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val json = BackupManager.exportFull(app)
+            onResult(json)
+        }
+    }
+
+    fun importFullBackup(json: String, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val result = BackupManager.importFull(app, json)
+            onResult(result)
         }
     }
 }

@@ -49,14 +49,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // FIX: onResume artik gereksiz handleCallback CAGIRMIYOR
     override fun onResume() {
         super.onResume()
         val app = application as SonaraApp
-        if (app.lastFmAuth.authState.value == LastFmAuthManager.AuthState.AUTHENTICATING) {
+        val authState = app.lastFmAuth.authState.value
+        // Try completing auth if we were in AUTHENTICATING state (even after activity recreation)
+        if (authState == LastFmAuthManager.AuthState.AUTHENTICATING ||
+            authState == LastFmAuthManager.AuthState.DISCONNECTED) {
             MainScope().launch {
-                val success = app.lastFmAuth.handleCallback()
-                if (success) app.reloadPipeline()
+                if (app.lastFmAuth.hasPendingAuth()) {
+                    val success = app.lastFmAuth.handleCallback()
+                    if (success) app.reloadPipeline()
+                }
             }
         }
     }

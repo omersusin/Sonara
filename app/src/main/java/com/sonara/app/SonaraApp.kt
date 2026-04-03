@@ -106,7 +106,7 @@ class SonaraApp : Application() {
         appScope.launch {
             headphoneDetector.headphone.collect { hp ->
                 val autoEqOn = preferences.autoEqEnabledFlow.first()
-                autoEqManager.onHeadphoneChanged(hp, autoEqOn)
+                autoEqManager.onHeadphoneChanged(hp, autoEqOn, this@SonaraApp)
                 SonaraLogger.i("AutoEQ", "Headphone: ${hp.name} autoEQ=$autoEqOn active=${autoEqManager.state.value.isActive}")
             }
         }
@@ -281,7 +281,7 @@ class SonaraApp : Application() {
         audioSessionManager.applyBands(adj)
         audioSessionManager.applyEffects(bassBoost, virtualizer, loudness)
         _eqState.update {
-            it.copy(bands = adj, presetName = presetName, isManualPreset = manual,
+            it.copy(bands = bands, preamp = preamp, presetName = presetName, isManualPreset = manual,
                 bassBoost = bassBoost, virtualizer = virtualizer, loudness = loudness)
         }
     }

@@ -9,11 +9,14 @@ import com.sonara.app.ai.SonaraAi
 import com.sonara.app.ai.SonaraAiState
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.service.SonaraNotificationListener
+import com.sonara.app.intelligence.lastfm.LastFmAuthManager
+import com.sonara.app.intelligence.lastfm.LastFmClient
 import com.sonara.app.ui.components.DisplayLabelMapper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 data class InsightsUiState(
@@ -28,7 +31,15 @@ data class InsightsUiState(
     val genreDistribution: Map<String, Int> = emptyMap(),
     val apiAccuracy: Int = 0, val eqStrategy: String = "none",
     val aiModelSamples: Int = 0, val route: String = "Unknown",
-    val personalSamples: Int = 0
+    val personalSamples: Int = 0,
+    // Last.fm stats
+    val lastFmConnected: Boolean = false,
+    val lastFmUsername: String = "",
+    val totalScrobbles: String = "0",
+    val totalArtists: String = "0",
+    val topArtists: List<Pair<String, String>> = emptyList(),
+    val topTracks: List<Triple<String, String, String>> = emptyList(),
+    val weeklyTracks: List<Triple<String, String, String>> = emptyList()
 )
 
 class InsightsViewModel(application: Application) : AndroidViewModel(application) {
@@ -78,6 +89,55 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 aiModelSamples = app.adaptiveLearning.getTotalSamples(),
                 personalSamples = app.personalization.getTotalSamples()
             ) }
+        }
+
+        // Last.fm connection + stats
+        viewModelScope.launch {
+            app.lastFmAuth.authState.collect { state ->
+                _uiState.update { it.copy(lastFmConnected = state == LastFmAuthManager.AuthState.CONNECTED) }
+            }
+        }
+        viewModelScope.launch {
+            app.lastFmAuth.username.collect { name ->
+                _uiState.update { it.copy(lastFmUsername = name) }
+                if (name.isNotBlank()) fetchLastFmStats(name)
+            }
+        }
+    }
+
+    private fun fetchLastFmStats(username: String) {
+        val apiKey = app.lastFmAuth.getActiveApiKey()
+        if (apiKey.isBlank()) return
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // User info
+                val info = LastFmClient.api.getUserInfo(username, apiKey)
+                info.user?.let { u ->
+                    _uiState.update { it.copy(
+                        totalScrobbles = u.playcount,
+                        totalArtists = u.artist_count
+                    ) }
+                }
+            } catch (_: Exception) {}
+            try {
+                // Top artists
+                val artists = LastFmClient.api.getUserTopArtists(username, apiKey, "overall", 8)
+                val list = artists.topartists?.artist?.map { a -> Pair(a.name, a.playcount) } ?: emptyList()
+                _uiState.update { it.copy(topArtists = list) }
+            } catch (_: Exception) {}
+            try {
+                // Top tracks
+                val tracks = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 8)
+                val list = tracks.toptracks?.track?.map { t -> Triple(t.name, t.artist?.name ?: "", t.playcount) } ?: emptyList()
+                _uiState.update { it.copy(topTracks = list) }
+            } catch (_: Exception) {}
+            try {
+                // Weekly chart
+                val weekly = LastFmClient.api.getWeeklyTrackChart(username, apiKey)
+                val list = weekly.weeklytrackchart?.track?.take(8)?.map { t -> Triple(t.name, t.artist?.name ?: "", t.playcount) } ?: emptyList()
+                _uiState.update { it.copy(weeklyTracks = list) }
+            } catch (_: Exception) {}
         }
     }
 }

@@ -134,9 +134,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun resetToAi() { app.resetToAi() }
 
-    fun saveCurrentAsPreset() {
+    fun saveCurrentAsPreset(customName: String? = null) {
         val s = _uiState.value
-        val name = if (s.genre != "Unknown") "AI: ${s.genre} (${s.mood})" else "AI Preset"
+        val name = customName ?: if (s.genre != "Unknown") "AI: ${s.genre} (${s.mood})" else "AI Preset"
         app.saveCurrentAsPreset(name)
         _uiState.update { it.copy(savedMessage = "Saved as \"$name\"") }
         viewModelScope.launch {

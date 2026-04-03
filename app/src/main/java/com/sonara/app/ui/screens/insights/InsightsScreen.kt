@@ -50,6 +50,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonara.app.ai.SonaraAi
 import com.sonara.app.ai.SonaraAiState
 import com.sonara.app.ui.components.FluentCard
+import java.text.NumberFormat
+import java.util.Locale
 import com.sonara.app.ui.theme.*
 
 @Composable
@@ -91,6 +93,14 @@ fun InsightsScreen() {
         item { AnalysisCard(s, p) }
         item { LearningCard(s, p) }
         item { GenreCard(s, p) }
+        // ═══ Last.fm Stats (stats.fm style) ═══
+        if (s.lastFmConnected && s.lastFmUsername.isNotBlank()) {
+            item { LastFmOverviewCard(s, p) }
+            if (s.topArtists.isNotEmpty()) { item { TopArtistsCard(s, p) } }
+            if (s.topTracks.isNotEmpty()) { item { TopTracksCard(s, p) } }
+            if (s.weeklyTracks.isNotEmpty()) { item { WeeklyCard(s, p) } }
+        }
+
         item { PipelineCard(s, p) }
         item { Spacer(Modifier.height(8.dp)) }
     }
@@ -239,6 +249,90 @@ private fun PipelineCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Col
         PRow(Icons.Rounded.Cached, "Cache", "${s.cacheSize} tracks", p, s.cacheSize > 0)
         PDivider()
         PRow(Icons.Rounded.AutoAwesome, "AI Provider", s.route.ifBlank { "None" }, p, s.route.isNotBlank() && s.route != "Unknown")
+    }
+}
+
+@Composable
+private fun LastFmOverviewCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
+    val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
+    FluentCard {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Rounded.Public, null, tint = p, modifier = Modifier.size(20.dp))
+            Text("Last.fm: ${s.lastFmUsername}", style = MaterialTheme.typography.titleSmall, color = p)
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(try { fmt.format(s.totalScrobbles.toLong()) } catch (_: Exception) { s.totalScrobbles },
+                    style = MaterialTheme.typography.headlineSmall, color = p)
+                Text("Scrobbles", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(try { fmt.format(s.totalArtists.toLong()) } catch (_: Exception) { s.totalArtists },
+                    style = MaterialTheme.typography.headlineSmall, color = p)
+                Text("Artists", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(s.songsLearned.toString(), style = MaterialTheme.typography.headlineSmall, color = p)
+                Text("Learned", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopArtistsCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
+    val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
+    FluentCard {
+        Text("Top Artists", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(10.dp))
+        s.topArtists.forEachIndexed { i, (name, plays) ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("${i + 1}", style = MaterialTheme.typography.labelMedium, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(24.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(name, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
+                }
+                Text(try { fmt.format(plays.toLong()) } catch (_: Exception) { plays },
+                    style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                Text(" plays", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopTracksCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
+    FluentCard {
+        Text("Top Tracks", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(10.dp))
+        s.topTracks.forEachIndexed { i, (title, artist, plays) ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("${i + 1}", style = MaterialTheme.typography.labelMedium, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(24.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
+                    Text(artist, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary, maxLines = 1)
+                }
+                Text(plays, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun WeeklyCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
+    FluentCard {
+        Text("This Week", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(10.dp))
+        s.weeklyTracks.forEachIndexed { i, (title, artist, plays) ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("${i + 1}", style = MaterialTheme.typography.labelMedium, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(24.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
+                    Text(artist, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary, maxLines = 1)
+                }
+                Text(plays, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+            }
+        }
     }
 }
 

@@ -27,6 +27,34 @@ interface LastFmApi {
         @Query("autocorrect") autocorrect: Int = 1
     ): LastFmArtistTagsResponse
 
+    @GET("?method=user.getInfo&format=json")
+    suspend fun getUserInfo(
+        @Query("user") user: String,
+        @Query("api_key") apiKey: String
+    ): LastFmUserInfoResponse
+
+    @GET("?method=user.getTopArtists&format=json")
+    suspend fun getUserTopArtists(
+        @Query("user") user: String,
+        @Query("api_key") apiKey: String,
+        @Query("period") period: String = "overall",
+        @Query("limit") limit: Int = 10
+    ): LastFmTopArtistsResponse
+
+    @GET("?method=user.getTopTracks&format=json")
+    suspend fun getUserTopTracks(
+        @Query("user") user: String,
+        @Query("api_key") apiKey: String,
+        @Query("period") period: String = "overall",
+        @Query("limit") limit: Int = 10
+    ): LastFmTopTracksResponse
+
+    @GET("?method=user.getWeeklyTrackChart&format=json")
+    suspend fun getWeeklyTrackChart(
+        @Query("user") user: String,
+        @Query("api_key") apiKey: String
+    ): LastFmWeeklyChartResponse
+
     companion object {
         const val BASE_URL = "https://ws.audioscrobbler.com/2.0/"
     }
