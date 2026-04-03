@@ -171,6 +171,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
 
     fun dismissHearTheDifference() {
+        _uiState.update { it.copy(hasSeenHearTheDifference = true) }
         viewModelScope.launch {
             app.preferences.setHasSeenHearTheDifference(true)
         }

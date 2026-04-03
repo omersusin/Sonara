@@ -80,6 +80,25 @@ class SonaraAi private constructor(
                 val f = currentFeatures ?: return@launch
                 classifier.learn(f, current.primaryGenre.lowercase(), current.mood, current.energy, "user_confirmed", _state.value.title, _state.value.artist)
                 cloudManager.addContribution(f, current.primaryGenre.lowercase(), current.mood, current.energy, "confirmed")
+            } else if (type.startsWith("custom:")) {
+                // Free-text feedback: extract and process as preference
+                val text = type.removePrefix("custom:").trim().lowercase()
+                val mapped = when {
+                    text.contains("bass") && (text.contains("more") || text.contains("fazla") || text.contains("artır")) -> "more_bass"
+                    text.contains("bass") && (text.contains("less") || text.contains("az") || text.contains("azalt")) -> "too_bassy"
+                    text.contains("treble") || text.contains("tiz") || text.contains("bright") || text.contains("parlak") -> "too_bright"
+                    text.contains("vocal") || text.contains("vokal") || text.contains("ses") -> "more_vocal"
+                    text.contains("warm") || text.contains("sıcak") -> "prefer_warmer"
+                    text.contains("clear") || text.contains("temiz") || text.contains("net") -> "prefer_clearer"
+                    text.contains("flat") || text.contains("düz") -> "too_flat"
+                    text.contains("harsh") || text.contains("sert") -> "too_harsh"
+                    text.contains("thin") || text.contains("ince") -> "too_thin"
+                    text.contains("muddy") || text.contains("bulanık") -> "too_muddy"
+                    else -> "prefer_clearer"  // safe default
+                }
+                Log.d(TAG, "Custom feedback '$text' mapped to: $mapped")
+                personalizer.recordFeedback(mapped, current, _state.value.route)
+                regenerateEq(current)
             } else {
                 personalizer.recordFeedback(type, current, _state.value.route)
                 regenerateEq(current)

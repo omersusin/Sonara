@@ -73,6 +73,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.height
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -151,9 +152,9 @@ fun DashboardScreen() {
                         }
                         // Feedback section - collapsible
                         Spacer(Modifier.height(10.dp))
-                        var feedbackExpanded by remember { mutableStateOf(false) }
-                        var feedbackSent by remember { mutableStateOf(false) }
-                        var feedbackText by remember { mutableStateOf("") }
+                        var feedbackExpanded by remember(s.title) { mutableStateOf(false) }
+                        var feedbackSent by remember(s.title) { mutableStateOf(false) }
+                        var feedbackText by remember(s.title) { mutableStateOf("") }
 
                         if (feedbackSent) {
                             Text("Thanks for your feedback!", style = MaterialTheme.typography.labelSmall, color = SonaraSuccess)
@@ -348,131 +349,51 @@ private fun HearTheDifferenceBanner(
     onDismiss: () -> Unit
 ) {
     var isHolding by remember { mutableStateOf(false) }
+    val p = MaterialTheme.colorScheme.primary
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Hearing,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                Text(
-                    text = "Hear the Difference",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+    FluentCard {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(imageVector = Icons.Default.Hearing, contentDescription = null, tint = p, modifier = Modifier.size(20.dp))
+            Text("Hear the Difference", style = MaterialTheme.typography.titleSmall, color = p)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text("Hold to hear original audio without EQ.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(12.dp))
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp),
+                color = if (isHolding) p.copy(alpha = 0.2f) else SonaraCardElevated) {
+                Text(if (isHolding) "Playing Original" else "Original",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (isHolding) p else SonaraTextTertiary,
+                    modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
-
-            Text(
-                text = "Hold the button below to hear the original audio without EQ. Release to hear the enhanced version.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Original column
-                Card(
-                    modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isHolding)
-                            MaterialTheme.colorScheme.tertiary
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = if (isHolding) "Playing" else "Original",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (isHolding)
-                                MaterialTheme.colorScheme.onTertiary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                // Enhanced column
-                Card(
-                    modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (!isHolding)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = if (!isHolding) "Enhanced" else "Sonara EQ",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (!isHolding)
-                                MaterialTheme.colorScheme.onPrimary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+            Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp),
+                color = if (!isHolding) p.copy(alpha = 0.2f) else SonaraCardElevated) {
+                Text(if (!isHolding) "Enhanced" else "Sonara EQ",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (!isHolding) p else SonaraTextTertiary,
+                    modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
+        }
 
-            // Hold button
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.secondary)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onPress = {
-                                isHolding = true
-                                onHoldStart()
-                                try { awaitRelease() } finally {
-                                    isHolding = false
-                                    onHoldEnd()
-                                }
-                            }
-                        )
-                    }
-                    .padding(vertical = 14.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = if (isHolding) "Release to hear enhanced" else "Hold to hear original",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSecondary
-                )
-            }
+        Spacer(Modifier.height(10.dp))
+        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.copy(alpha = 0.15f))
+            .pointerInput(Unit) {
+                detectTapGestures(onPress = {
+                    isHolding = true; onHoldStart()
+                    try { awaitRelease() } finally { isHolding = false; onHoldEnd() }
+                })
+            }.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+            Text(if (isHolding) "Release to hear enhanced" else "Hold to hear original",
+                style = MaterialTheme.typography.labelMedium, color = p)
+        }
 
-            // Got it button
-            OutlinedButton(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Got it")
-            }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = onDismiss) { Text("Got it", color = SonaraTextSecondary) }
         }
     }
 }

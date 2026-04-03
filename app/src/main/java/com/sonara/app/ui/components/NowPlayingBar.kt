@@ -55,9 +55,9 @@ fun NowPlayingBar(
             // Album art
             if (albumArt != null) {
                 Image(bitmap = albumArt.asImageBitmap(), contentDescription = "Album Art",
-                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+                    modifier = Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
             } else {
-                Box(modifier = Modifier.size(48.dp).background(SonaraCardElevated, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.size(52.dp).background(SonaraCardElevated, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.MusicNote, null, tint = p, modifier = Modifier.size(24.dp))
                 }
             }

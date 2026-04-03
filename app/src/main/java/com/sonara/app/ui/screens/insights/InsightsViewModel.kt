@@ -103,6 +103,19 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 if (name.isNotBlank()) fetchLastFmStats(name)
             }
         }
+        // Fallback: if auth says connected but username didn't flow yet, trigger fetch
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(2000) // Wait for flows to settle
+            val st = _uiState.value
+            if (st.lastFmConnected && st.lastFmUsername.isBlank()) {
+                // Try to get username from connection info
+                val info = app.lastFmAuth.getConnectionInfo()
+                if (info.username.isNotBlank()) {
+                    _uiState.update { it.copy(lastFmUsername = info.username) }
+                    fetchLastFmStats(info.username)
+                }
+            }
+        }
     }
 
     private fun fetchLastFmStats(username: String) {
