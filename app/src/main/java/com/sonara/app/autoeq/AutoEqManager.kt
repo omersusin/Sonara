@@ -24,12 +24,12 @@ class AutoEqManager {
     private val _state = MutableStateFlow(AutoEqState())
     val state: StateFlow<AutoEqState> = _state.asStateFlow()
 
-    fun onHeadphoneChanged(info: HeadphoneInfo, autoEqEnabled: Boolean) {
+    fun onHeadphoneChanged(info: HeadphoneInfo, autoEqEnabled: Boolean, context: android.content.Context? = null) {
         if (!info.isConnected || !autoEqEnabled) {
             _state.value = AutoEqState(headphone = info)
             return
         }
-        val profile = AutoEqDatabase.findProfile(info.name)
+        val profile = if (context != null) AutoEqDatabase.findProfileExtended(info.name, context) else AutoEqDatabase.findProfile(info.name)
         _state.value = AutoEqState(
             isActive = profile != null,
             profile = profile,

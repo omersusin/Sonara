@@ -106,7 +106,7 @@ class SonaraApp : Application() {
         appScope.launch {
             headphoneDetector.headphone.collect { hp ->
                 val autoEqOn = preferences.autoEqEnabledFlow.first()
-                autoEqManager.onHeadphoneChanged(hp, autoEqOn)
+                autoEqManager.onHeadphoneChanged(hp, autoEqOn, this@SonaraApp)
                 SonaraLogger.i("AutoEQ", "Headphone: ${hp.name} autoEQ=$autoEqOn active=${autoEqManager.state.value.isActive}")
             }
         }

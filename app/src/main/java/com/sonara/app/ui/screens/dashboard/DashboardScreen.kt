@@ -67,7 +67,9 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.ui.draw.clip
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.height
@@ -272,10 +274,39 @@ fun DashboardScreen() {
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     if (s.hasTrack && !s.isManualPreset) {
-                        TextButton(onClick = { vm.saveCurrentAsPreset() }) {
+                        var showSaveDialog by remember { mutableStateOf(false) }
+                        var saveName by remember { mutableStateOf(if (s.genre != "Unknown") "AI: ${s.genre} (${s.mood})" else "AI Preset") }
+                        TextButton(onClick = { showSaveDialog = true }) {
                             Icon(Icons.Rounded.Save, null, Modifier.size(16.dp), tint = p)
                             Spacer(Modifier.width(4.dp))
                             Text("Save Preset", color = p)
+                        }
+                        if (showSaveDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showSaveDialog = false },
+                                containerColor = SonaraCard,
+                                title = { Text("Save Preset") },
+                                text = {
+                                    OutlinedTextField(
+                                        value = saveName,
+                                        onValueChange = { saveName = it },
+                                        label = { Text("Preset name") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = {
+                                        if (saveName.isNotBlank()) {
+                                            vm.saveCurrentAsPreset(saveName)
+                                            showSaveDialog = false
+                                        }
+                                    }) { Text("Save", color = p) }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showSaveDialog = false }) { Text("Cancel", color = SonaraTextSecondary) }
+                                }
+                            )
                         }
                     } else { Spacer(Modifier.width(1.dp)) }
                     TextButton(onClick = { vm.resetToAi() }) {
