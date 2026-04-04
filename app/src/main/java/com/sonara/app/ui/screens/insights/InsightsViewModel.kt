@@ -37,7 +37,7 @@ data class InsightsUiState(
     val lastFmUsername: String = "",
     val totalScrobbles: String = "0",
     val totalArtists: String = "0",
-    val topArtists: List<Pair<String, String>> = emptyList(),
+    val topArtists: List<Triple<String, String, String>> = emptyList(),
     val topTracks: List<Triple<String, String, String>> = emptyList(),
     val weeklyTracks: List<Triple<String, String, String>> = emptyList()
 )
@@ -149,7 +149,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
             try {
                 // Top artists
                 val artists = LastFmClient.api.getUserTopArtists(username, apiKey, "overall", 8)
-                val list = artists.topartists?.artist?.map { a -> Pair(a.name, a.playcount) } ?: emptyList()
+                val list = artists.topartists?.artist?.map { a -> Triple(a.name, a.playcount, a.imageUrl ?: "") } ?: emptyList()
                 _uiState.update { it.copy(topArtists = list) }
             } catch (_: Exception) {}
             try {

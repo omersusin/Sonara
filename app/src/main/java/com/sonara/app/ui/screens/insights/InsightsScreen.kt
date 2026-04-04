@@ -52,6 +52,9 @@ import com.sonara.app.ai.SonaraAiState
 import com.sonara.app.ui.components.FluentCard
 import java.text.NumberFormat
 import java.util.Locale
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
 import com.sonara.app.ui.theme.*
 
 @Composable

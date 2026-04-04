@@ -14,6 +14,7 @@ datastore = "1.1.1"
 coroutines = "1.8.1"
 workmanager = "2.9.0"
 gson = "2.11.0"
+coil = "2.6.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -42,6 +43,7 @@ gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 
 kotlinx-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 workmanager-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "workmanager" }
+coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

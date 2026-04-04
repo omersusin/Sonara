@@ -43,8 +43,11 @@ data class LastFmTopArtistsList(val artist: List<LastFmTopArtist> = emptyList())
 data class LastFmTopArtist(
     val name: String = "",
     val playcount: String = "0",
+    val image: List<LastFmImage> = emptyList(),
     @SerializedName("@attr") val attr: LastFmRank? = null
-)
+) {
+    val imageUrl: String? get() = image.lastOrNull { it.text.isNotBlank() }?.text
+}
 data class LastFmRank(val rank: String = "0")
 
 data class LastFmTopTracksResponse(val toptracks: LastFmTopTracksList? = null)

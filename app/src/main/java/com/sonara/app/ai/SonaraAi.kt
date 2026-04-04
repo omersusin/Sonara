@@ -232,6 +232,7 @@ class SonaraAi private constructor(
                 val explanation = ExplanationBuilder.build(result, pEq, title, artist)
                 val finalResult = result.copy(eqBands = pEq.bands, eqPreamp = pEq.preamp, isSpectralEq = pEq.isSpectralBased, explanation = explanation)
                 _state.value = _state.value.copy(result = finalResult, status = AiStatus.COMPLETE)
+                if (features != null) cloudManager.addContribution(features, result.primaryGenre.lowercase(), result.mood, result.energy, "auto")
                 startReAnalysis()
             } else { _state.value = _state.value.copy(status = AiStatus.LIMITED) }
         } else { _state.value = _state.value.copy(status = AiStatus.UNAVAILABLE) }

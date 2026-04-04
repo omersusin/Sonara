@@ -156,7 +156,9 @@ class SonaraApp : Application() {
                         energy = prediction.energy, confidence = prediction.confidence,
                         source = prediction.source.name
                     )
-                    TrackCache(database.trackCacheDao()).put(info)
+                    val cache = TrackCache(database.trackCacheDao())
+                    cache.put(info)
+                    if (cache.size() % 10 == 0) com.sonara.app.ai.SonaraAi.getInstance()?.cloudManager?.syncNow()
                 } catch (_: Exception) {}
             }
         }
