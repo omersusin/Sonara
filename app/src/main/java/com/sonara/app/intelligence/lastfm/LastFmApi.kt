@@ -55,6 +55,9 @@ interface LastFmApi {
         @Query("api_key") apiKey: String
     ): LastFmWeeklyChartResponse
 
+    @GET("?method=user.getRecentTracks&format=json")
+    suspend fun getRecentTracks(@Query("user") user: String, @Query("api_key") apiKey: String, @Query("limit") limit: Int = 10): LastFmRecentTracksResponse
+
     companion object {
         const val BASE_URL = "https://ws.audioscrobbler.com/2.0/"
     }

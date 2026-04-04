@@ -55,6 +55,18 @@ import java.util.Locale
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.BorderStroke
+import kotlinx.coroutines.launch
+import com.sonara.app.intelligence.deezer.DeezerImageResolver
 import com.sonara.app.ui.theme.*
 
 @Composable
@@ -102,6 +114,25 @@ fun InsightsScreen() {
         if (s.topTracks.isNotEmpty()) { item { TopTracksCard(s, p) } }
         if (s.weeklyTracks.isNotEmpty()) { item { WeeklyCard(s, p) } }
         if (s.genreDistribution.isNotEmpty()) { item { GenrePercentCard(s, p) } }
+        // Period selector
+        if (s.lastFmConnected) {
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("7day" to "4W", "6month" to "6M", "overall" to "All").forEach { (id, label) ->
+                        val sel = s.selectedPeriod == id
+                        OutlinedButton(onClick = { vm.setPeriod(id) },
+                            modifier = Modifier.weight(1f), shape = RoundedCornerShape(20.dp),
+                            border = BorderStroke(1.dp, if (sel) p else SonaraDivider.copy(0.3f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = if (sel) p else SonaraTextTertiary,
+                                containerColor = if (sel) p.copy(alpha = 0.1f) else androidx.compose.ui.graphics.Color.Transparent)
+                        ) { Text(label, style = MaterialTheme.typography.labelSmall) }
+                    }
+                }
+            }
+        }
+        // Recently Played
+        if (s.recentTracks.isNotEmpty()) { item { RecentlyPlayedCard(s, p) } }
         item { PipelineCard(s, p) }
         item { Spacer(Modifier.height(8.dp)) }
     }
@@ -405,6 +436,47 @@ private fun GenrePercentCard(s: InsightsUiState, p: androidx.compose.ui.graphics
                     Text("$pct%", style = MaterialTheme.typography.labelSmall, color = SonaraTextPrimary,
                         modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArtistDetailDialog(d: DeezerImageResolver.ArtistDetail, p: androidx.compose.ui.graphics.Color, onDismiss: () -> Unit) {
+    val ctx = LocalContext.current; val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
+    AlertDialog(onDismissRequest = onDismiss, containerColor = SonaraCard,
+        title = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (d.imageUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(d.imageUrl).crossfade(true).build(), contentDescription = d.name, modifier = Modifier.size(56.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+            Text(d.name, style = MaterialTheme.typography.titleLarge, color = SonaraTextPrimary)
+        } },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(fmt.format(d.fans.toLong()), style = MaterialTheme.typography.titleMedium, color = p); Text("Fans", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary) }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(d.albums.toString(), style = MaterialTheme.typography.titleMedium, color = p); Text("Albums", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary) }
+            }
+            if (d.topTracks.isNotEmpty()) { Text("Top Tracks", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+                d.topTracks.forEachIndexed { i, t -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${i+1}", style = MaterialTheme.typography.labelMedium, color = if (i<3) p else SonaraTextTertiary, modifier = Modifier.width(24.dp))
+                    Text(t.title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, modifier = Modifier.weight(1f), maxLines = 1)
+                    Text("${t.durationSec/60}:${"%02d".format(t.durationSec%60)}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                } }
+            }
+        } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close", color = p) } })
+}
+
+@Composable
+private fun RecentlyPlayedCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
+    val ctx = LocalContext.current
+    FluentCard {
+        Text("Recently Played", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary); Spacer(Modifier.height(10.dp))
+        s.recentTracks.take(8).forEach { t ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (t.imageUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(t.imageUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.size(36.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop)
+                else Box(Modifier.size(36.dp).background(SonaraCardElevated, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MusicNote, null, tint = p.copy(0.5f), modifier = Modifier.size(16.dp)) }
+                Column(Modifier.weight(1f)) { Text(t.title, style = MaterialTheme.typography.bodySmall, color = SonaraTextPrimary, maxLines = 1); Text(t.artist, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, maxLines = 1) }
+                if (t.isNowPlaying) Box(Modifier.size(8.dp).background(SonaraSuccess, CircleShape))
+                else Text(t.date.takeLast(11).take(6), style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
             }
         }
     }
