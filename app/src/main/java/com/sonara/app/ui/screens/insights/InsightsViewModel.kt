@@ -207,37 +207,6 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
             try { val t = LastFmClient.api.getUserTopTracks(u, k, period, 8)
                 _uiState.update { it.copy(topTracks = t.toptracks?.track?.map { Triple(it.name, it.artist?.name ?: "", it.playcount) } ?: emptyList()) }
             } catch (_: Exception) {}
-            // Recent tracks
-            try {
-                val recent = LastFmClient.api.getRecentTracks(username, apiKey, 10)
-                val list = recent.recenttracks?.track?.map { t -> RecentTrackItem(title = t.name, artist = t.artist?.text ?: "", album = t.album?.text ?: "", imageUrl = t.imageUrl ?: "", isNowPlaying = t.isNowPlaying, date = t.date?.text ?: "Now") } ?: emptyList()
-                _uiState.update { it.copy(recentTracks = list) }
-            } catch (_: Exception) {}
-            // Enrich artists with Deezer images
-            try {
-                val enriched = _uiState.value.topArtists.map { t ->
-                    val img = t.third
-                    val resolved = if (img.isNotBlank() && !img.contains("2a96cbd8b46e")) img else DeezerImageResolver.getArtistImage(t.first) ?: ""
-                    Triple(t.first, t.second, resolved)
-                }
-                _uiState.update { it.copy(topArtists = enriched) }
-            } catch (_: Exception) {}
-        }
-    }
-
-    fun setPeriod(period: String) {
-        _uiState.update { it.copy(selectedPeriod = period) }
-        val u = _uiState.value.lastFmUsername; val k = app.lastFmAuth.getActiveApiKey()
-        if (u.isBlank() || k.isBlank()) return
-        viewModelScope.launch(Dispatchers.IO) {
-            try { val a = LastFmClient.api.getUserTopArtists(u, k, period, 8)
-                val l = a.topartists?.artist?.map { Triple(it.name, it.playcount, it.imageUrl ?: "") } ?: emptyList()
-                val enriched = l.map { t -> val img = if (t.third.isNotBlank() && !t.third.contains("2a96cbd8b46e")) t.third else DeezerImageResolver.getArtistImage(t.first) ?: ""; Triple(t.first, t.second, img) }
-                _uiState.update { it.copy(topArtists = enriched) }
-            } catch (_: Exception) {}
-            try { val t = LastFmClient.api.getUserTopTracks(u, k, period, 8)
-                _uiState.update { it.copy(topTracks = t.toptracks?.track?.map { Triple(it.name, it.artist?.name ?: "", it.playcount) } ?: emptyList()) }
-            } catch (_: Exception) {}
         }
     }
 }

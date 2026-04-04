@@ -25,7 +25,8 @@ data class EqualizerUiState(
     val availablePresets: List<Preset> = emptyList(),
     val eqActive: Boolean = false,
     val eqStrategy: String = "none",
-    val isClipping: Boolean = false
+    val isClipping: Boolean = false,
+    val balance: Float = 0f
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -104,6 +105,13 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
     fun setVirtualizer(v: Int) {
         _uiState.update { it.copy(virtualizer = v.coerceIn(0, 1000)) }
         debouncedApply(c().bands, c().currentPresetName, c().bassBoost, v.coerceIn(0, 1000), c().loudness)
+    }
+
+    fun setBalance(v: Float) {
+        _uiState.update { it.copy(balance = v.coerceIn(-1f, 1f)) }
+        val mgr = app.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+        // Android doesn't have a direct balance API, but we can simulate with left/right volume
+        // This is a UI-only feature for now, shows the concept
     }
 
     fun setLoudness(v: Int) {

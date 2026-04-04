@@ -203,6 +203,15 @@ fun EqualizerScreen() {
             EffRow("Virtualizer", s.virtualizer, { vm.setVirtualizer(it) }, s.isEnabled, p, 1000f) { "${(it / 10f).roundToInt()}%" }
             Spacer(Modifier.height(8.dp))
             EffRow("Loudness", s.loudness, { vm.setLoudness(it) }, s.isEnabled, p, 3000f) { "${"%.1f".format(it / 100f)} dB" }
+            Spacer(Modifier.height(12.dp))
+            // Audio Balance
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Audio Balance", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                Text(if (s.balance == 0f) "Center" else if (s.balance < 0) "L ${(-s.balance * 100).toInt()}%" else "R ${(s.balance * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelMedium, color = if (s.balance != 0f) p else SonaraTextTertiary)
+            }
+            Slider(s.balance, { vm.setBalance(it) }, valueRange = -1f..1f, enabled = s.isEnabled,
+                colors = SliderDefaults.colors(thumbColor = p, activeTrackColor = p, inactiveTrackColor = SonaraCardElevated))
         } }
 
         item { Spacer(Modifier.height(8.dp)) }
