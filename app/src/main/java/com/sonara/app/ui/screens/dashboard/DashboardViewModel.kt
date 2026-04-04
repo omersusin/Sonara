@@ -100,7 +100,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch {
             app.preferences.hasSeenHearTheDifferenceFlow.collect { seen ->
-                _uiState.update { it.copy(hasSeenHearTheDifference = seen) }
+                // Only allow DataStore to set true, never override back to false
+                if (seen) _uiState.update { it.copy(hasSeenHearTheDifference = true) }
             }
         }
 

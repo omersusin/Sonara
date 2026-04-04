@@ -38,10 +38,11 @@ class AutoEqManager {
         )
     }
 
-    fun setManualProfile(profileName: String) {
+    fun setManualProfile(profileName: String, context: android.content.Context? = null) {
         val profile = AutoEqDatabase.findProfile(profileName)
-        profile?.let {
-            _state.value = _state.value.copy(isActive = true, profile = it, correctionBands = it.correctionBands)
+            ?: (if (context != null) WaveletAutoEqLoader.findProfile(profileName, context) else null)
+        if (profile != null) {
+            _state.value = _state.value.copy(isActive = true, profile = profile, correctionBands = profile.correctionBands)
         }
     }
 
