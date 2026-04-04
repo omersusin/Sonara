@@ -129,95 +129,24 @@ fun DashboardScreen() {
                 artist = s.artist, isPlaying = s.isPlaying, albumArt = art)
         }
 
-        // AI Status Card
-        if (aiState.isReady && s.hasTrack) {
+        // Feedback row (compact, resets per track)
+        if (s.hasTrack) {
             item {
-                FluentCard {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Rounded.Hearing, null, Modifier.size(18.dp), tint = p)
-                        Text(aiState.status.display, style = MaterialTheme.typography.labelMedium, color = p)
+                var feedbackSent by remember(s.title) { mutableStateOf(false) }
+                if (!feedbackSent) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FeedbackType.quickOptions.forEach { fb ->
+                            AssistChip(
+                                onClick = {
+                                    vm.onAiFeedback(fb.id)
+                                    feedbackSent = true
+                                    Toast.makeText(ctx, "${fb.emoji} ${fb.label}", Toast.LENGTH_SHORT).show()
+                                },
+                                label = { Text("${fb.emoji} ${fb.label}", style = MaterialTheme.typography.labelSmall) },
+                                colors = AssistChipDefaults.assistChipColors(containerColor = SonaraCardElevated)
+                            )
+                        }
                     }
-                    Spacer(Modifier.height(10.dp))
-                        Text("${s.genre} \u00b7 ${s.mood} \u00b7 Confidence ${(s.confidence * 100).toInt()}%",
-                            style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
-                        Spacer(Modifier.height(4.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            StatusChip(s.sourceLabel, ChipStatus.Active, Icons.Rounded.Memory, compact = true)
-                            StatusChip(if (s.confidence > 0.7f) "High" else if (s.confidence > 0.4f) "Med" else "Low",
-                                if (s.confidence > 0.5f) ChipStatus.Active else ChipStatus.Inactive, compact = true)
-                        }
-                        if (aiState.result?.explanation?.sourceHonesty?.isNotBlank() == true) {
-                            Spacer(Modifier.height(6.dp))
-                            Text(aiState.result!!.explanation.sourceHonesty, style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
-                        }
-                        // Feedback section - collapsible
-                        Spacer(Modifier.height(10.dp))
-                        var feedbackExpanded by remember(s.title) { mutableStateOf(false) }
-                        var feedbackSent by remember(s.title) { mutableStateOf(false) }
-                        var feedbackText by remember(s.title) { mutableStateOf("") }
-
-                        if (feedbackSent) {
-                            Text("Thanks for your feedback!", style = MaterialTheme.typography.labelSmall, color = SonaraSuccess)
-                        } else if (!feedbackExpanded) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                FeedbackType.quickOptions.take(3).forEach { fb ->
-                                    AssistChip(
-                                        onClick = {
-                                            vm.onAiFeedback(fb.id)
-                                            feedbackSent = true
-                                            Toast.makeText(ctx, "${fb.emoji} ${fb.label}", Toast.LENGTH_SHORT).show()
-                                        },
-                                        label = { Text(fb.emoji, style = MaterialTheme.typography.labelSmall) },
-                                        colors = AssistChipDefaults.assistChipColors(containerColor = SonaraCardElevated)
-                                    )
-                                }
-                                AssistChip(
-                                    onClick = { feedbackExpanded = true },
-                                    label = { Text("More...", style = MaterialTheme.typography.labelSmall) },
-                                    colors = AssistChipDefaults.assistChipColors(containerColor = SonaraCardElevated)
-                                )
-                            }
-                        } else {
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                FeedbackType.allOptions.forEach { fb ->
-                                    AssistChip(
-                                        onClick = {
-                                            vm.onAiFeedback(fb.id)
-                                            feedbackSent = true
-                                            feedbackExpanded = false
-                                            Toast.makeText(ctx, "${fb.emoji} ${fb.label}", Toast.LENGTH_SHORT).show()
-                                        },
-                                        label = { Text("${fb.emoji} ${fb.label}", style = MaterialTheme.typography.labelSmall) },
-                                        colors = AssistChipDefaults.assistChipColors(containerColor = SonaraCardElevated)
-                                    )
-                                }
-                            }
-                            Spacer(Modifier.height(6.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                OutlinedTextField(
-                                    value = feedbackText,
-                                    onValueChange = { feedbackText = it },
-                                    placeholder = { Text("Describe what you want...", color = SonaraTextTertiary, style = MaterialTheme.typography.bodySmall) },
-                                    modifier = Modifier.weight(1f).height(44.dp),
-                                    singleLine = true,
-                                    textStyle = MaterialTheme.typography.bodySmall,
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = p, unfocusedBorderColor = SonaraDivider.copy(0.5f),
-                                        cursorColor = p, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary
-                                    )
-                                )
-                                FilledTonalButton(
-                                    onClick = {
-                                        vm.onAiFeedback("custom:$feedbackText")
-                                        feedbackSent = true
-                                        feedbackExpanded = false
-                                        Toast.makeText(ctx, "Feedback sent!", Toast.LENGTH_SHORT).show()
-                                    },
-                                    enabled = feedbackText.isNotBlank(),
-                                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = p, contentColor = SonaraBackground)
-                                ) { Text("Send", style = MaterialTheme.typography.labelSmall) }
-                            }
-                        }
                 }
             }
         }
