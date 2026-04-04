@@ -11,6 +11,7 @@ import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.intelligence.lastfm.LastFmAuthManager
 import com.sonara.app.intelligence.lastfm.LastFmClient
+import com.sonara.app.intelligence.deezer.DeezerImageResolver
 import com.sonara.app.ui.components.DisplayLabelMapper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -151,6 +152,13 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 val artists = LastFmClient.api.getUserTopArtists(username, apiKey, "overall", 8)
                 val list = artists.topartists?.artist?.map { a -> Triple(a.name, a.playcount, a.imageUrl ?: "") } ?: emptyList()
                 _uiState.update { it.copy(topArtists = list) }
+                // Fetch Deezer images (Last.fm deprecated artist images in 2020)
+                val enriched = list.map { (name, plays, lfmImg) ->
+                    val img = if (lfmImg.isNotBlank() && !lfmImg.contains("2a96cbd8b46e")) lfmImg
+                              else DeezerImageResolver.getArtistImage(name) ?: ""
+                    Triple(name, plays, img)
+                }
+                _uiState.update { it.copy(topArtists = enriched) }
             } catch (_: Exception) {}
             try {
                 // Top tracks

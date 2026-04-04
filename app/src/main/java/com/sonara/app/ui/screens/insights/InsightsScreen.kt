@@ -312,17 +312,25 @@ private fun TopArtistsCard(s: InsightsUiState, p: androidx.compose.ui.graphics.C
     FluentCard {
         Text("Top Artists", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
         Spacer(Modifier.height(12.dp))
-        s.topArtists.forEachIndexed { i, (name, plays) ->
+        val ctx = LocalContext.current
+        s.topArtists.forEachIndexed { i, triple ->
+            val name = triple.first; val plays = triple.second; val imageUrl = triple.third
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Rank number - big for top 3
-                Box(Modifier.size(32.dp).background(if (i < 3) p.copy(alpha = 0.15f) else SonaraCardElevated, RoundedCornerShape(8.dp)),
+                Box(Modifier.size(28.dp).background(if (i < 3) p.copy(alpha = 0.15f) else SonaraCardElevated, RoundedCornerShape(6.dp)),
                     contentAlignment = Alignment.Center) {
-                    Text("${i + 1}", style = if (i < 3) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+                    Text("${i + 1}", style = if (i < 3) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium,
                         color = if (i < 3) p else SonaraTextTertiary)
                 }
-                // Artist icon placeholder
-                Box(Modifier.size(40.dp).background(SonaraCardElevated, CircleShape), contentAlignment = Alignment.Center) {
-                    Text(name.take(1).uppercase(), style = MaterialTheme.typography.titleSmall, color = p)
+                if (imageUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(ctx).data(imageUrl).crossfade(true).build(),
+                        contentDescription = name,
+                        modifier = Modifier.size(44.dp).clip(CircleShape),
+                        contentScale = ContentScale.Crop)
+                } else {
+                    Box(Modifier.size(44.dp).background(SonaraCardElevated, CircleShape), contentAlignment = Alignment.Center) {
+                        Text(name.take(1).uppercase(), style = MaterialTheme.typography.titleSmall, color = p)
+                    }
                 }
                 Column(Modifier.weight(1f)) {
                     Text(name, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
