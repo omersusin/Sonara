@@ -307,7 +307,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val token = _uiState.value.githubTokenInput
             if (token.isNotBlank()) {
                 secrets.setGitHubToken(token)
-                _uiState.update { it.copy(githubTokenInput = "", isGithubTokenSet = true) }
+                com.sonara.app.ai.SonaraAi.getInstance()?.cloudManager?.setContributionEnabled(true)
+                _uiState.update { it.copy(githubTokenInput = "", isGithubTokenSet = true, communityUploadEnabled = true) }
             }
         }
     }

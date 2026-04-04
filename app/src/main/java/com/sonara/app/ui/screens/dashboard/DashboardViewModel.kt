@@ -62,7 +62,8 @@ data class DashboardUiState(
             eqStrategy == other.eqStrategy && route == other.route &&
             headphoneName == other.headphoneName &&
             savedMessage == other.savedMessage && isLoved == other.isLoved &&
-            geminiSummary == other.geminiSummary
+            geminiSummary == other.geminiSummary &&
+            hasSeenHearTheDifference == other.hasSeenHearTheDifference
     }
     override fun hashCode(): Int {
         var result = title.hashCode()
@@ -73,6 +74,7 @@ data class DashboardUiState(
         result = 31 * result + notificationListenerEnabled.hashCode()
         result = 31 * result + isLoved.hashCode()
         result = 31 * result + geminiSummary.hashCode()
+        result = 31 * result + hasSeenHearTheDifference.hashCode()
         return result
     }
 }

@@ -98,6 +98,7 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines)
     implementation(libs.workmanager.runtime)
+    implementation(libs.coil.compose)
 
     debugImplementation(libs.compose.ui.tooling)
 }

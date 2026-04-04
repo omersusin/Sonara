@@ -52,6 +52,9 @@ import com.sonara.app.ai.SonaraAiState
 import com.sonara.app.ui.components.FluentCard
 import java.text.NumberFormat
 import java.util.Locale
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
 import com.sonara.app.ui.theme.*
 
 @Composable
@@ -93,14 +96,12 @@ fun InsightsScreen() {
         item { AnalysisCard(s, p) }
         item { LearningCard(s, p) }
         item { GenreCard(s, p) }
-        // ═══ Last.fm Stats (stats.fm style) ═══
-        if (s.lastFmConnected && s.lastFmUsername.isNotBlank()) {
-            item { LastFmOverviewCard(s, p) }
-            if (s.topArtists.isNotEmpty()) { item { TopArtistsCard(s, p) } }
-            if (s.topTracks.isNotEmpty()) { item { TopTracksCard(s, p) } }
-            if (s.weeklyTracks.isNotEmpty()) { item { WeeklyCard(s, p) } }
-        }
-
+        // ═══ Listening Stats ═══
+        item { ListeningStatsCard(s, p) }
+        if (s.topArtists.isNotEmpty()) { item { TopArtistsCard(s, p) } }
+        if (s.topTracks.isNotEmpty()) { item { TopTracksCard(s, p) } }
+        if (s.weeklyTracks.isNotEmpty()) { item { WeeklyCard(s, p) } }
+        if (s.genreDistribution.isNotEmpty()) { item { GenrePercentCard(s, p) } }
         item { PipelineCard(s, p) }
         item { Spacer(Modifier.height(8.dp)) }
     }
@@ -253,28 +254,53 @@ private fun PipelineCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Col
 }
 
 @Composable
-private fun LastFmOverviewCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
+private fun ListeningStatsCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
     val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
     FluentCard {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Rounded.Public, null, tint = p, modifier = Modifier.size(20.dp))
-            Text("Last.fm: ${s.lastFmUsername}", style = MaterialTheme.typography.titleSmall, color = p)
-        }
-        Spacer(Modifier.height(14.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(try { fmt.format(s.totalScrobbles.toLong()) } catch (_: Exception) { s.totalScrobbles },
-                    style = MaterialTheme.typography.headlineSmall, color = p)
-                Text("Scrobbles", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+        if (s.lastFmConnected && s.lastFmUsername.isNotBlank()) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Rounded.Public, null, tint = p, modifier = Modifier.size(20.dp))
+                Text("Last.fm: ${s.lastFmUsername}", style = MaterialTheme.typography.titleSmall, color = p)
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(try { fmt.format(s.totalArtists.toLong()) } catch (_: Exception) { s.totalArtists },
-                    style = MaterialTheme.typography.headlineSmall, color = p)
-                Text("Artists", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(try { fmt.format(s.totalScrobbles.toLong()) } catch (_: Exception) { s.totalScrobbles },
+                        style = MaterialTheme.typography.headlineMedium, color = p)
+                    Text("Scrobbles", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(try { fmt.format(s.totalArtists.toLong()) } catch (_: Exception) { s.totalArtists },
+                        style = MaterialTheme.typography.headlineMedium, color = p)
+                    Text("Artists", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(s.songsLearned.toString(), style = MaterialTheme.typography.headlineMedium, color = p)
+                    Text("Learned", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                }
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(s.songsLearned.toString(), style = MaterialTheme.typography.headlineSmall, color = p)
-                Text("Learned", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Rounded.Public, null, tint = SonaraTextTertiary, modifier = Modifier.size(20.dp))
+                Column {
+                    Text("Last.fm Not Connected", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+                    Text("Connect in Settings for rich listening stats", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(s.songsLearned.toString(), style = MaterialTheme.typography.headlineMedium, color = p)
+                    Text("Songs Learned", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(s.cacheSize.toString(), style = MaterialTheme.typography.headlineMedium, color = p)
+                    Text("Cached", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("${s.apiAccuracy}%", style = MaterialTheme.typography.headlineMedium, color = p)
+                    Text("Accuracy", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                }
             }
         }
     }
@@ -284,36 +310,55 @@ private fun LastFmOverviewCard(s: InsightsUiState, p: androidx.compose.ui.graphi
 private fun TopArtistsCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
     val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
     FluentCard {
-        Text("Top Artists", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-        Spacer(Modifier.height(10.dp))
+        Text("Top Artists", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+        Spacer(Modifier.height(12.dp))
         s.topArtists.forEachIndexed { i, (name, plays) ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("${i + 1}", style = MaterialTheme.typography.labelMedium, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(24.dp))
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Rank number - big for top 3
+                Box(Modifier.size(32.dp).background(if (i < 3) p.copy(alpha = 0.15f) else SonaraCardElevated, RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center) {
+                    Text("${i + 1}", style = if (i < 3) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+                        color = if (i < 3) p else SonaraTextTertiary)
+                }
+                // Artist icon placeholder
+                Box(Modifier.size(40.dp).background(SonaraCardElevated, CircleShape), contentAlignment = Alignment.Center) {
+                    Text(name.take(1).uppercase(), style = MaterialTheme.typography.titleSmall, color = p)
+                }
                 Column(Modifier.weight(1f)) {
                     Text(name, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
+                    Text(try { "${fmt.format(plays.toLong())} plays" } catch (_: Exception) { "$plays plays" },
+                        style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
                 }
-                Text(try { fmt.format(plays.toLong()) } catch (_: Exception) { plays },
-                    style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                Text(" plays", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
             }
+            if (i < s.topArtists.lastIndex) Box(Modifier.fillMaxWidth().height(0.5.dp).background(SonaraDivider.copy(0.2f)))
         }
     }
 }
 
 @Composable
 private fun TopTracksCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
+    val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
     FluentCard {
-        Text("Top Tracks", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-        Spacer(Modifier.height(10.dp))
+        Text("Top Tracks", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+        Spacer(Modifier.height(12.dp))
         s.topTracks.forEachIndexed { i, (title, artist, plays) ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("${i + 1}", style = MaterialTheme.typography.labelMedium, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(24.dp))
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.size(32.dp).background(if (i < 3) p.copy(alpha = 0.15f) else SonaraCardElevated, RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center) {
+                    Text("${i + 1}", style = if (i < 3) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+                        color = if (i < 3) p else SonaraTextTertiary)
+                }
+                Box(Modifier.size(40.dp).background(SonaraCardElevated, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.MusicNote, null, tint = p.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                }
                 Column(Modifier.weight(1f)) {
                     Text(title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
                     Text(artist, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary, maxLines = 1)
                 }
-                Text(plays, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                Text(try { fmt.format(plays.toLong()) } catch (_: Exception) { plays },
+                    style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
             }
+            if (i < s.topTracks.lastIndex) Box(Modifier.fillMaxWidth().height(0.5.dp).background(SonaraDivider.copy(0.2f)))
         }
     }
 }
@@ -331,6 +376,27 @@ private fun WeeklyCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color
                     Text(artist, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary, maxLines = 1)
                 }
                 Text(plays, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun GenrePercentCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
+    FluentCard {
+        Text("Your Genres", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+        Spacer(Modifier.height(12.dp))
+        val sorted = s.genreDistribution.entries.sortedByDescending { it.value }.take(6)
+        val total = sorted.sumOf { it.value }.toFloat().coerceAtLeast(1f)
+        sorted.forEach { (genre, count) ->
+            val pct = (count / total * 100).toInt()
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(genre, style = MaterialTheme.typography.bodySmall, color = SonaraTextPrimary, modifier = Modifier.width(72.dp))
+                Box(Modifier.weight(1f).height(20.dp).clip(RoundedCornerShape(6.dp)).background(SonaraCardElevated)) {
+                    Box(Modifier.fillMaxWidth(count / total).height(20.dp).clip(RoundedCornerShape(6.dp)).background(p.copy(alpha = 0.7f)))
+                    Text("$pct%", style = MaterialTheme.typography.labelSmall, color = SonaraTextPrimary,
+                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
+                }
             }
         }
     }
