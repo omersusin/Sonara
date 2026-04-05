@@ -81,4 +81,4 @@ gradle assembleDebug
 ```
 
 ## License
-Copyright © 2024 Sonara. All rights reserved.
+Copyright © 2026 Sonara. All rights reserved.
