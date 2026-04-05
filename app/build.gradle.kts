@@ -105,9 +105,6 @@ dependencies {
     // Shape Morphing (M3E exclusive — RoundedPolygon, Morph)
     implementation(libs.graphics.shapes)
 
-    // Spring animations
-    implementation(libs.dynamic.animation)
-
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)

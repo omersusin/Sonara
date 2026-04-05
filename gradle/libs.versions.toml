@@ -5,7 +5,6 @@ ksp = "2.0.10-1.0.24"
 composeBom = "2026.03.00"
 material3 = "1.5.0-alpha16"
 graphicsShapes = "1.0.1"
-dynamicAnimation = "1.0.0"
 coreKtx = "1.13.1"
 activityCompose = "1.9.1"
 lifecycle = "2.8.4"
@@ -47,9 +46,6 @@ icons-extended = { module = "androidx.compose.material:material-icons-extended" 
 
 # Shape Morphing (M3E exclusive)
 graphics-shapes = { module = "androidx.graphics:graphics-shapes", version.ref = "graphicsShapes" }
-
-# Spring Physics Animation
-dynamic-animation = { module = "androidx.dynamicanimation:dynamicanimation-ktx", version.ref = "dynamicAnimation" }
 
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
