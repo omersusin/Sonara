@@ -1,9 +1,15 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
+
 package com.sonara.app.ui.screens.dashboard
 
 import android.content.Intent
 import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,19 +25,27 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.School
-import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,10 +53,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
@@ -55,28 +77,17 @@ import com.sonara.app.ui.components.NowPlayingBar
 import com.sonara.app.ui.components.PermissionCard
 import com.sonara.app.ui.components.SonaraVisualizer
 import com.sonara.app.ui.components.StatusChip
-import com.sonara.app.ui.components.VisualizerMode
 import com.sonara.app.ui.components.VisualizerStateDetector
-import com.sonara.app.ui.theme.*
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.material.icons.filled.Hearing
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.ui.draw.clip
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CardDefaults
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.foundation.layout.height
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import com.sonara.app.ui.theme.AppFullShape
+import com.sonara.app.ui.theme.SonaraBackground
+import com.sonara.app.ui.theme.SonaraCard
+import com.sonara.app.ui.theme.SonaraCardElevated
+import com.sonara.app.ui.theme.SonaraDivider
+import com.sonara.app.ui.theme.SonaraPrimary
+import com.sonara.app.ui.theme.SonaraSuccess
+import com.sonara.app.ui.theme.SonaraTextPrimary
+import com.sonara.app.ui.theme.SonaraTextSecondary
+import com.sonara.app.ui.theme.SonaraTextTertiary
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -163,6 +174,7 @@ fun DashboardScreen() {
                             OutlinedTextField(value = feedbackText, onValueChange = { feedbackText = it },
                                 placeholder = { Text("Describe what you want...", color = SonaraTextTertiary, style = MaterialTheme.typography.bodySmall) },
                                 modifier = Modifier.weight(1f).height(44.dp), singleLine = true, textStyle = MaterialTheme.typography.bodySmall,
+                                shape = MaterialTheme.shapes.extraSmall,
                                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p, unfocusedBorderColor = SonaraDivider.copy(0.5f),
                                     cursorColor = p, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary))
                             FilledTonalButton(onClick = { vm.onAiFeedback("custom:$feedbackText"); feedbackSent = true
@@ -226,7 +238,7 @@ fun DashboardScreen() {
                 Row(Modifier.fillMaxWidth().height(36.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom) {
                     s.bands.copyOf().take(10).forEach { v ->
                         val n = ((v + 12f) / 24f).coerceIn(0.08f, 1f)
-                        Box(Modifier.weight(1f).height((n * 36).dp).background(p.copy(alpha = 0.2f + n * 0.5f), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)))
+                        Box(Modifier.weight(1f).height((n * 36).dp).background(p.copy(alpha = 0.2f + n * 0.5f), MaterialTheme.shapes.extraSmall))
                     }
                 }
                 Spacer(Modifier.height(8.dp))
@@ -243,6 +255,7 @@ fun DashboardScreen() {
                             AlertDialog(
                                 onDismissRequest = { showSaveDialog = false },
                                 containerColor = SonaraCard,
+                                shape = MaterialTheme.shapes.extraLarge,
                                 title = { Text("Save Preset") },
                                 text = {
                                     OutlinedTextField(
@@ -250,6 +263,7 @@ fun DashboardScreen() {
                                         onValueChange = { saveName = it },
                                         label = { Text("Preset name") },
                                         singleLine = true,
+                                        shape = MaterialTheme.shapes.extraSmall,
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                 },
@@ -290,7 +304,7 @@ fun DashboardScreen() {
 
 @Composable
 private fun Pill(label: String, value: String, modifier: Modifier, p: androidx.compose.ui.graphics.Color) {
-    Surface(modifier, shape = RoundedCornerShape(8.dp), color = SonaraCardElevated) {
+    Surface(modifier, shape = MaterialTheme.shapes.small, color = SonaraCardElevated) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
             Text(value, style = MaterialTheme.typography.labelLarge, color = p)
@@ -307,6 +321,11 @@ private fun HearTheDifferenceBanner(
 ) {
     var isHolding by remember { mutableStateOf(false) }
     val p = MaterialTheme.colorScheme.primary
+    val scale by animateFloatAsState(
+        targetValue = if (isHolding) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 500f),
+        label = "hold_scale"
+    )
 
     FluentCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -318,26 +337,27 @@ private fun HearTheDifferenceBanner(
         Spacer(Modifier.height(12.dp))
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp),
+            Surface(modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.small,
                 color = if (isHolding) p.copy(alpha = 0.2f) else SonaraCardElevated) {
                 Text(if (isHolding) "Playing Original" else "Original",
                     style = MaterialTheme.typography.labelMedium,
                     color = if (isHolding) p else SonaraTextTertiary,
                     modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    textAlign = TextAlign.Center)
             }
-            Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp),
+            Surface(modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.small,
                 color = if (!isHolding) p.copy(alpha = 0.2f) else SonaraCardElevated) {
                 Text(if (!isHolding) "Enhanced" else "Sonara EQ",
                     style = MaterialTheme.typography.labelMedium,
                     color = if (!isHolding) p else SonaraTextTertiary,
                     modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    textAlign = TextAlign.Center)
             }
         }
 
         Spacer(Modifier.height(10.dp))
-        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.copy(alpha = 0.15f))
+        Box(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(p.copy(alpha = 0.15f))
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .pointerInput(Unit) {
                 detectTapGestures(onPress = {
                     isHolding = true; onHoldStart()

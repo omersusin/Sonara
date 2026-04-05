@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
@@ -34,7 +33,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sonara.app.service.SonaraNotificationListener
-import com.sonara.app.ui.theme.*
+import com.sonara.app.ui.theme.SonaraCardElevated
+import com.sonara.app.ui.theme.SonaraSuccess
+import com.sonara.app.ui.theme.SonaraTextPrimary
+import com.sonara.app.ui.theme.SonaraTextSecondary
 
 @Composable
 fun NowPlayingBar(
@@ -55,9 +57,9 @@ fun NowPlayingBar(
             // Album art
             if (albumArt != null) {
                 Image(bitmap = albumArt.asImageBitmap(), contentDescription = "Album Art",
-                    modifier = Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
+                    modifier = Modifier.size(52.dp).clip(MaterialTheme.shapes.medium), contentScale = ContentScale.Crop)
             } else {
-                Box(modifier = Modifier.size(52.dp).background(SonaraCardElevated, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.size(52.dp).background(SonaraCardElevated, MaterialTheme.shapes.medium), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.MusicNote, null, tint = p, modifier = Modifier.size(24.dp))
                 }
             }

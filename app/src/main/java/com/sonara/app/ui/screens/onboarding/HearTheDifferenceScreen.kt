@@ -1,18 +1,40 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package com.sonara.app.ui.screens.onboarding
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.MusicOff
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,15 +43,29 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.sonara.app.ui.theme.*
+import com.sonara.app.ui.theme.AppFullShape
+import com.sonara.app.ui.theme.SonaraBackground
+import com.sonara.app.ui.theme.SonaraCard
+import com.sonara.app.ui.theme.SonaraTextPrimary
+import com.sonara.app.ui.theme.SonaraTextSecondary
+import com.sonara.app.ui.theme.SonaraTextTertiary
+import com.sonara.app.ui.theme.SonaraWarning
 
 @Composable
 fun HearTheDifferenceScreen(isPlaying: Boolean = false, onContinue: () -> Unit, onSetEqEnabled: ((Boolean) -> Unit)? = null) {
     var isOriginalMode by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     val p = MaterialTheme.colorScheme.primary
-    val origColor by animateColorAsState(if (isOriginalMode) p.copy(alpha = 0.25f) else SonaraCard, tween(300), label = "orig")
-    val enhColor by animateColorAsState(if (!isOriginalMode) p.copy(alpha = 0.25f) else SonaraCard, tween(300), label = "enh")
+    val origColor by animateColorAsState(
+        targetValue = if (isOriginalMode) p.copy(alpha = 0.25f) else SonaraCard,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = 400f),
+        label = "orig"
+    )
+    val enhColor by animateColorAsState(
+        targetValue = if (!isOriginalMode) p.copy(alpha = 0.25f) else SonaraCard,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = 400f),
+        label = "enh"
+    )
 
     LaunchedEffect(isOriginalMode) { onSetEqEnabled?.invoke(!isOriginalMode) }
 
@@ -45,7 +81,7 @@ fun HearTheDifferenceScreen(isPlaying: Boolean = false, onContinue: () -> Unit, 
 
         if (isPlaying) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Card(Modifier.weight(1f).height(130.dp), colors = CardDefaults.cardColors(containerColor = origColor), shape = RoundedCornerShape(20.dp)) {
+                Card(Modifier.weight(1f).height(130.dp), colors = CardDefaults.cardColors(containerColor = origColor), shape = MaterialTheme.shapes.extraLarge) {
                     Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                         Icon(Icons.Rounded.MusicOff, null, Modifier.size(36.dp), tint = if (isOriginalMode) p else SonaraTextTertiary)
                         Spacer(Modifier.height(10.dp))
@@ -53,7 +89,7 @@ fun HearTheDifferenceScreen(isPlaying: Boolean = false, onContinue: () -> Unit, 
                         if (isOriginalMode) { Spacer(Modifier.height(4.dp)); Text("No EQ", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
                     }
                 }
-                Card(Modifier.weight(1f).height(130.dp), colors = CardDefaults.cardColors(containerColor = enhColor), shape = RoundedCornerShape(20.dp)) {
+                Card(Modifier.weight(1f).height(130.dp), colors = CardDefaults.cardColors(containerColor = enhColor), shape = MaterialTheme.shapes.extraLarge) {
                     Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                         Icon(Icons.Rounded.MusicNote, null, Modifier.size(36.dp), tint = if (!isOriginalMode) p else SonaraTextTertiary)
                         Spacer(Modifier.height(10.dp))
@@ -63,7 +99,7 @@ fun HearTheDifferenceScreen(isPlaying: Boolean = false, onContinue: () -> Unit, 
                 }
             }
             Spacer(Modifier.height(28.dp))
-            Box(Modifier.fillMaxWidth().height(60.dp).clip(RoundedCornerShape(30.dp))
+            Box(Modifier.fillMaxWidth().height(60.dp).clip(AppFullShape)
                 .background(if (isOriginalMode) SonaraWarning.copy(0.25f) else p.copy(0.12f))
                 .pointerInput(Unit) { detectTapGestures(onPress = {
                     isOriginalMode = true; haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -73,7 +109,7 @@ fun HearTheDifferenceScreen(isPlaying: Boolean = false, onContinue: () -> Unit, 
                     style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
             }
         } else {
-            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = SonaraCard), shape = RoundedCornerShape(20.dp)) {
+            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = SonaraCard), shape = MaterialTheme.shapes.extraLarge) {
                 Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Rounded.PlayArrow, null, Modifier.size(48.dp), tint = SonaraTextTertiary)
                     Spacer(Modifier.height(12.dp))
@@ -84,6 +120,6 @@ fun HearTheDifferenceScreen(isPlaying: Boolean = false, onContinue: () -> Unit, 
 
         Spacer(Modifier.height(32.dp))
         FilledTonalButton(onClick = { onSetEqEnabled?.invoke(true); onContinue() }, Modifier.fillMaxWidth().height(50.dp),
-            shape = RoundedCornerShape(25.dp), colors = ButtonDefaults.filledTonalButtonColors(containerColor = p, contentColor = SonaraBackground)) { Text("Get Started") }
+            shape = AppFullShape, colors = ButtonDefaults.filledTonalButtonColors(containerColor = p, contentColor = SonaraBackground)) { Text("Get Started") }
     }
 }

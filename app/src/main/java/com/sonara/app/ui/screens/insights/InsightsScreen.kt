@@ -1,8 +1,16 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package com.sonara.app.ui.screens.insights
 
 import android.graphics.Bitmap
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,26 +24,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Cached
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.Memory
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Public
-import androidx.compose.material.icons.rounded.School
-import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -47,30 +45,24 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.sonara.app.ai.SonaraAi
-import com.sonara.app.ai.SonaraAiState
-import com.sonara.app.ui.components.FluentCard
-import java.text.NumberFormat
-import java.util.Locale
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.foundation.clickable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.foundation.BorderStroke
-import kotlinx.coroutines.launch
-import com.sonara.app.intelligence.deezer.DeezerImageResolver
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import com.sonara.app.ui.theme.*
+import com.sonara.app.ai.SonaraAi
+import com.sonara.app.ai.SonaraAiState
+import com.sonara.app.ui.components.FluentCard
+import com.sonara.app.ui.theme.AppFullShape
+import com.sonara.app.ui.theme.SonaraCard
+import com.sonara.app.ui.theme.SonaraCardElevated
+import com.sonara.app.ui.theme.SonaraDivider
+import com.sonara.app.ui.theme.SonaraSuccess
+import com.sonara.app.ui.theme.SonaraTextPrimary
+import com.sonara.app.ui.theme.SonaraTextSecondary
+import com.sonara.app.ui.theme.SonaraTextTertiary
+import com.sonara.app.ui.theme.SonaraWarning
+import com.sonara.app.ui.theme.SonaraInfo
+import java.text.NumberFormat
+import java.util.Locale
 
 @Composable
 fun InsightsScreen() {
@@ -83,7 +75,6 @@ fun InsightsScreen() {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
 
-        // ═══ SCROBBLE COUNT (big, like Pano) ═══
         if (s.lastFmConnected) {
             item {
                 Column {
@@ -96,15 +87,14 @@ fun InsightsScreen() {
             item { Text("Insights", style = MaterialTheme.typography.headlineLarge) }
         }
 
-        // ═══ PERIOD SELECTOR (scrollable like Pano) ═══
         if (s.lastFmConnected) {
             item {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("7day" to "1 week", "1month" to "1 month", "3month" to "3 months", "6month" to "6 months", "12month" to "1 year", "overall" to "Overall").forEach { (id, label) ->
                         val sel = s.selectedPeriod == id
-                        OutlinedButton(onClick = { vm.setPeriod(id) }, shape = RoundedCornerShape(20.dp),
+                        OutlinedButton(onClick = { vm.setPeriod(id) }, shape = AppFullShape,
                             border = BorderStroke(1.dp, if (sel) p else SonaraDivider.copy(0.4f)),
-                            colors = ButtonDefaults.outlinedButtonColors(
+                            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
                                 containerColor = if (sel) p.copy(0.15f) else androidx.compose.ui.graphics.Color.Transparent,
                                 contentColor = if (sel) p else SonaraTextTertiary)
                         ) { Text(label, style = MaterialTheme.typography.labelMedium) }
@@ -113,7 +103,6 @@ fun InsightsScreen() {
             }
         }
 
-        // ═══ STATS GRID (2x2) ═══
         item {
             FluentCard {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -138,25 +127,13 @@ fun InsightsScreen() {
             }
         }
 
-        // ═══ NOW PLAYING ═══
         if (s.trackTitle.isNotEmpty()) { item { TrackCard(s, art, p) } }
-
-        // ═══ TOP ARTISTS ═══
         if (s.topArtists.isNotEmpty()) { item { TopArtistsCard(s, p) } }
-
-        // ═══ TOP TRACKS ═══
         if (s.topTracks.isNotEmpty()) { item { TopTracksCard(s, p) } }
-
-        // ═══ RECENTLY PLAYED ═══
         if (s.recentTracks.isNotEmpty()) { item { RecentlyPlayedCard(s, p) } }
-
-        // ═══ GENRES ═══
         if (s.genreDistribution.isNotEmpty()) { item { GenrePercentCard(s, p) } }
-
-        // ═══ THIS WEEK ═══
         if (s.weeklyTracks.isNotEmpty()) { item { WeeklyCard(s, p) } }
 
-        // ═══ DETECTION (compact) ═══
         if (s.trackTitle.isNotEmpty()) {
             item {
                 FluentCard {
@@ -177,32 +154,14 @@ fun InsightsScreen() {
     }
 }
 
-
 @Composable
 private fun TrackCard(s: InsightsUiState, art: Bitmap?, p: androidx.compose.ui.graphics.Color) {
     FluentCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (art != null) Image(art.asImageBitmap(), "Art", Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
-            else Box(Modifier.size(48.dp).background(SonaraCardElevated, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MusicNote, null, tint = p, modifier = Modifier.size(24.dp)) }
+            if (art != null) Image(art.asImageBitmap(), "Art", Modifier.size(48.dp).clip(MaterialTheme.shapes.medium), contentScale = ContentScale.Crop)
+            else Box(Modifier.size(48.dp).background(SonaraCardElevated, MaterialTheme.shapes.medium), contentAlignment = Alignment.Center) { androidx.compose.material3.Icon(Icons.Rounded.MusicNote, null, tint = p, modifier = Modifier.size(24.dp)) }
             Column(Modifier.weight(1f)) { Text(s.trackTitle.ifEmpty { "No track playing" }, style = MaterialTheme.typography.titleMedium); if (s.trackArtist.isNotEmpty()) Text(s.trackArtist, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
             if (s.isPlaying) Box(Modifier.size(8.dp).background(SonaraSuccess, CircleShape))
-        }
-    }
-}
-
-@Composable
-private fun LearningCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
-    FluentCard {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Rounded.School, null, tint = p, modifier = Modifier.size(20.dp))
-            Text("AI Learning", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-        }
-        Spacer(Modifier.height(14.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            StatBox(s.songsLearned.toString(), "Songs Learned", p)
-            StatBox(s.songsViaLastFm.toString(), "Via Last.fm", p)
-            StatBox(s.songsViaLocal.toString(), "Via Local AI", p)
-            StatBox("${s.apiAccuracy}%", "API Accuracy", p)
         }
     }
 }
@@ -226,8 +185,8 @@ private fun GenreCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color)
         sorted.forEach { (genre, count) ->
             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(genre, style = MaterialTheme.typography.labelSmall, color = SonaraTextSecondary, modifier = Modifier.width(80.dp))
-                Box(Modifier.weight(1f).height(16.dp).clip(RoundedCornerShape(4.dp)).background(SonaraCardElevated)) {
-                    Box(Modifier.fillMaxWidth(count / max).height(16.dp).clip(RoundedCornerShape(4.dp)).background(p.copy(alpha = 0.6f)))
+                Box(Modifier.weight(1f).height(16.dp).clip(MaterialTheme.shapes.extraSmall).background(SonaraCardElevated)) {
+                    Box(Modifier.fillMaxWidth(count / max).height(16.dp).clip(MaterialTheme.shapes.extraSmall).background(p.copy(alpha = 0.6f)))
                 }
                 Text(count.toString(), style = MaterialTheme.typography.labelSmall, color = SonaraTextPrimary, modifier = Modifier.width(30.dp).padding(start = 8.dp))
             }
@@ -236,71 +195,10 @@ private fun GenreCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color)
 }
 
 @Composable
-private fun WhyCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
-    FluentCard {
-        Text("Why This Result", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-        Spacer(Modifier.height(8.dp))
-        val isUnknown = s.genre == "Unknown" || s.confidence < 0.1f
-        if (isUnknown) {
-            Text("No Match", style = MaterialTheme.typography.titleMedium, color = SonaraWarning)
-            Spacer(Modifier.height(4.dp))
-            val reasons = mutableListOf<String>()
-            if (s.dataSource.contains("Local", ignoreCase = true) || s.dataSource == "None") reasons.add("Last.fm could not find this track or artist")
-            if (s.confidence < 0.1f) reasons.add("Local AI confidence too low to classify")
-            if (reasons.isEmpty()) reasons.add("No source returned a strong genre signal")
-            reasons.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
-            Spacer(Modifier.height(8.dp))
-            Text("EQ is set to flat (no changes applied).", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
-        } else {
-            Text(s.genre.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleMedium, color = p)
-            Spacer(Modifier.height(4.dp))
-            val parts = mutableListOf<String>()
-            if (s.dataSource.contains("Last.fm", ignoreCase = true)) parts.add("Last.fm matched genre tags for this track/artist")
-            if (s.dataSource.contains("Local", ignoreCase = true)) parts.add("Local AI identified the artist pattern")
-            if (s.dataSource.contains("Lyrics", ignoreCase = true)) parts.add("Lyrics analysis contributed mood data")
-            if (s.dataSource.contains("Merged", ignoreCase = true)) parts.add("Multiple sources combined for higher confidence")
-            if (parts.isEmpty()) parts.add("Detected via ${s.dataSource}")
-            parts.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
-            Spacer(Modifier.height(8.dp))
-            Text("Confidence: ${(s.confidence * 100).toInt()}% — ${if (s.confidence > 0.7f) "High" else if (s.confidence > 0.4f) "Medium" else "Low"}", style = MaterialTheme.typography.bodySmall, color = if (s.confidence > 0.7f) SonaraSuccess else SonaraWarning)
-        }
-    }
-}
-
-@Composable
-private fun DetectionCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
-    FluentCard {
-        Text("Detection", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(s.genre.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleLarge, color = p)
-                Text("Genre", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(s.mood.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleLarge, color = p)
-                Text("Mood", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-            }
-        }
-    }
-}
-
-@Composable
-private fun AnalysisCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
-    FluentCard {
-        Text("Analysis Details", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-        Spacer(Modifier.height(12.dp))
-        BarRow("Energy", s.energy, p)
-        Spacer(Modifier.height(8.dp))
-        BarRow("Confidence", s.confidence, p)
-    }
-}
-
-@Composable
 private fun BarRow(label: String, value: Float, p: androidx.compose.ui.graphics.Color) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = SonaraTextSecondary, modifier = Modifier.width(90.dp))
-        LinearProgressIndicator(progress = { value }, Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)), color = p, trackColor = SonaraCardElevated, strokeCap = StrokeCap.Round)
+        LinearProgressIndicator(progress = { value }, Modifier.weight(1f).height(6.dp).clip(MaterialTheme.shapes.extraSmall), color = p, trackColor = SonaraCardElevated, strokeCap = StrokeCap.Round)
         Text("${(value * 100).toInt()}%", style = MaterialTheme.typography.labelMedium, color = p, modifier = Modifier.width(40.dp).padding(start = 8.dp))
     }
 }
@@ -325,59 +223,6 @@ private fun PipelineCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Col
 }
 
 @Composable
-private fun ListeningStatsCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
-    val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
-    FluentCard {
-        if (s.lastFmConnected && s.lastFmUsername.isNotBlank()) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Rounded.Public, null, tint = p, modifier = Modifier.size(20.dp))
-                Text("Last.fm: ${s.lastFmUsername}", style = MaterialTheme.typography.titleSmall, color = p)
-            }
-            Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(try { fmt.format(s.totalScrobbles.toLong()) } catch (_: Exception) { s.totalScrobbles },
-                        style = MaterialTheme.typography.headlineMedium, color = p)
-                    Text("Scrobbles", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(try { fmt.format(s.totalArtists.toLong()) } catch (_: Exception) { s.totalArtists },
-                        style = MaterialTheme.typography.headlineMedium, color = p)
-                    Text("Artists", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(s.songsLearned.toString(), style = MaterialTheme.typography.headlineMedium, color = p)
-                    Text("Learned", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                }
-            }
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Rounded.Public, null, tint = SonaraTextTertiary, modifier = Modifier.size(20.dp))
-                Column {
-                    Text("Last.fm Not Connected", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-                    Text("Connect in Settings for rich listening stats", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(s.songsLearned.toString(), style = MaterialTheme.typography.headlineMedium, color = p)
-                    Text("Songs Learned", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(s.cacheSize.toString(), style = MaterialTheme.typography.headlineMedium, color = p)
-                    Text("Cached", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("${s.apiAccuracy}%", style = MaterialTheme.typography.headlineMedium, color = p)
-                    Text("Accuracy", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun TopArtistsCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
     val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
     FluentCard {
@@ -387,7 +232,7 @@ private fun TopArtistsCard(s: InsightsUiState, p: androidx.compose.ui.graphics.C
         s.topArtists.forEachIndexed { i, triple ->
             val name = triple.first; val plays = triple.second; val imageUrl = triple.third
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.size(28.dp).background(if (i < 3) p.copy(alpha = 0.15f) else SonaraCardElevated, RoundedCornerShape(6.dp)),
+                Box(Modifier.size(28.dp).background(if (i < 3) p.copy(alpha = 0.15f) else SonaraCardElevated, MaterialTheme.shapes.small),
                     contentAlignment = Alignment.Center) {
                     Text("${i + 1}", style = if (i < 3) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium,
                         color = if (i < 3) p else SonaraTextTertiary)
@@ -423,17 +268,17 @@ private fun TopTracksCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Co
         val ctx = LocalContext.current
         s.topTracks.forEachIndexed { i, track ->
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.size(28.dp).background(if (i < 3) p.copy(alpha = 0.15f) else SonaraCardElevated, RoundedCornerShape(6.dp)),
+                Box(Modifier.size(28.dp).background(if (i < 3) p.copy(alpha = 0.15f) else SonaraCardElevated, MaterialTheme.shapes.small),
                     contentAlignment = Alignment.Center) {
                     Text("${i + 1}", style = if (i < 3) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium,
                         color = if (i < 3) p else SonaraTextTertiary)
                 }
                 if (track.imageUrl.isNotBlank()) {
                     AsyncImage(model = ImageRequest.Builder(ctx).data(track.imageUrl).crossfade(true).build(),
-                        contentDescription = null, modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+                        contentDescription = null, modifier = Modifier.size(44.dp).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop)
                 } else {
-                    Box(Modifier.size(44.dp).background(SonaraCardElevated, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.MusicNote, null, tint = p.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                    Box(Modifier.size(44.dp).background(SonaraCardElevated, MaterialTheme.shapes.small), contentAlignment = Alignment.Center) {
+                        androidx.compose.material3.Icon(Icons.Rounded.MusicNote, null, tint = p.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
                     }
                 }
                 Column(Modifier.weight(1f)) {
@@ -477,8 +322,8 @@ private fun GenrePercentCard(s: InsightsUiState, p: androidx.compose.ui.graphics
             val pct = (count / total * 100).toInt()
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(genre, style = MaterialTheme.typography.bodySmall, color = SonaraTextPrimary, modifier = Modifier.width(72.dp))
-                Box(Modifier.weight(1f).height(20.dp).clip(RoundedCornerShape(6.dp)).background(SonaraCardElevated)) {
-                    Box(Modifier.fillMaxWidth(count / total).height(20.dp).clip(RoundedCornerShape(6.dp)).background(p.copy(alpha = 0.7f)))
+                Box(Modifier.weight(1f).height(20.dp).clip(MaterialTheme.shapes.small).background(SonaraCardElevated)) {
+                    Box(Modifier.fillMaxWidth(count / total).height(20.dp).clip(MaterialTheme.shapes.small).background(p.copy(alpha = 0.7f)))
                     Text("$pct%", style = MaterialTheme.typography.labelSmall, color = SonaraTextPrimary,
                         modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
                 }
@@ -488,38 +333,14 @@ private fun GenrePercentCard(s: InsightsUiState, p: androidx.compose.ui.graphics
 }
 
 @Composable
-private fun ArtistDetailDialog(d: DeezerImageResolver.ArtistDetail, p: androidx.compose.ui.graphics.Color, onDismiss: () -> Unit) {
-    val ctx = LocalContext.current; val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
-    AlertDialog(onDismissRequest = onDismiss, containerColor = SonaraCard,
-        title = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (d.imageUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(d.imageUrl).crossfade(true).build(), contentDescription = d.name, modifier = Modifier.size(56.dp).clip(CircleShape), contentScale = ContentScale.Crop)
-            Text(d.name, style = MaterialTheme.typography.titleLarge, color = SonaraTextPrimary)
-        } },
-        text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(fmt.format(d.fans.toLong()), style = MaterialTheme.typography.titleMedium, color = p); Text("Fans", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary) }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(d.albums.toString(), style = MaterialTheme.typography.titleMedium, color = p); Text("Albums", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary) }
-            }
-            if (d.topTracks.isNotEmpty()) { Text("Top Tracks", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-                d.topTracks.forEachIndexed { i, t -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("${i+1}", style = MaterialTheme.typography.labelMedium, color = if (i<3) p else SonaraTextTertiary, modifier = Modifier.width(24.dp))
-                    Text(t.title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, modifier = Modifier.weight(1f), maxLines = 1)
-                    Text("${t.durationSec/60}:${"%02d".format(t.durationSec%60)}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                } }
-            }
-        } },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close", color = p) } })
-}
-
-@Composable
 private fun RecentlyPlayedCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
     val ctx = LocalContext.current
     FluentCard {
         Text("Recently Played", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary); Spacer(Modifier.height(10.dp))
         s.recentTracks.take(8).forEach { t ->
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (t.imageUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(t.imageUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.size(36.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop)
-                else Box(Modifier.size(36.dp).background(SonaraCardElevated, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MusicNote, null, tint = p.copy(0.5f), modifier = Modifier.size(16.dp)) }
+                if (t.imageUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(t.imageUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.size(36.dp).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop)
+                else Box(Modifier.size(36.dp).background(SonaraCardElevated, MaterialTheme.shapes.small), contentAlignment = Alignment.Center) { androidx.compose.material3.Icon(Icons.Rounded.MusicNote, null, tint = p.copy(0.5f), modifier = Modifier.size(16.dp)) }
                 Column(Modifier.weight(1f)) { Text(t.title, style = MaterialTheme.typography.bodySmall, color = SonaraTextPrimary, maxLines = 1); Text(t.artist, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, maxLines = 1) }
                 if (t.isNowPlaying) Box(Modifier.size(8.dp).background(SonaraSuccess, CircleShape))
                 else Text(t.date.takeLast(11).take(6), style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
@@ -532,7 +353,7 @@ private fun RecentlyPlayedCard(s: InsightsUiState, p: androidx.compose.ui.graphi
 private fun PRow(icon: ImageVector, label: String, value: String, p: androidx.compose.ui.graphics.Color, on: Boolean) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(8.dp).background(if (on) p.copy(0.8f) else SonaraTextTertiary.copy(0.3f), CircleShape))
-        Icon(icon, null, tint = if (on) SonaraTextSecondary else SonaraTextTertiary, modifier = Modifier.size(18.dp))
+        androidx.compose.material3.Icon(icon, null, tint = if (on) SonaraTextSecondary else SonaraTextTertiary, modifier = Modifier.size(18.dp))
         Text(label, style = MaterialTheme.typography.bodyMedium, color = SonaraTextSecondary, modifier = Modifier.weight(1f))
         Text(value, style = MaterialTheme.typography.labelLarge, color = if (on) SonaraTextPrimary else SonaraTextTertiary)
     }

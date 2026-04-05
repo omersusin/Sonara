@@ -1,6 +1,12 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package com.sonara.app.ui.screens.presets
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,12 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -31,14 +32,26 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonara.app.preset.Preset
 import com.sonara.app.ui.components.EqCurve
 import com.sonara.app.ui.components.FluentCard
-import com.sonara.app.ui.theme.*
+import com.sonara.app.ui.theme.SonaraCard
+import com.sonara.app.ui.theme.SonaraCardElevated
+import com.sonara.app.ui.theme.SonaraDivider
+import com.sonara.app.ui.theme.SonaraError
+import com.sonara.app.ui.theme.SonaraSuccess
+import com.sonara.app.ui.theme.SonaraTextPrimary
+import com.sonara.app.ui.theme.SonaraTextSecondary
+import com.sonara.app.ui.theme.SonaraTextTertiary
 
 @Composable
 fun PresetsScreen() {
@@ -82,10 +95,23 @@ fun PresetsScreen() {
 private fun PresetItem(preset: Preset, isActive: Boolean, onApply: () -> Unit, onFav: () -> Unit, onDuplicate: () -> Unit, onDelete: () -> Unit) {
     val p = MaterialTheme.colorScheme.primary
     val border = if (isActive) p.copy(0.6f) else SonaraDivider.copy(0.3f)
+    var isPressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = 400f),
+        label = "preset_press"
+    )
 
-    Surface(onClick = onApply, shape = MaterialTheme.shapes.medium,
+    Surface(
+        onClick = onApply,
+        shape = MaterialTheme.shapes.medium,
         color = if (isActive) SonaraCardElevated else SonaraCard,
-        border = BorderStroke(if (isActive) 1.5.dp else 0.6.dp, border)) {
+        border = BorderStroke(if (isActive) 1.5.dp else 0.6.dp, border),
+        modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
+            .pointerInput(Unit) {
+                detectTapGestures(onPress = { isPressed = true; try { awaitRelease() } finally { isPressed = false } })
+            }
+    ) {
         Column(Modifier.padding(14.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

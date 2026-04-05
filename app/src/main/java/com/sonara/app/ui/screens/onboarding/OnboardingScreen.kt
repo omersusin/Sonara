@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package com.sonara.app.ui.screens.onboarding
 
 import android.Manifest
@@ -7,9 +9,23 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -21,23 +37,47 @@ import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
-import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.SonaraApp
-import com.sonara.app.ui.theme.*
+import com.sonara.app.service.SonaraNotificationListener
+import com.sonara.app.ui.theme.SonaraBackground
+import com.sonara.app.ui.theme.SonaraCard
+import com.sonara.app.ui.theme.SonaraCardElevated
+import com.sonara.app.ui.theme.SonaraDivider
+import com.sonara.app.ui.theme.SonaraSuccess
+import com.sonara.app.ui.theme.SonaraTextPrimary
+import com.sonara.app.ui.theme.SonaraTextSecondary
+import com.sonara.app.ui.theme.SonaraTextTertiary
 import kotlinx.coroutines.launch
 
 data class OnboardingPage(val icon: ImageVector, val title: String, val description: String)
@@ -47,11 +87,11 @@ data class OnboardingPage(val icon: ImageVector, val title: String, val descript
 fun OnboardingScreen(onComplete: () -> Unit) {
     val pages = listOf(
         OnboardingPage(Icons.Rounded.MusicNote, "Sonara listens to your music",
-            "Real-time audio analysis detects the character of every song and automatically adjusts your equalizer."),
+            "Real-time audio analyses detects the character of every song and automatically adjusts your equalizer."),
         OnboardingPage(Icons.Rounded.GraphicEq, "Gets smarter over time",
             "Give feedback and Sonara learns your preferences. Connect Last.fm for even richer analysis."),
     )
-    val totalPages = pages.size + 2  // info pages + permissions + API keys
+    val totalPages = pages.size + 2
     val pagerState = rememberPagerState(pageCount = { totalPages })
     val scope = rememberCoroutineScope()
     val p = MaterialTheme.colorScheme.primary
@@ -149,7 +189,6 @@ private fun ApiKeysPage(p: androidx.compose.ui.graphics.Color, ctx: android.cont
     val app = SonaraApp.instance
     val scope = rememberCoroutineScope()
 
-    // Key states
     var lastfmKey by remember { mutableStateOf("") }
     var lastfmSecret by remember { mutableStateOf("") }
     var geminiKey by remember { mutableStateOf("") }
@@ -163,6 +202,7 @@ private fun ApiKeysPage(p: androidx.compose.ui.graphics.Color, ctx: android.cont
         AlertDialog(
             onDismissRequest = { showGuide = false },
             containerColor = SonaraCard,
+            shape = MaterialTheme.shapes.extraLarge,
             title = { Text("Where to get API keys") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -201,44 +241,44 @@ private fun ApiKeysPage(p: androidx.compose.ui.graphics.Color, ctx: android.cont
 
         Spacer(Modifier.height(8.dp))
 
-        // Last.fm
         Text("Last.fm", style = MaterialTheme.typography.labelLarge, color = SonaraTextPrimary, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = lastfmKey, onValueChange = { lastfmKey = it }, label = { Text("API Key") },
-            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(),
+            shape = MaterialTheme.shapes.extraSmall)
         OutlinedTextField(value = lastfmSecret, onValueChange = { lastfmSecret = it }, label = { Text("Shared Secret") },
-            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(),
+            shape = MaterialTheme.shapes.extraSmall)
 
         Spacer(Modifier.height(4.dp))
 
-        // Gemini
         Text("Gemini", style = MaterialTheme.typography.labelLarge, color = SonaraTextPrimary, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = geminiKey, onValueChange = { geminiKey = it }, label = { Text("API Key") },
-            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(),
+            shape = MaterialTheme.shapes.extraSmall)
 
         Spacer(Modifier.height(4.dp))
 
-        // OpenRouter
         Text("OpenRouter", style = MaterialTheme.typography.labelLarge, color = SonaraTextPrimary, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = openRouterKey, onValueChange = { openRouterKey = it }, label = { Text("API Key") },
-            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(),
+            shape = MaterialTheme.shapes.extraSmall)
 
         Spacer(Modifier.height(4.dp))
 
-        // Groq
         Text("Groq", style = MaterialTheme.typography.labelLarge, color = SonaraTextPrimary, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = groqKey, onValueChange = { groqKey = it }, label = { Text("API Key") },
-            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(),
+            shape = MaterialTheme.shapes.extraSmall)
 
         Spacer(Modifier.height(4.dp))
 
-        // GitHub PAT
         Text("GitHub (Community)", style = MaterialTheme.typography.labelLarge, color = SonaraTextPrimary, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = githubToken, onValueChange = { githubToken = it }, label = { Text("Personal Access Token") },
-            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+            modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(),
+            shape = MaterialTheme.shapes.extraSmall)
 
         Spacer(Modifier.height(12.dp))
 
-        // Save all
         OutlinedButton(
             onClick = {
                 scope.launch {

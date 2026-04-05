@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package com.sonara.app.ui.screens.settings
 
 import android.content.ClipData
@@ -10,6 +12,7 @@ import android.provider.Settings
 import android.os.Environment
 import java.io.File
 import android.widget.Toast
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,6 +43,7 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Upload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -174,7 +178,8 @@ private fun CommunityCard(state: SettingsUiState, vm: SettingsViewModel) {
                         Text("Required for contributions. Create a fine-grained token at github.com/settings/tokens with repo:sonara-models read/write access.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                     }
                 },
-                confirmButton = { TextButton(onClick = { showCommunityHelp = false }) { Text("Got it") } }
+                confirmButton = { TextButton(onClick = { showCommunityHelp = false }) { Text("Got it") } },
+                shape = MaterialTheme.shapes.extraLarge
             )
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -236,7 +241,8 @@ private fun CommunityCard(state: SettingsUiState, vm: SettingsViewModel) {
                     label = { Text("Personal Access Token") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation()
+                    visualTransformation = PasswordVisualTransformation(),
+                    shape = MaterialTheme.shapes.extraSmall
                 )
                 Spacer(Modifier.height(4.dp))
                 OutlinedButton(
@@ -338,7 +344,8 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
                                 ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.last.fm/api/account/create")))
                             }) { Text("Open Last.fm") }
                         },
-                        dismissButton = { TextButton(onClick = { showApiGuide = false }) { Text("Close") } }
+                        dismissButton = { TextButton(onClick = { showApiGuide = false }) { Text("Close") } },
+                        shape = MaterialTheme.shapes.extraLarge
                     )
                 }
                 if (!state.lastFmConnected) {
@@ -353,7 +360,8 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
                         label = { Text("API Key") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        visualTransformation = PasswordVisualTransformation()
+                        visualTransformation = PasswordVisualTransformation(),
+                        shape = MaterialTheme.shapes.extraSmall
                     )
 
                     Spacer(Modifier.height(8.dp))
@@ -364,7 +372,8 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
                         label = { Text("Shared Secret") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        visualTransformation = PasswordVisualTransformation()
+                        visualTransformation = PasswordVisualTransformation(),
+                        shape = MaterialTheme.shapes.extraSmall
                     )
 
                     Spacer(Modifier.height(8.dp))
@@ -407,10 +416,11 @@ private fun AutoEqImportCard() {
                         Text("1. Go to github.com/jaakkopasanen/AutoEq", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                         Text("2. Find your headphone model", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                         Text("3. Copy the GraphicEQ line from the README", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                        Text("4. Paste it here and tap Parse → Apply", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        Text("4. Paste it here and tap Parse -> Apply", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                     }
                 },
-                confirmButton = { TextButton(onClick = { showAutoEqHelp = false }) { Text("Got it") } }
+                confirmButton = { TextButton(onClick = { showAutoEqHelp = false }) { Text("Got it") } },
+                shape = MaterialTheme.shapes.extraLarge
             )
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -569,7 +579,8 @@ private fun PresetExportImportCard(vm: SettingsViewModel) {
                 TextButton(onClick = { showImportDialog = false; importInput = ""; importResult = "" }) {
                     Text("Cancel", color = SonaraTextSecondary)
                 }
-            }
+            },
+            shape = MaterialTheme.shapes.extraLarge
         )
     }
 }
@@ -674,7 +685,8 @@ private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
                         Text("When multiple sources agree, confidence is higher and the result is marked as Merged.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                     }
                 },
-                confirmButton = { TextButton(onClick = { showAiSourcesHelp = false }) { Text("Got it") } }
+                confirmButton = { TextButton(onClick = { showAiSourcesHelp = false }) { Text("Got it") } },
+                shape = MaterialTheme.shapes.extraLarge
             )
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -709,8 +721,9 @@ private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
             Spacer(Modifier.height(8.dp))
             val p2 = MaterialTheme.colorScheme.primary
             OutlinedTextField(value = s.geminiKeyInput, onValueChange = { vm.updateGeminiKeyInput(it) },
-                placeholder = { Text(if (s.geminiApiKey.isNotBlank()) "••••••••" else "Gemini API key", color = SonaraTextTertiary) },
+                placeholder = { Text(if (s.geminiApiKey.isNotBlank()) "..." else "Gemini API key", color = SonaraTextTertiary) },
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
+                shape = MaterialTheme.shapes.extraSmall,
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
             Spacer(Modifier.height(4.dp))
             OutlinedButton(onClick = { vm.saveGeminiKey() }, enabled = s.geminiKeyInput.isNotBlank(),
@@ -735,12 +748,14 @@ private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
             Spacer(Modifier.height(8.dp))
             val p2 = MaterialTheme.colorScheme.primary
             OutlinedTextField(value = s.openRouterKeyInput, onValueChange = { vm.updateOpenRouterKeyInput(it) },
-                placeholder = { Text(if (s.openRouterApiKey.isNotBlank()) "••••" else "OpenRouter API key", color = SonaraTextTertiary) },
+                placeholder = { Text(if (s.openRouterApiKey.isNotBlank()) "...." else "OpenRouter API key", color = SonaraTextTertiary) },
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
+                shape = MaterialTheme.shapes.extraSmall,
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
             Spacer(Modifier.height(4.dp))
             OutlinedTextField(value = s.openRouterModel, onValueChange = { vm.setOpenRouterModel(it) },
                 label = { Text("Model") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                shape = MaterialTheme.shapes.extraSmall,
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
             Spacer(Modifier.height(4.dp))
             OutlinedButton(onClick = { vm.saveOpenRouterKey() }, enabled = s.openRouterKeyInput.isNotBlank(),
@@ -752,12 +767,14 @@ private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
             Spacer(Modifier.height(8.dp))
             val p2 = MaterialTheme.colorScheme.primary
             OutlinedTextField(value = s.groqKeyInput, onValueChange = { vm.updateGroqKeyInput(it) },
-                placeholder = { Text(if (s.groqApiKey.isNotBlank()) "••••" else "Groq API key", color = SonaraTextTertiary) },
+                placeholder = { Text(if (s.groqApiKey.isNotBlank()) "...." else "Groq API key", color = SonaraTextTertiary) },
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
+                shape = MaterialTheme.shapes.extraSmall,
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
             Spacer(Modifier.height(4.dp))
             OutlinedTextField(value = s.groqModel, onValueChange = { vm.setGroqModel(it) },
                 label = { Text("Model") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                shape = MaterialTheme.shapes.extraSmall,
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
             Spacer(Modifier.height(4.dp))
             OutlinedButton(onClick = { vm.saveGroqKey() }, enabled = s.groqKeyInput.isNotBlank(),
@@ -804,7 +821,8 @@ private fun AboutCard(state: SettingsUiState, vm: SettingsViewModel) {
                     },
                     modifier = Modifier.width(80.dp),
                     singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyMedium
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    shape = MaterialTheme.shapes.extraSmall
                 )
             }
             Spacer(Modifier.height(12.dp))

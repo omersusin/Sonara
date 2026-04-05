@@ -18,7 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.sonara.app.ui.theme.SonaraPrimary
 import com.sonara.app.ui.theme.SonaraTextSecondary
 import com.sonara.app.ui.theme.SonaraWarning
 

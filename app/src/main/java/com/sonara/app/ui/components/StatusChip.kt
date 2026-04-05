@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -15,7 +14,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import com.sonara.app.ui.theme.*
+import com.sonara.app.ui.theme.AppFullShape
+import com.sonara.app.ui.theme.SonaraCardElevated
+import com.sonara.app.ui.theme.SonaraError
+import com.sonara.app.ui.theme.SonaraSuccess
+import com.sonara.app.ui.theme.SonaraTextTertiary
+import com.sonara.app.ui.theme.SonaraWarning
 
 enum class ChipStatus { Active, Warning, Error, Inactive }
 
@@ -34,7 +38,7 @@ fun StatusChip(
         ChipStatus.Error -> { bgColor = SonaraError.copy(alpha = 0.12f); textColor = SonaraError }
         ChipStatus.Inactive -> { bgColor = SonaraCardElevated; textColor = SonaraTextTertiary }
     }
-    Surface(shape = RoundedCornerShape(50), color = bgColor) {
+    Surface(shape = AppFullShape, color = bgColor) {
         Row(
             modifier = Modifier.padding(
                 horizontal = if (compact) 6.dp else 10.dp,

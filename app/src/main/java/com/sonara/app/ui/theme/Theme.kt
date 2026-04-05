@@ -1,12 +1,11 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package com.sonara.app.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MotionScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
@@ -41,28 +40,34 @@ fun SonaraTheme(
     // ═══ Material color scheme ═══
     val colorScheme = when {
         useDynamic && useDark -> {
-            val base = dynamicDarkColorScheme(context)
+            val base = androidx.compose.material3.dynamicDarkColorScheme(context)
             base.copy(
                 background = palette.background, surface = palette.surface,
                 surfaceVariant = palette.card,
                 onBackground = if (highContrast) Color.White else palette.textPrimary,
                 onSurface = if (highContrast) Color.White else palette.textPrimary,
                 onSurfaceVariant = if (highContrast) palette.textPrimary else palette.textSecondary,
-                outline = palette.divider, outlineVariant = palette.divider, error = SonaraError
+                outline = palette.divider, outlineVariant = palette.divider, error = SonaraError,
+                primary = p.primary, onPrimary = palette.background,
+                primaryContainer = p.primary.copy(alpha = 0.1f), onPrimaryContainer = p.primaryLight,
+                secondary = SonaraInfo,
             )
         }
         useDynamic && !useDark -> {
-            val base = dynamicLightColorScheme(context)
+            val base = androidx.compose.material3.dynamicLightColorScheme(context)
             base.copy(
                 background = palette.background, surface = palette.surface,
                 surfaceVariant = palette.card,
                 onBackground = if (highContrast) Color.Black else palette.textPrimary,
                 onSurface = if (highContrast) Color.Black else palette.textPrimary,
                 onSurfaceVariant = if (highContrast) palette.textPrimary else palette.textSecondary,
-                outline = palette.divider, error = SonaraError
+                outline = palette.divider, error = SonaraError,
+                primary = p.primary, onPrimary = Color.White,
+                primaryContainer = p.primary.copy(alpha = 0.10f), onPrimaryContainer = p.primaryDark,
+                secondary = Color(0xFF5A7A8A),
             )
         }
-        !useDark -> lightColorScheme(
+        !useDark -> lightColorScheme.copy(
             primary = p.primary, onPrimary = Color.White,
             primaryContainer = p.primary.copy(alpha = 0.10f), onPrimaryContainer = p.primaryDark,
             secondary = Color(0xFF5A7A8A), onSecondary = Color.White,
@@ -70,9 +75,9 @@ fun SonaraTheme(
             surface = palette.surface, onSurface = if (highContrast) Color.Black else palette.textPrimary,
             surfaceVariant = palette.card, onSurfaceVariant = if (highContrast) palette.textPrimary else palette.textSecondary,
             outline = palette.divider, outlineVariant = Color(0xFFE5E5EA),
-            error = Color(0xFFD32F2F), inverseSurface = Color(0xFF2C2C2E), inverseOnSurface = Color(0xFFF5F5F5)
+            error = SonaraError, inverseSurface = Color(0xFF2C2C2E), inverseOnSurface = Color(0xFFF5F5F5),
         )
-        else -> darkColorScheme(
+        else -> darkColorScheme.copy(
             primary = p.primary, onPrimary = palette.background,
             primaryContainer = p.primary.copy(alpha = 0.1f), onPrimaryContainer = p.primaryLight,
             secondary = SonaraInfo,
@@ -81,16 +86,17 @@ fun SonaraTheme(
             onBackground = if (highContrast) Color.White else palette.textPrimary,
             onSurface = if (highContrast) Color.White else palette.textPrimary,
             onSurfaceVariant = if (highContrast) palette.textPrimary else palette.textSecondary,
-            outline = palette.divider, outlineVariant = palette.divider, error = SonaraError
+            outline = palette.divider, outlineVariant = palette.divider, error = SonaraError,
         )
     }
 
     CompositionLocalProvider(LocalSonaraColors provides palette) {
-        MaterialTheme(
+        androidx.compose.material3.MaterialExpressiveTheme(
             colorScheme = colorScheme,
-            typography = SonaraTypography,
+            typography = AppTypography,
             shapes = SonaraShapes,
-            content = content
+            motionScheme = MotionScheme.expressive(),
+            content = content,
         )
     }
 }

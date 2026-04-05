@@ -80,12 +80,33 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore)
 
-    implementation(platform(libs.compose.bom))
+    // Compose BOM — ek jagah version, baaki sab auto
+    val bom = platform(libs.compose.bom)
+    implementation(bom)
+    androidTestImplementation(bom)
+
+    // Compose UI core
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
-    implementation(libs.compose.material3)
-    implementation(libs.compose.icons.extended)
+    implementation(libs.compose.foundation)
+    implementation(libs.compose.animation)
+    debugImplementation(libs.compose.ui.tooling)
+
+    // Material 3 Expressive — THE main one
+    implementation(libs.material3)
+    implementation(libs.material3.window)
+    implementation(libs.material3.adaptive)
+
+    // Icons — manually add karna padega M3 1.4.0+
+    implementation(libs.icons.core)
+    implementation(libs.icons.extended)
+
+    // Shape Morphing (M3E exclusive — RoundedPolygon, Morph)
+    implementation(libs.graphics.shapes)
+
+    // Spring animations
+    implementation(libs.dynamic.animation)
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
@@ -99,6 +120,4 @@ dependencies {
     implementation(libs.kotlinx.coroutines)
     implementation(libs.workmanager.runtime)
     implementation(libs.coil.compose)
-
-    debugImplementation(libs.compose.ui.tooling)
 }

@@ -1,6 +1,8 @@
 package com.sonara.app.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -8,7 +10,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,8 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.sonara.app.ui.theme.AppFullShape
 import com.sonara.app.ui.theme.SonaraCard
-import com.sonara.app.ui.theme.SonaraCardElevated
 import com.sonara.app.ui.theme.SonaraTextPrimary
 import com.sonara.app.ui.theme.SonaraTextTertiary
 
@@ -33,7 +34,7 @@ fun CompareToggle(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(SonaraCard)
             .padding(4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
@@ -63,16 +64,18 @@ private fun CompareTab(
     val primary = MaterialTheme.colorScheme.primary
     val bgColor by animateColorAsState(
         targetValue = if (isSelected) primary.copy(alpha = 0.15f) else SonaraCard,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = 400f),
         label = "tab_bg"
     )
     val textColor by animateColorAsState(
         targetValue = if (isSelected) primary else SonaraTextTertiary,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = 400f),
         label = "tab_text"
     )
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(AppFullShape)
             .background(bgColor)
             .clickable { onClick() }
             .padding(vertical = 10.dp),

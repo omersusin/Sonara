@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -69,7 +68,7 @@ fun BandSlider(
                 modifier = Modifier
                     .width(3.dp)
                     .height(trackHeight)
-                    .clip(RoundedCornerShape(2.dp))
+                    .clip(MaterialTheme.shapes.extraSmall)
                     .background(SonaraCardElevated)
                     .align(Alignment.Center)
             )
@@ -94,7 +93,7 @@ fun BandSlider(
                     .height(fillHeightDp)
                     .align(Alignment.TopCenter)
                     .offset(x = 0.dp, y = fillTopDp)
-                    .clip(RoundedCornerShape(2.dp))
+                    .clip(MaterialTheme.shapes.extraSmall)
                     .background(if (enabled) primary.copy(alpha = 0.7f) else SonaraTextTertiary.copy(alpha = 0.3f))
             )
 

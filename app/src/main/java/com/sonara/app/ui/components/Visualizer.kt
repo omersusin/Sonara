@@ -1,11 +1,11 @@
 package com.sonara.app.ui.components
 
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,9 +25,9 @@ import kotlin.math.sin
 fun SonaraVisualizer(
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
-    barCount: Int = 32
-,
-    fftData: FloatArray? = null) {
+    barCount: Int = 32,
+    fftData: FloatArray? = null
+) {
     val primary = MaterialTheme.colorScheme.primary
     val transition = rememberInfiniteTransition(label = "viz")
 
@@ -35,7 +35,7 @@ fun SonaraVisualizer(
         initialValue = 0f,
         targetValue = 6.2832f,
         animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = LinearEasing),
+            animation = spring(dampingRatio = 0.9f, stiffness = 200f),
             repeatMode = RepeatMode.Restart
         ),
         label = "phase"
@@ -45,7 +45,7 @@ fun SonaraVisualizer(
         initialValue = 0.3f,
         targetValue = 0.8f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing),
+            animation = spring(dampingRatio = 0.9f, stiffness = 200f),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse"
@@ -63,7 +63,6 @@ fun SonaraVisualizer(
 
             for (i in 0 until barCount) {
                 val barHeight = if (fftData != null && fftData.size >= barCount && isPlaying) {
-                    // Real FFT data
                     (fftData[i].coerceIn(0.05f, 1f)) * h
                 } else if (isPlaying) {
                     val wave1 = sin(phase + seeds[i]).toFloat() * 0.3f

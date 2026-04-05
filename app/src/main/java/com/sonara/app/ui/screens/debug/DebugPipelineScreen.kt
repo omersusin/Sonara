@@ -1,23 +1,38 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package com.sonara.app.ui.screens.debug
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.sonara.app.SonaraApp
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.components.DisplayLabelMapper
-import com.sonara.app.ui.theme.*
+import com.sonara.app.ui.theme.SonaraBackground
+import com.sonara.app.ui.theme.SonaraCard
+import com.sonara.app.ui.theme.SonaraDivider
+import com.sonara.app.ui.theme.SonaraTextPrimary
+import com.sonara.app.ui.theme.SonaraTextSecondary
 
-/**
- * Madde 4: Debug ekranı — pipeline durumunu detaylı gösterir.
- * Detected title, Canonical title, Source, Confidence, EQ applied?
- */
 @Composable
 fun DebugPipelineScreen() {
     val np by SonaraNotificationListener.nowPlaying.collectAsState()
@@ -66,7 +81,7 @@ fun DebugPipelineScreen() {
 private fun DebugRow(label: String, value: String) {
     Row(
         Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(MaterialTheme.shapes.small)
             .background(SonaraCard)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween

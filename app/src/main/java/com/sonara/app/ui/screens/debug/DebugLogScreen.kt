@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package com.sonara.app.ui.screens.debug
 
 import android.os.Environment
@@ -17,12 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -43,7 +40,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.sonara.app.data.LogLevel
 import com.sonara.app.data.SonaraLogger
 import com.sonara.app.ui.theme.SonaraCard
@@ -73,7 +69,6 @@ fun DebugLogScreen(onBack: () -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        // Header
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -81,7 +76,7 @@ fun DebugLogScreen(onBack: () -> Unit) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Rounded.ArrowBack, "Back", tint = SonaraTextPrimary)
+                    androidx.compose.material3.Icon(Icons.Rounded.ArrowBack, "Back", tint = SonaraTextPrimary)
                 }
                 Column {
                     Text("Debug Log", style = MaterialTheme.typography.titleLarge)
@@ -93,7 +88,7 @@ fun DebugLogScreen(onBack: () -> Unit) {
                     clipboard.setText(AnnotatedString(SonaraLogger.exportAsText()))
                     Toast.makeText(context, "Log copied (${logs.size} entries)", Toast.LENGTH_SHORT).show()
                 }) {
-                    Icon(Icons.Rounded.ContentCopy, "Copy", tint = p)
+                    androidx.compose.material3.Icon(Icons.Rounded.ContentCopy, "Copy", tint = p)
                 }
                 IconButton(onClick = {
                     try {
@@ -106,15 +101,14 @@ fun DebugLogScreen(onBack: () -> Unit) {
                         Toast.makeText(context, "Save failed: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }) {
-                    Icon(Icons.Rounded.Save, "Save", tint = p)
+                    androidx.compose.material3.Icon(Icons.Rounded.Save, "Save", tint = p)
                 }
                 IconButton(onClick = { SonaraLogger.clear() }) {
-                    Icon(Icons.Rounded.Delete, "Clear", tint = SonaraError)
+                    androidx.compose.material3.Icon(Icons.Rounded.Delete, "Clear", tint = SonaraError)
                 }
             }
         }
 
-        // Filter chips
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -146,7 +140,6 @@ fun DebugLogScreen(onBack: () -> Unit) {
 
         Spacer(Modifier.height(8.dp))
 
-        // Log entries — use index to avoid duplicate key crash
         LazyColumn(
             Modifier.fillMaxSize(),
             state = listState,
@@ -172,12 +165,10 @@ fun DebugLogScreen(onBack: () -> Unit) {
                     entry.displayText,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(bgColor, RoundedCornerShape(4.dp))
+                        .background(bgColor, MaterialTheme.shapes.extraSmall)
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        lineHeight = 14.sp
+                        fontFamily = FontFamily.Monospace
                     ),
                     color = textColor
                 )

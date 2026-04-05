@@ -1,11 +1,17 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package com.sonara.app.ui.components
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -15,12 +21,15 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.sonara.app.ui.navigation.Screen
-import com.sonara.app.ui.theme.*
+import com.sonara.app.ui.theme.SonaraDivider
+import com.sonara.app.ui.theme.SonaraSurface
+import com.sonara.app.ui.theme.SonaraTextTertiary
 
 private data class NavItem(val screen: Screen, val icon: ImageVector)
 
@@ -41,6 +50,11 @@ fun SonaraBottomBar(navController: NavController) {
         NavigationBar(containerColor = SonaraSurface, tonalElevation = 0.dp) {
             items.forEach { item ->
                 val selected = currentRoute == item.screen.route
+                val iconScale by animateFloatAsState(
+                    targetValue = if (selected) 1.2f else 1f,
+                    animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+                    label = "nav_icon_scale"
+                )
                 NavigationBarItem(
                     selected = selected,
                     onClick = {
@@ -51,11 +65,19 @@ fun SonaraBottomBar(navController: NavController) {
                             }
                         }
                     },
-                    icon = { Icon(item.icon, contentDescription = item.screen.label) },
+                    icon = {
+                        Icon(
+                            item.icon,
+                            contentDescription = item.screen.label,
+                            modifier = Modifier.graphicsLayer { scaleX = iconScale; scaleY = iconScale }
+                        )
+                    },
                     label = { Text(item.screen.label) },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = primary, selectedTextColor = primary,
-                        unselectedIconColor = SonaraTextTertiary, unselectedTextColor = SonaraTextTertiary,
+                        selectedIconColor = primary,
+                        selectedTextColor = MaterialTheme.colorScheme.secondary,
+                        unselectedIconColor = SonaraTextTertiary,
+                        unselectedTextColor = SonaraTextTertiary,
                         indicatorColor = primary.copy(alpha = 0.1f)
                     )
                 )
