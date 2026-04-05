@@ -83,22 +83,26 @@ fun InsightsScreen() {
     val aiState by (SonaraAi.getInstance()?.state ?: kotlinx.coroutines.flow.MutableStateFlow(SonaraAiState())).collectAsState()
     val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
-        // ═══ SCROBBLE COUNT (big, like Pano) ═══
-        if (s.lastFmConnected) {
-            item {
+        // ═══ 1. HERO: Scrobble count + avg daily ═══
+        item {
+            if (s.lastFmConnected) {
                 Column {
                     Text(try { fmt.format(s.totalScrobbles.toLong()) } catch (_: Exception) { s.totalScrobbles },
                         style = MaterialTheme.typography.displaySmall, color = p)
                     Text("scrobbles", style = MaterialTheme.typography.titleMedium, color = SonaraTextSecondary)
+                    if (s.avgDailyScrobbles > 0) {
+                        Spacer(Modifier.height(4.dp))
+                        Text("~${s.avgDailyScrobbles} per day", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                    }
                 }
+            } else {
+                Text("Insights", style = MaterialTheme.typography.headlineLarge)
             }
-        } else {
-            item { Text("Insights", style = MaterialTheme.typography.headlineLarge) }
         }
 
-        // ═══ PERIOD SELECTOR (scrollable like Pano) ═══
+        // ═══ 2. PERIOD SELECTOR ═══
         if (s.lastFmConnected) {
             item {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -115,66 +119,88 @@ fun InsightsScreen() {
             }
         }
 
-        // ═══ STATS GRID (2x2) ═══
+        // ═══ 3. SNAPSHOT ROW (top artist + top track + stats) ═══
         item {
             FluentCard {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    val topArtistName = s.topArtists.firstOrNull()?.first ?: "-"
+                    val topTrackName = s.topTracks.firstOrNull()?.title ?: "-"
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                        Text(topArtistName, style = MaterialTheme.typography.titleSmall, color = p, maxLines = 1)
+                        Text("#1 artist", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                        Text(topTrackName, style = MaterialTheme.typography.titleSmall, color = p, maxLines = 1)
+                        Text("#1 track", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
                         Text(try { fmt.format(s.totalArtists.toLong()) } catch (_: Exception) { s.totalArtists },
-                            style = MaterialTheme.typography.headlineSmall, color = p)
+                            style = MaterialTheme.typography.titleSmall, color = p)
                         Text("artists", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(s.songsLearned.toString(), style = MaterialTheme.typography.headlineSmall, color = p)
-                        Text("learned", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(s.cacheSize.toString(), style = MaterialTheme.typography.headlineSmall, color = p)
-                        Text("cached", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("${s.apiAccuracy}%", style = MaterialTheme.typography.headlineSmall, color = p)
-                        Text("accuracy", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                     }
                 }
             }
         }
 
-        // ═══ NOW PLAYING ═══
+        // ═══ 4. NOW PLAYING ═══
         if (s.trackTitle.isNotEmpty()) { item { TrackCard(s, art, p) } }
 
-        // ═══ TOP ARTISTS ═══
+        // ═══ 5. TOP ARTISTS ═══
         if (s.topArtists.isNotEmpty()) { item { TopArtistsCard(s, p) } }
 
-        // ═══ TOP TRACKS ═══
+        // ═══ 6. TOP TRACKS ═══
         if (s.topTracks.isNotEmpty()) { item { TopTracksCard(s, p) } }
 
-        // ═══ RECENTLY PLAYED ═══
+        // ═══ 7. RECENTLY PLAYED ═══
         if (s.recentTracks.isNotEmpty()) { item { RecentlyPlayedCard(s, p) } }
 
-        // ═══ GENRES ═══
+        // ═══ 8. GENRE DISTRIBUTION ═══
         if (s.genreDistribution.isNotEmpty()) { item { GenrePercentCard(s, p) } }
 
-        // ═══ THIS WEEK ═══
-        if (s.weeklyTracks.isNotEmpty()) { item { WeeklyCard(s, p) } }
-
-        // ═══ DETECTION (compact) ═══
+        // ═══ 9. AI CLASSIFICATION (compact) ═══
         if (s.trackTitle.isNotEmpty()) {
             item {
                 FluentCard {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column {
-                            Text("${s.genre.replaceFirstChar { it.uppercase() }} · ${s.mood.replaceFirstChar { it.uppercase() }}",
-                                style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
-                            Text("Energy ${(s.energy * 100).toInt()}% · Confidence ${(s.confidence * 100).toInt()}% · ${s.dataSource}",
-                                style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Rounded.Memory, null, Modifier.size(16.dp), tint = p)
+                        Text("AI Classification", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+                        Spacer(Modifier.weight(1f))
+                        Text("${s.apiAccuracy}%", style = MaterialTheme.typography.labelMedium, color = p)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(s.genre.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleMedium, color = p)
+                            Text("genre", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(s.mood.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleMedium, color = p)
+                            Text("mood", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("${(s.energy * 100).toInt()}%", style = MaterialTheme.typography.titleMedium, color = p)
+                            Text("energy", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(s.songsLearned.toString(), style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                            Text("learned", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(s.cacheSize.toString(), style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                            Text("cached", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(s.dataSource, style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                            Text("source", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                         }
                     }
                 }
             }
         }
 
-        item { PipelineCard(s, p) }
         item { Spacer(Modifier.height(8.dp)) }
     }
 }

@@ -42,7 +42,10 @@ data class InsightsUiState(
     val topTracks: List<TopTrackItem> = emptyList(),
     val weeklyTracks: List<Triple<String, String, String>> = emptyList(),
     val recentTracks: List<RecentTrackItem> = emptyList(),
-    val selectedPeriod: String = "overall"
+    val selectedPeriod: String = "overall",
+    val avgDailyScrobbles: Int = 0,
+    val trackCount: String = "0",
+    val registeredUnix: Long = 0
 )
 
 data class TopTrackItem(val title: String, val artist: String, val plays: String, val imageUrl: String = "")
@@ -147,9 +150,16 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 // User info
                 val info = LastFmClient.api.getUserInfo(username, apiKey)
                 info.user?.let { u ->
+                    val regUnix = u.registered?.unixtime?.toLongOrNull() ?: 0L
+                    val daysSince = if (regUnix > 0) ((System.currentTimeMillis() / 1000 - regUnix) / 86400).toInt().coerceAtLeast(1) else 1
+                    val totalSc = u.playcount.toLongOrNull() ?: 0
+                    val avgDaily = (totalSc / daysSince).toInt()
                     _uiState.update { it.copy(
                         totalScrobbles = u.playcount,
-                        totalArtists = u.artist_count
+                        totalArtists = u.artist_count,
+                        trackCount = u.track_count,
+                        registeredUnix = regUnix,
+                        avgDailyScrobbles = avgDaily
                     ) }
                 }
             } catch (_: Exception) {}
