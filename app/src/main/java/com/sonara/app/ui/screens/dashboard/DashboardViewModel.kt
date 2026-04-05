@@ -29,6 +29,8 @@ data class DashboardUiState(
     val currentPresetName: String = "Flat",
     val isAiEnabled: Boolean = true,
     val bands: FloatArray = FloatArray(10),
+    val legacyAnalysis: Boolean = false,
+    val hearTheDiffEnabled: Boolean = true,
     val hasSeenHearTheDifference: Boolean = false,
     val bassBoost: Int = 0,
     val virtualizer: Int = 0,
@@ -63,6 +65,8 @@ data class DashboardUiState(
             headphoneName == other.headphoneName &&
             savedMessage == other.savedMessage && isLoved == other.isLoved &&
             geminiSummary == other.geminiSummary &&
+            legacyAnalysis == other.legacyAnalysis &&
+            hearTheDiffEnabled == other.hearTheDiffEnabled &&
             hasSeenHearTheDifference == other.hasSeenHearTheDifference
     }
     override fun hashCode(): Int {
@@ -74,6 +78,8 @@ data class DashboardUiState(
         result = 31 * result + notificationListenerEnabled.hashCode()
         result = 31 * result + isLoved.hashCode()
         result = 31 * result + geminiSummary.hashCode()
+        result = 31 * result + legacyAnalysis.hashCode()
+        result = 31 * result + hearTheDiffEnabled.hashCode()
         result = 31 * result + hasSeenHearTheDifference.hashCode()
         return result
     }
@@ -100,6 +106,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     init {
 
 
+        viewModelScope.launch { app.preferences.legacyAnalysisFlow.collect { v -> _uiState.update { it.copy(legacyAnalysis = v) } } }
+        viewModelScope.launch { app.preferences.hearTheDiffEnabledFlow.collect { v -> _uiState.update { it.copy(hearTheDiffEnabled = v) } } }
         viewModelScope.launch {
             app.preferences.hasSeenHearTheDifferenceFlow.collect { seen ->
                 // Only allow DataStore to set true, never override back to false

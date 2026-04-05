@@ -114,7 +114,7 @@ fun DashboardScreen() {
             item { PermissionCard(onGrant = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) }
         }
 
-        if (!s.hasSeenHearTheDifference && s.hasTrack && s.eqActive) {
+        if (s.hearTheDiffEnabled && !s.hasSeenHearTheDifference && s.hasTrack && s.eqActive) {
             item {
                 HearTheDifferenceBanner(
                     onHoldStart = { vm.setEqTemporarilyDisabled(true) },
@@ -149,31 +149,34 @@ fun DashboardScreen() {
                             if (s.confidence > 0.5f) ChipStatus.Active else ChipStatus.Inactive, compact = true)
                     }
                     if (!feedbackSent) {
-                        Spacer(Modifier.height(12.dp))
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            FeedbackType.allOptions.forEach { fb ->
-                                AssistChip(onClick = { vm.onAiFeedback(fb.id); feedbackSent = true
-                                    Toast.makeText(ctx, "${fb.emoji} ${fb.label}", Toast.LENGTH_SHORT).show() },
-                                    label = { Text("${fb.emoji} ${fb.label}", style = MaterialTheme.typography.labelSmall) },
-                                    colors = AssistChipDefaults.assistChipColors(containerColor = SonaraCardElevated))
+                        // Legacy: show chips. Modern: text only
+                        if (s.legacyAnalysis) {
+                            Spacer(Modifier.height(12.dp))
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                FeedbackType.allOptions.forEach { fb ->
+                                    AssistChip(onClick = { vm.onAiFeedback(fb.id); feedbackSent = true
+                                        Toast.makeText(ctx, "${fb.emoji} ${fb.label}", Toast.LENGTH_SHORT).show() },
+                                        label = { Text("${fb.emoji} ${fb.label}", style = MaterialTheme.typography.labelSmall) },
+                                        colors = AssistChipDefaults.assistChipColors(containerColor = SonaraCardElevated))
+                                }
                             }
                         }
                         Spacer(Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                             OutlinedTextField(value = feedbackText, onValueChange = { feedbackText = it },
-                                placeholder = { Text("Describe what you want...", color = SonaraTextTertiary, style = MaterialTheme.typography.bodySmall) },
+                                placeholder = { Text("Tell AI what you want...", color = SonaraTextTertiary, style = MaterialTheme.typography.bodySmall) },
                                 modifier = Modifier.weight(1f).height(44.dp), singleLine = true, textStyle = MaterialTheme.typography.bodySmall,
                                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p, unfocusedBorderColor = SonaraDivider.copy(0.5f),
                                     cursorColor = p, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary))
                             FilledTonalButton(onClick = { vm.onAiFeedback("custom:$feedbackText"); feedbackSent = true
-                                Toast.makeText(ctx, "Feedback sent to AI!", Toast.LENGTH_SHORT).show() },
+                                Toast.makeText(ctx, "Applying...", Toast.LENGTH_SHORT).show() },
                                 enabled = feedbackText.isNotBlank(),
                                 colors = ButtonDefaults.filledTonalButtonColors(containerColor = p, contentColor = SonaraBackground)
-                            ) { Text("Send", style = MaterialTheme.typography.labelSmall) }
+                            ) { Text("Apply", style = MaterialTheme.typography.labelSmall) }
                         }
                     } else {
                         Spacer(Modifier.height(8.dp))
-                        Text("✓ Feedback applied!", style = MaterialTheme.typography.labelSmall, color = SonaraSuccess)
+                        Text("✓ AI applied your request!", style = MaterialTheme.typography.labelSmall, color = SonaraSuccess)
                     }
                 }
             }

@@ -25,5 +25,7 @@ data class InsightResult(
     val lyricalTone: String = "",
     val confidenceNote: String = "",
     val success: Boolean = false,
-    val provider: String = ""
+    val provider: String = "",
+    val eqAdjustment: FloatArray? = null,
+    val preamp: Float = 0f
 )

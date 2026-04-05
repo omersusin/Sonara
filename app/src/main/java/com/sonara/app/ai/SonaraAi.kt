@@ -82,9 +82,11 @@ class SonaraAi private constructor(
                 cloudManager.addContribution(f, current.primaryGenre.lowercase(), current.mood, current.energy, "confirmed")
             } else if (type.startsWith("custom:")) {
                 val text = type.removePrefix("custom:").trim()
-                Log.d(TAG, "Custom AI feedback: '$text'")
+                Log.d(TAG, "AI feedback: '$text'")
+                val app = com.sonara.app.SonaraApp.instance
+                var applied = false
+                // Try AI provider first
                 try {
-                    val app = com.sonara.app.SonaraApp.instance
                     val request = com.sonara.app.intelligence.provider.InsightRequest(
                         title = _state.value.title, artist = _state.value.artist,
                         genre = current.primaryGenre, subGenre = null,
@@ -92,11 +94,18 @@ class SonaraAi private constructor(
                         energy = current.energy, confidence = current.confidence,
                         currentEqBands = current.eqBands)
                     val result = app.insightManager.getInsight(request)
-                    if (result.success) Log.d(TAG, "AI response: ${result.summary}")
+                    if (result.success && result.eqAdjustment != null && result.eqAdjustment.size == 10) {
+                        Log.d(TAG, "AI returned EQ: ${result.eqAdjustment.toList()}")
+                        app.applyEq(result.eqAdjustment, "AI: ${result.summary.take(20)}", manual = false, preamp = result.preamp)
+                        applied = true
+                    }
                 } catch (e: Exception) { Log.w(TAG, "AI call failed: ${e.message}") }
-                val mapped = mapCustomFeedback(text.lowercase())
-                personalizer.recordFeedback(mapped, current, _state.value.route)
-                regenerateEq(current)
+                // Fallback: local NLP
+                if (!applied) {
+                    val mapped = mapCustomFeedback(text.lowercase())
+                    personalizer.recordFeedback(mapped, current, _state.value.route)
+                    regenerateEq(current)
+                }
             } else {
                 personalizer.recordFeedback(type, current, _state.value.route)
                 regenerateEq(current)
