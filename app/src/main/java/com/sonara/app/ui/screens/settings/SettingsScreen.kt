@@ -96,8 +96,6 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
         item { SectionHeader("Last.fm Integration") }
         item { LastFmCard(state, vm, ctx) }
 
-        item { SectionHeader("AutoEQ Import") }
-        item { AutoEqImportCard() }
 
         item { SectionHeader("Appearance") }
         item { AppearanceCard(state, vm) }
