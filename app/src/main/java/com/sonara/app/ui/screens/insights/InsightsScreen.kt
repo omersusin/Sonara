@@ -77,48 +77,22 @@ fun InsightsScreen() {
     val p = MaterialTheme.colorScheme.primary
     val aiState by (SonaraAi.getInstance()?.state ?: kotlinx.coroutines.flow.MutableStateFlow(SonaraAiState())).collectAsState()
 
-
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Column(Modifier.padding(vertical = 8.dp)) { Text("Insights", style = MaterialTheme.typography.headlineLarge); Spacer(Modifier.height(2.dp)); Text("How Sonara processes your sound", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary) } }
+
+        // ═══ HEADER ═══
+        item { Text("Insights", style = MaterialTheme.typography.headlineLarge) }
+
+        // ═══ NOW PLAYING (compact) ═══
         item { TrackCard(s, art, p) }
-        item { WhyCard(s, p) }
-        // AI Audio Analysis
-        if (aiState.status.display != "Ready") {
-            item {
-                FluentCard {
-                    Text("Audio AI Status", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
-                    Spacer(Modifier.height(8.dp))
-                    Text(aiState.status.display, style = MaterialTheme.typography.bodyMedium, color = p)
-                    if (aiState.result != null) {
-                        Spacer(Modifier.height(6.dp))
-                        aiState.result?.explanation?.let { exp ->
-                            if (exp.eqReason.isNotBlank()) {
-                                Text(exp.eqReason, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                            }
-                            if (exp.sourceHonesty.isNotBlank()) {
-                                Spacer(Modifier.height(4.dp))
-                                Text(exp.sourceHonesty, style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        item { DetectionCard(s, p) }
-        item { AnalysisCard(s, p) }
-        item { LearningCard(s, p) }
-        item { GenreCard(s, p) }
-        // ═══ Listening Stats ═══
+
+        // ═══ STATS OVERVIEW (stats.fm grid) ═══
         item { ListeningStatsCard(s, p) }
-        if (s.topArtists.isNotEmpty()) { item { TopArtistsCard(s, p) } }
-        if (s.topTracks.isNotEmpty()) { item { TopTracksCard(s, p) } }
-        if (s.weeklyTracks.isNotEmpty()) { item { WeeklyCard(s, p) } }
-        if (s.genreDistribution.isNotEmpty()) { item { GenrePercentCard(s, p) } }
-        // Period selector
+
+        // ═══ PERIOD SELECTOR ═══
         if (s.lastFmConnected) {
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("7day" to "4W", "6month" to "6M", "overall" to "All").forEach { (id, label) ->
+                    listOf("7day" to "4 Weeks", "6month" to "6 Months", "overall" to "All Time").forEach { (id, label) ->
                         val sel = s.selectedPeriod == id
                         OutlinedButton(onClick = { vm.setPeriod(id) },
                             modifier = Modifier.weight(1f), shape = RoundedCornerShape(20.dp),
@@ -131,12 +105,58 @@ fun InsightsScreen() {
                 }
             }
         }
-        // Recently Played
+
+        // ═══ TOP ARTISTS ═══
+        if (s.topArtists.isNotEmpty()) { item { TopArtistsCard(s, p) } }
+
+        // ═══ TOP TRACKS ═══
+        if (s.topTracks.isNotEmpty()) { item { TopTracksCard(s, p) } }
+
+        // ═══ RECENTLY PLAYED ═══
         if (s.recentTracks.isNotEmpty()) { item { RecentlyPlayedCard(s, p) } }
+
+        // ═══ GENRE DISTRIBUTION ═══
+        if (s.genreDistribution.isNotEmpty()) { item { GenrePercentCard(s, p) } }
+
+        // ═══ THIS WEEK ═══
+        if (s.weeklyTracks.isNotEmpty()) { item { WeeklyCard(s, p) } }
+
+        // ═══ SOUND ANALYSIS (consolidated) ═══
+        if (s.trackTitle.isNotEmpty()) {
+            item {
+                FluentCard {
+                    Text("Sound Analysis", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                    Spacer(Modifier.height(10.dp))
+                    // Genre + Mood
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(s.genre.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleLarge, color = p)
+                            Text("Genre", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(s.mood.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleLarge, color = p)
+                            Text("Mood", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    // Energy + Confidence bars
+                    BarRow("Energy", s.energy, p)
+                    Spacer(Modifier.height(6.dp))
+                    BarRow("Confidence", s.confidence, p)
+                    Spacer(Modifier.height(8.dp))
+                    // Source
+                    Text("Source: ${s.dataSource}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                }
+            }
+        }
+
+        // ═══ PIPELINE (compact) ═══
         item { PipelineCard(s, p) }
+
         item { Spacer(Modifier.height(8.dp)) }
     }
 }
+
 
 @Composable
 private fun TrackCard(s: InsightsUiState, art: Bitmap?, p: androidx.compose.ui.graphics.Color) {
