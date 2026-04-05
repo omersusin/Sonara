@@ -13,6 +13,16 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+// Force compose-group-mapping to Kotlin 2.3.20 instead of AGP's bundled 2.2.10
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlin" && requested.name == "compose-group-mapping") {
+            useVersion("2.3.20")
+            because("AGP 9.0.0 bundles Kotlin 2.2.10 but we use 2.3.20")
+        }
+    }
+}
+
 android {
     namespace = "com.sonara.app"
     compileSdk = 36
@@ -28,16 +38,6 @@ android {
         buildConfigField("String", "LASTFM_API_KEY", "\"${System.getenv("LASTFM_API_KEY") ?: ""}\""  )
         buildConfigField("String", "LASTFM_SHARED_SECRET", "\"${System.getenv("LASTFM_SHARED_SECRET") ?: ""}\"")
         buildConfigField("String", "GEMINI_API_KEY", "\"${System.getenv("GEMINI_API_KEY") ?: ""}\"")
-    }
-
-    // Force compose-group-mapping to Kotlin 2.3.20 instead of AGP's bundled 2.2.10
-    configurations.all {
-        resolutionStrategy.eachDependency {
-            if (requested.group == "org.jetbrains.kotlin" && requested.name == "compose-group-mapping") {
-                useVersion("2.3.20")
-                because("AGP 9.0.0 bundles Kotlin 2.2.10 but we use 2.3.20")
-            }
-        }
     }
 
     signingConfigs {
