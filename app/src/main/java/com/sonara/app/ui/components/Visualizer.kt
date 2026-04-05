@@ -1,11 +1,11 @@
 package com.sonara.app.ui.components
 
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,7 +35,7 @@ fun SonaraVisualizer(
         initialValue = 0f,
         targetValue = 6.2832f,
         animationSpec = infiniteRepeatable(
-            animation = spring(dampingRatio = 0.9f, stiffness = 200f),
+            animation = tween(3000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "phase"
@@ -45,7 +45,7 @@ fun SonaraVisualizer(
         initialValue = 0.3f,
         targetValue = 0.8f,
         animationSpec = infiniteRepeatable(
-            animation = spring(dampingRatio = 0.9f, stiffness = 200f),
+            animation = tween(1500, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse"

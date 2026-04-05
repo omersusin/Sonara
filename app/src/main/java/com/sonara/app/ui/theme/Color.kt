@@ -125,7 +125,6 @@ internal val lightColorScheme = lightColorScheme(
     outline = Color(0xFFD1D1D6),
     outlineVariant = Color(0xFFE5E5EA),
     scrim = Color(0xFF000000),
-    shadow = Color(0xFF000000),
 )
 
 // ═══ M3E Full Color Token Set — Dark ═══
@@ -167,7 +166,6 @@ internal val darkColorScheme = darkColorScheme(
     outline = Color(0xFF3A3A3E),
     outlineVariant = Color(0xFF3A3A3E),
     scrim = Color(0xFF000000),
-    shadow = Color(0xFF000000),
 )
 
 // ═══ Dynamic color scheme resolver ═══
