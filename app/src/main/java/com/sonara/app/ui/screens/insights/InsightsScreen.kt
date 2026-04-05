@@ -158,6 +158,7 @@ fun InsightsScreen() {
 }
 
 
+
 @Composable
 private fun TrackCard(s: InsightsUiState, art: Bitmap?, p: androidx.compose.ui.graphics.Color) {
     FluentCard {
