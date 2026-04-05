@@ -3,8 +3,6 @@ import java.io.FileInputStream
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
 }
 
@@ -16,12 +14,12 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.sonara.app"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.sonara.app"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
 
@@ -62,12 +60,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+    kotlin.jvmToolchain(17)
 
     buildFeatures {
-        compose = true
         buildConfig = true
     }
 }
