@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.sonara.app.ui.theme.SonaraCardElevated
 import com.sonara.app.ui.theme.SonaraTextTertiary
@@ -34,19 +35,49 @@ fun BandSlider(
     label: String,
     minValue: Float,
     maxValue: Float,
-    modifier: Modifier,
-    enabled: Boolean
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     val trackHeight = 140.dp
-    val density = LocalDensity.current
-    val trackHeightPx = with(density) { trackHeight.toPx() }
+    val thumbSize = 14.dp
+
+    with(LocalDensity.current) {
+        BandSliderContent(
+            value = value,
+            onValueChange = onValueChange,
+            label = label,
+            minValue = minValue,
+            maxValue = maxValue,
+            modifier = modifier,
+            enabled = enabled,
+            trackHeight = trackHeight,
+            trackHeightPx = trackHeight.toPx(),
+            thumbSize = thumbSize,
+            halfThumbSizePx = thumbSize.toPx() / 2f
+        )
+    }
+}
+
+@Composable
+private fun BandSliderContent(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    label: String,
+    minValue: Float,
+    maxValue: Float,
+    modifier: Modifier,
+    enabled: Boolean,
+    trackHeight: Dp,
+    trackHeightPx: Float,
+    thumbSize: Dp,
+    halfThumbSizePx: Float
+) {
     val range = maxValue - minValue
     val primary = MaterialTheme.colorScheme.primary
 
     val initialOffset = (1f - (value - minValue) / range) * trackHeightPx
     var dragOffset by remember { mutableFloatStateOf(initialOffset) }
 
-    val thumbSize = 14.dp
     val halfThumbSize = thumbSize / 2
 
     Column(
@@ -77,8 +108,8 @@ fun BandSlider(
             val midPx = trackHeightPx / 2f
             val fillTopPx = if (dragOffset < midPx) dragOffset else midPx
             val fillHeightPx = if (dragOffset < midPx) midPx - dragOffset else dragOffset - midPx
-            val fillTopDp = with(density) { fillTopPx.toDp() }
-            val fillHeightDp = with(density) { fillHeightPx.toDp() }
+            val fillTopDp = with(LocalDensity.current) { fillTopPx.toDp() }
+            val fillHeightDp = with(LocalDensity.current) { fillHeightPx.toDp() }
             val activeColor = if (enabled) primary.copy(alpha = 0.7f) else SonaraTextTertiary.copy(alpha = 0.3f)
 
             Box(
@@ -91,7 +122,7 @@ fun BandSlider(
                     .background(activeColor)
             )
 
-            val thumbOffsetDp = with(density) { (dragOffset - halfThumbSize.toPx()).toDp() }
+            val thumbOffsetDp = with(LocalDensity.current) { (dragOffset - halfThumbSizePx).toDp() }
             val thumbColor = if (enabled) primary else SonaraTextTertiary
 
             Box(
