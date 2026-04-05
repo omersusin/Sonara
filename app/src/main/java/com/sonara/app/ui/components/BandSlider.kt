@@ -34,8 +34,8 @@ fun BandSlider(
     label: String,
     minValue: Float,
     maxValue: Float,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    modifier: Modifier,
+    enabled: Boolean
 ) {
     val trackHeight = 140.dp
     val density = LocalDensity.current
