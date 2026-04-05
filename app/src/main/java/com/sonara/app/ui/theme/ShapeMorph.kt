@@ -2,6 +2,7 @@
 
 package com.sonara.app.ui.theme
 
+import android.graphics.Matrix
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -14,6 +15,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
@@ -23,7 +25,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.graphics.shapes.CornerRounding
-import androidx.graphics.shapes.Matrix
 import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.graphics.shapes.toPath
@@ -41,16 +42,23 @@ class MorphPolygonShape(
     private val morph: Morph,
     private val progress: Float
 ) : Shape {
+    private val androidPath = android.graphics.Path()
+    private val matrix = Matrix()
+
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
         density: Density
     ): Outline {
-        val matrix = Matrix().apply {
-            translate(size.width / 2f, size.height / 2f)
-            scale(size.width / 2f, size.height / 2f)
+        androidPath.reset()
+        matrix.reset()
+        matrix.postTranslate(size.width / 2f, size.height / 2f)
+        matrix.postScale(size.width / 2f, size.height / 2f)
+
+        morph.toPath(progress, androidPath)
+        val path = Path().apply {
+            addPath(androidPath.asComposePath())
         }
-        val path = morph.toPath(progress, matrix).asComposePath()
         return Outline.Generic(path)
     }
 }
@@ -62,16 +70,23 @@ class MorphPolygonShape(
 class RoundedPolygonShape(
     private val polygon: RoundedPolygon
 ) : Shape {
+    private val androidPath = android.graphics.Path()
+    private val matrix = Matrix()
+
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
         density: Density
     ): Outline {
-        val matrix = Matrix().apply {
-            translate(size.width / 2f, size.height / 2f)
-            scale(size.width / 2f, size.height / 2f)
+        androidPath.reset()
+        matrix.reset()
+        matrix.postTranslate(size.width / 2f, size.height / 2f)
+        matrix.postScale(size.width / 2f, size.height / 2f)
+
+        polygon.toPath(androidPath)
+        val path = Path().apply {
+            addPath(androidPath.asComposePath())
         }
-        val path = polygon.toPath(matrix).asComposePath()
         return Outline.Generic(path)
     }
 }

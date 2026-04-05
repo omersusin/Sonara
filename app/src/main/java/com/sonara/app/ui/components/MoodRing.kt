@@ -1,5 +1,6 @@
 package com.sonara.app.ui.components
 
+import android.graphics.Matrix
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
@@ -18,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -32,7 +34,6 @@ import com.sonara.app.ui.theme.M3ECircle
 import com.sonara.app.ui.theme.M3EHeart
 import com.sonara.app.ui.theme.M3EStar
 import com.sonara.app.ui.theme.M3ERoundedSquare
-import com.sonara.app.ui.theme.MorphPolygonShape
 import com.sonara.app.ui.theme.SonaraCardElevated
 import com.sonara.app.ui.theme.m3eMorph
 
@@ -98,16 +99,16 @@ fun MoodRing(
 
     Box(modifier = modifier.size(140.dp), contentAlignment = Alignment.Center) {
         // Morphing background shape
-        Canvas(
-            modifier = Modifier.size(130.dp)
-        ) {
+        Canvas(modifier = Modifier.size(130.dp)) {
             val s = size.minDimension
-            val matrix = androidx.graphics.shapes.Matrix().apply {
-                translate(s / 2f, s / 2f)
-                scale(s / 2f * 0.85f, s / 2f * 0.85f)
+            val matrix = Matrix().apply {
+                postTranslate(s / 2f, s / 2f)
+                postScale(s / 2f * 0.85f, s / 2f * 0.85f)
             }
+            val androidPath = android.graphics.Path()
+            morph.toPath(morphProgress, androidPath)
             drawPath(
-                path = morph.toPath(morphProgress, matrix).asComposePath(),
+                path = androidPath.asComposePath(),
                 color = moodColor.copy(alpha = 0.08f + 0.07f * energyAnim),
             )
         }

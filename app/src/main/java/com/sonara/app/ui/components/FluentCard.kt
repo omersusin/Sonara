@@ -6,6 +6,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,7 +28,6 @@ import com.sonara.app.ui.theme.MorphPolygonShape
 import com.sonara.app.ui.theme.SonaraCard
 import com.sonara.app.ui.theme.SonaraDivider
 import com.sonara.app.ui.theme.m3eMorph
-import com.sonara.app.ui.theme.rememberPressedMorphAnimation
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -37,7 +38,7 @@ fun FluentCard(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val morph = remember { m3eMorph(M3ERoundedSquare, M3ECircle) }
-    val morphProgress = rememberPressedMorphAnimation(
+    val morphProgress by rememberPressedMorphAnimationState(
         interactionSource = interactionSource,
         animationSpec = spring(
             dampingRatio = 0.6f,
@@ -66,14 +67,20 @@ fun FluentCard(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = { offset ->
-                        interactionSource.tryEmitPress(offset)
-                        try { awaitRelease() } finally {
-                            interactionSource.tryEmitRelease()
-                        }
+                        val press = PressInteraction.Press(offset)
+                        interactionSource.emit(press)
+                        val released = tryAwaitRelease()
+                        interactionSource.emit(
+                            if (released != null) {
+                                PressInteraction.Release(press)
+                            } else {
+                                PressInteraction.Cancel(press)
+                            }
+                        )
                     }
                 )
             },
-        shape = if (morphShapes) MaterialTheme.shapes.medium else MaterialTheme.shapes.medium,
+        shape = MaterialTheme.shapes.medium,
         color = SonaraCard,
         border = BorderStroke(
             0.6.dp,
@@ -83,4 +90,20 @@ fun FluentCard(
     ) {
         Column(modifier = Modifier.padding(16.dp), content = content)
     }
+}
+
+/**
+ * State-based version of rememberPressedMorphAnimation that returns a State<Float>.
+ */
+@Composable
+private fun rememberPressedMorphAnimationState(
+    interactionSource: MutableInteractionSource,
+    animationSpec: androidx.compose.animation.core.AnimationSpec<Float> = spring()
+): androidx.compose.runtime.State<Float> {
+    val isPressed by interactionSource.collectIsPressedAsState()
+    return animateFloatAsState(
+        targetValue = if (isPressed) 1f else 0f,
+        animationSpec = animationSpec,
+        label = "m3e_card_morph"
+    )
 }
