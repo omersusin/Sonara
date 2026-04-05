@@ -70,6 +70,8 @@ import com.sonara.app.intelligence.deezer.DeezerImageResolver
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import android.content.Intent
+import android.net.Uri
 import com.sonara.app.ui.theme.*
 
 @Composable
@@ -175,6 +177,23 @@ fun InsightsScreen() {
         item { PipelineCard(s, p) }
         item { Spacer(Modifier.height(8.dp)) }
     }
+}
+
+
+private fun openInMusicApp(ctx: android.content.Context, query: String, type: String = "artist") {
+    // Try music apps in order: Spotify, YouTube Music, Apple Music, generic search
+    val intents = listOf(
+        Intent(Intent.ACTION_VIEW, Uri.parse("spotify:search:$query")),
+        Intent(Intent.ACTION_VIEW, Uri.parse("https://music.youtube.com/search?q=${java.net.URLEncoder.encode(query, "UTF-8")}")),
+        Intent(Intent.ACTION_VIEW, Uri.parse("https://www.last.fm/music/${java.net.URLEncoder.encode(query, "UTF-8")}"))
+    )
+    for (intent in intents) {
+        try {
+            if (intent.resolveActivity(ctx.packageManager) != null) { ctx.startActivity(intent); return }
+        } catch (_: Exception) {}
+    }
+    // Fallback: generic web search
+    try { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=${java.net.URLEncoder.encode("$query $type", "UTF-8")}"))) } catch (_: Exception) {}
 }
 
 
@@ -422,7 +441,7 @@ private fun TopTracksCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Co
         Spacer(Modifier.height(12.dp))
         val ctx = LocalContext.current
         s.topTracks.forEachIndexed { i, track ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth().clickable { openInMusicApp(ctx, "${track.artist} ${track.title}", "track") }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.size(28.dp).background(if (i < 3) p.copy(alpha = 0.15f) else SonaraCardElevated, RoundedCornerShape(6.dp)),
                     contentAlignment = Alignment.Center) {
                     Text("${i + 1}", style = if (i < 3) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium,
@@ -517,7 +536,7 @@ private fun RecentlyPlayedCard(s: InsightsUiState, p: androidx.compose.ui.graphi
     FluentCard {
         Text("Recently Played", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary); Spacer(Modifier.height(10.dp))
         s.recentTracks.take(8).forEach { t ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth().clickable { openInMusicApp(ctx, "${t.artist} ${t.title}", "track") }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (t.imageUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(t.imageUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.size(36.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop)
                 else Box(Modifier.size(36.dp).background(SonaraCardElevated, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MusicNote, null, tint = p.copy(0.5f), modifier = Modifier.size(16.dp)) }
                 Column(Modifier.weight(1f)) { Text(t.title, style = MaterialTheme.typography.bodySmall, color = SonaraTextPrimary, maxLines = 1); Text(t.artist, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, maxLines = 1) }

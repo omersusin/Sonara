@@ -47,6 +47,8 @@ class SonaraPreferences(private val context: Context) {
     private val SOURCE_LOCAL_AI_ENABLED = booleanPreferencesKey("source_local_ai_enabled")
     private val SOURCE_LYRICS_ENABLED = booleanPreferencesKey("source_lyrics_enabled")
     private val AMOLED_MODE = booleanPreferencesKey("amoled_mode")
+    private val LEGACY_ANALYSIS = booleanPreferencesKey("legacy_analysis_layout")
+    private val HEAR_THE_DIFF_ENABLED = booleanPreferencesKey("hear_the_difference_enabled")
     private val KEY_HAS_SEEN_HEAR_DIFF = booleanPreferencesKey("has_seen_hear_the_difference")
     private val COMMUNITY_SYNC_INTERVAL = intPreferencesKey("community_sync_interval")
 
@@ -134,6 +136,11 @@ class SonaraPreferences(private val context: Context) {
     suspend fun setSourceLyricsEnabled(e: Boolean) { context.dataStore.edit { it[SOURCE_LYRICS_ENABLED] = e } }
 
     val amoledModeFlow: Flow<Boolean> = context.dataStore.data.map { it[AMOLED_MODE] ?: false }
+    val legacyAnalysisFlow: Flow<Boolean> = context.dataStore.data.map { it[LEGACY_ANALYSIS] ?: false }
+    val hearTheDiffEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[HEAR_THE_DIFF_ENABLED] ?: true }
+    suspend fun setLegacyAnalysis(v: Boolean) { context.dataStore.edit { it[LEGACY_ANALYSIS] = v } }
+    suspend fun setHearTheDiffEnabled(v: Boolean) { context.dataStore.edit { it[HEAR_THE_DIFF_ENABLED] = v } }
+
     val hasSeenHearTheDifferenceFlow: Flow<Boolean> = context.dataStore.data.map { it[KEY_HAS_SEEN_HEAR_DIFF] ?: false }
     suspend fun setAmoledMode(e: Boolean) { context.dataStore.edit { it[AMOLED_MODE] = e } }
 

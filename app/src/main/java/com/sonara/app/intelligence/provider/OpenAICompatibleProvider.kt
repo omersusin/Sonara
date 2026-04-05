@@ -105,19 +105,20 @@ class OpenAICompatibleProvider(
         fun groq(apiKey: String, model: String = "llama-3.3-70b-versatile") =
             OpenAICompatibleProvider("Groq", "https://api.groq.com/openai/v1", apiKey, model)
 
-        private fun buildPrompt(r: InsightRequest): String = """You are Sonara, an AI music EQ engine.
-Given this track analysis, provide a JSON response with these exact fields:
-- "summary": 1-2 sentence description of the track's character
-- "why_this_eq": Why the current EQ settings suit this track
-- "listening_focus": What to listen for with these settings
-- "lyrical_tone": Brief note on lyrical mood/theme
-- "confidence_note": How confident the analysis is and why
-
+        private fun buildPrompt(r: InsightRequest): String {
+            val userFeedback = if (r.lyricalTone != null && !r.lyricalTone.matches(Regex("^(unknown|happy|sad|energetic|calm|neutral)$"))) {
+                "\nUser feedback: \"${r.lyricalTone}\" — adjust EQ bands accordingly."
+            } else ""
+            return """You are Sonara, an AI-powered EQ engine. Respond ONLY with valid JSON.
 Track: ${r.title} by ${r.artist}
 Genre: ${r.genre}, Tags: ${r.tags.joinToString(", ")}
-Energy: ${r.energy}, Confidence: ${r.confidence}
-Lyrics tone: ${r.lyricalTone ?: "unknown"}
+Energy: ${r.energy}, Current EQ: ${r.currentEqBands?.joinToString(",") ?: "flat"}$userFeedback
 
-Respond ONLY with valid JSON, no markdown."""
+Return JSON with:
+- "summary": 1 sentence about what you changed
+- "eq_adjustment": array of 10 floats (31Hz,62Hz,125Hz,250Hz,500Hz,1kHz,2kHz,4kHz,8kHz,16kHz) each -12 to +12 dB
+- "preamp": float -6 to +6
+- "confidence_note": brief note"""
+        }
     }
 }

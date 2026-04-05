@@ -60,7 +60,9 @@ data class SettingsUiState(
 ,
     val githubTokenInput: String = "",
     val isGithubTokenSet: Boolean = false,
-    val syncInterval: Int = 50)
+    val syncInterval: Int = 50,
+    val legacyAnalysis: Boolean = false,
+    val hearTheDiffEnabled: Boolean = true)
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
@@ -262,6 +264,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun checkNotificationListener() {
+        viewModelScope.launch { app.preferences.legacyAnalysisFlow.collect { v -> _uiState.update { it.copy(legacyAnalysis = v) } } }
+        viewModelScope.launch { app.preferences.hearTheDiffEnabledFlow.collect { v -> _uiState.update { it.copy(hearTheDiffEnabled = v) } } }
         val alive = SonaraNotificationListener.instance != null
         val sys = SonaraNotificationListener.isEnabled(getApplication())
         _uiState.update { it.copy(notificationListenerEnabled = alive || sys) }
@@ -301,6 +305,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun updateGithubTokenInput(v: String) {
         _uiState.update { it.copy(githubTokenInput = v) }
     }
+
+    fun setLegacyAnalysis(v: Boolean) { viewModelScope.launch { app.preferences.setLegacyAnalysis(v); _uiState.update { it.copy(legacyAnalysis = v) } } }
+    fun setHearTheDiffEnabled(v: Boolean) { viewModelScope.launch { app.preferences.setHearTheDiffEnabled(v); _uiState.update { it.copy(hearTheDiffEnabled = v) } } }
 
     fun saveGithubToken() {
         viewModelScope.launch {
