@@ -32,9 +32,9 @@ fun BandSlider(
     value: Float,
     onValueChange: (Float) -> Unit,
     label: String,
+    minValue: Float,
+    maxValue: Float,
     modifier: Modifier = Modifier,
-    minValue: Float = -12f,
-    maxValue: Float = 12f,
     enabled: Boolean = true
 ) {
     val trackHeight = 140.dp
