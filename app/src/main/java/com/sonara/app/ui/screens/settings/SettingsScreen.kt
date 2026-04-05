@@ -106,14 +106,14 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) { Text("Legacy Analysis", style = MaterialTheme.typography.bodyMedium); Text("Show feedback chips in AI card", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary) }
                 Switch(checked = state.legacyAnalysis, onCheckedChange = { vm.setLegacyAnalysis(it) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = p, checkedTrackColor = p.copy(0.3f)))
+                    colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary, checkedTrackColor = MaterialTheme.colorScheme.primary.copy(0.3f)))
             }
             Spacer(Modifier.height(8.dp))
             // Hear the Difference
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) { Text("Hear the Difference", style = MaterialTheme.typography.bodyMedium); Text("Show A/B comparison banner", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary) }
                 Switch(checked = state.hearTheDiffEnabled, onCheckedChange = { vm.setHearTheDiffEnabled(it) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = p, checkedTrackColor = p.copy(0.3f)))
+                    colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary, checkedTrackColor = MaterialTheme.colorScheme.primary.copy(0.3f)))
             }
         } }
         item { SoundEngineCard(state, vm) }
