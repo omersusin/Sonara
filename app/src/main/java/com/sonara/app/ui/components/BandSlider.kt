@@ -35,50 +35,19 @@ fun BandSlider(
     label: String,
     minValue: Float,
     maxValue: Float,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    modifier: Modifier,
+    enabled: Boolean
 ) {
     val trackHeight = 140.dp
     val thumbSize = 14.dp
-
-    with(LocalDensity.current) {
-        BandSliderContent(
-            value = value,
-            onValueChange = onValueChange,
-            label = label,
-            minValue = minValue,
-            maxValue = maxValue,
-            modifier = modifier,
-            enabled = enabled,
-            trackHeight = trackHeight,
-            trackHeightPx = trackHeight.toPx(),
-            thumbSize = thumbSize,
-            halfThumbSizePx = thumbSize.toPx() / 2f
-        )
-    }
-}
-
-@Composable
-private fun BandSliderContent(
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    label: String,
-    minValue: Float,
-    maxValue: Float,
-    modifier: Modifier,
-    enabled: Boolean,
-    trackHeight: Dp,
-    trackHeightPx: Float,
-    thumbSize: Dp,
-    halfThumbSizePx: Float
-) {
+    val trackHeightPx = LocalDensity.current.run { trackHeight.toPx() }
+    val halfThumbSizePx = LocalDensity.current.run { thumbSize.toPx() / 2f }
+    
     val range = maxValue - minValue
     val primary = MaterialTheme.colorScheme.primary
 
     val initialOffset = (1f - (value - minValue) / range) * trackHeightPx
     var dragOffset by remember { mutableFloatStateOf(initialOffset) }
-
-    val halfThumbSize = thumbSize / 2
 
     Column(
         modifier = modifier.width(32.dp),
@@ -108,8 +77,8 @@ private fun BandSliderContent(
             val midPx = trackHeightPx / 2f
             val fillTopPx = if (dragOffset < midPx) dragOffset else midPx
             val fillHeightPx = if (dragOffset < midPx) midPx - dragOffset else dragOffset - midPx
-            val fillTopDp = with(LocalDensity.current) { fillTopPx.toDp() }
-            val fillHeightDp = with(LocalDensity.current) { fillHeightPx.toDp() }
+            val fillTopDp = LocalDensity.current.run { fillTopPx.toDp() }
+            val fillHeightDp = LocalDensity.current.run { fillHeightPx.toDp() }
             val activeColor = if (enabled) primary.copy(alpha = 0.7f) else SonaraTextTertiary.copy(alpha = 0.3f)
 
             Box(
@@ -122,7 +91,7 @@ private fun BandSliderContent(
                     .background(activeColor)
             )
 
-            val thumbOffsetDp = with(LocalDensity.current) { (dragOffset - halfThumbSizePx).toDp() }
+            val thumbOffsetDp = LocalDensity.current.run { (dragOffset - halfThumbSizePx).toDp() }
             val thumbColor = if (enabled) primary else SonaraTextTertiary
 
             Box(
