@@ -67,6 +67,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.BorderStroke
 import kotlinx.coroutines.launch
 import com.sonara.app.intelligence.deezer.DeezerImageResolver
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import com.sonara.app.ui.theme.*
 
 @Composable
@@ -76,35 +79,67 @@ fun InsightsScreen() {
     val art by vm.albumArt.collectAsState()
     val p = MaterialTheme.colorScheme.primary
     val aiState by (SonaraAi.getInstance()?.state ?: kotlinx.coroutines.flow.MutableStateFlow(SonaraAiState())).collectAsState()
+    val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
 
-        // ═══ HEADER ═══
-        item { Text("Insights", style = MaterialTheme.typography.headlineLarge) }
-
-        // ═══ NOW PLAYING (compact) ═══
-        item { TrackCard(s, art, p) }
-
-        // ═══ STATS OVERVIEW (stats.fm grid) ═══
-        item { ListeningStatsCard(s, p) }
-
-        // ═══ PERIOD SELECTOR ═══
+        // ═══ SCROBBLE COUNT (big, like Pano) ═══
         if (s.lastFmConnected) {
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("7day" to "4 Weeks", "6month" to "6 Months", "overall" to "All Time").forEach { (id, label) ->
+                Column {
+                    Text(try { fmt.format(s.totalScrobbles.toLong()) } catch (_: Exception) { s.totalScrobbles },
+                        style = MaterialTheme.typography.displaySmall, color = p)
+                    Text("scrobbles", style = MaterialTheme.typography.titleMedium, color = SonaraTextSecondary)
+                }
+            }
+        } else {
+            item { Text("Insights", style = MaterialTheme.typography.headlineLarge) }
+        }
+
+        // ═══ PERIOD SELECTOR (scrollable like Pano) ═══
+        if (s.lastFmConnected) {
+            item {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("7day" to "1 week", "1month" to "1 month", "3month" to "3 months", "6month" to "6 months", "12month" to "1 year", "overall" to "Overall").forEach { (id, label) ->
                         val sel = s.selectedPeriod == id
-                        OutlinedButton(onClick = { vm.setPeriod(id) },
-                            modifier = Modifier.weight(1f), shape = RoundedCornerShape(20.dp),
-                            border = BorderStroke(1.dp, if (sel) p else SonaraDivider.copy(0.3f)),
+                        OutlinedButton(onClick = { vm.setPeriod(id) }, shape = RoundedCornerShape(20.dp),
+                            border = BorderStroke(1.dp, if (sel) p else SonaraDivider.copy(0.4f)),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = if (sel) p else SonaraTextTertiary,
-                                containerColor = if (sel) p.copy(alpha = 0.1f) else androidx.compose.ui.graphics.Color.Transparent)
-                        ) { Text(label, style = MaterialTheme.typography.labelSmall) }
+                                containerColor = if (sel) p.copy(0.15f) else androidx.compose.ui.graphics.Color.Transparent,
+                                contentColor = if (sel) p else SonaraTextTertiary)
+                        ) { Text(label, style = MaterialTheme.typography.labelMedium) }
                     }
                 }
             }
         }
+
+        // ═══ STATS GRID (2x2) ═══
+        item {
+            FluentCard {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(try { fmt.format(s.totalArtists.toLong()) } catch (_: Exception) { s.totalArtists },
+                            style = MaterialTheme.typography.headlineSmall, color = p)
+                        Text("artists", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(s.songsLearned.toString(), style = MaterialTheme.typography.headlineSmall, color = p)
+                        Text("learned", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(s.cacheSize.toString(), style = MaterialTheme.typography.headlineSmall, color = p)
+                        Text("cached", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("${s.apiAccuracy}%", style = MaterialTheme.typography.headlineSmall, color = p)
+                        Text("accuracy", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                    }
+                }
+            }
+        }
+
+        // ═══ NOW PLAYING ═══
+        if (s.trackTitle.isNotEmpty()) { item { TrackCard(s, art, p) } }
 
         // ═══ TOP ARTISTS ═══
         if (s.topArtists.isNotEmpty()) { item { TopArtistsCard(s, p) } }
@@ -115,48 +150,32 @@ fun InsightsScreen() {
         // ═══ RECENTLY PLAYED ═══
         if (s.recentTracks.isNotEmpty()) { item { RecentlyPlayedCard(s, p) } }
 
-        // ═══ GENRE DISTRIBUTION ═══
+        // ═══ GENRES ═══
         if (s.genreDistribution.isNotEmpty()) { item { GenrePercentCard(s, p) } }
 
         // ═══ THIS WEEK ═══
         if (s.weeklyTracks.isNotEmpty()) { item { WeeklyCard(s, p) } }
 
-        // ═══ SOUND ANALYSIS (consolidated) ═══
+        // ═══ DETECTION (compact) ═══
         if (s.trackTitle.isNotEmpty()) {
             item {
                 FluentCard {
-                    Text("Sound Analysis", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
-                    Spacer(Modifier.height(10.dp))
-                    // Genre + Mood
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(s.genre.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleLarge, color = p)
-                            Text("Genre", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(s.mood.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleLarge, color = p)
-                            Text("Mood", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text("${s.genre.replaceFirstChar { it.uppercase() }} · ${s.mood.replaceFirstChar { it.uppercase() }}",
+                                style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                            Text("Energy ${(s.energy * 100).toInt()}% · Confidence ${(s.confidence * 100).toInt()}% · ${s.dataSource}",
+                                style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
-                    // Energy + Confidence bars
-                    BarRow("Energy", s.energy, p)
-                    Spacer(Modifier.height(6.dp))
-                    BarRow("Confidence", s.confidence, p)
-                    Spacer(Modifier.height(8.dp))
-                    // Source
-                    Text("Source: ${s.dataSource}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                 }
             }
         }
 
-        // ═══ PIPELINE (compact) ═══
         item { PipelineCard(s, p) }
-
         item { Spacer(Modifier.height(8.dp)) }
     }
 }
-
 
 
 @Composable
