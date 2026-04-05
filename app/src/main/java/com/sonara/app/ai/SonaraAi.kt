@@ -74,8 +74,45 @@ class SonaraAi private constructor(
     fun onSessionChanged(sessionId: Int) { Log.d(TAG, "Session changed: $sessionId"); capture.attach(sessionId) }
 
     fun onFeedback(type: String) {
-        val current = _state.value.result ?: return
+        val current = _state.value.result
         scope.launch {
+            // If no AI analysis exists, handle custom feedback directly
+            if (current == null) {
+                if (type.startsWith("custom:")) {
+                    val text = type.removePrefix("custom:").trim()
+                    Log.d(TAG, "Direct feedback (no analysis): '$text'")
+                    val app = com.sonara.app.SonaraApp.instance
+                    try {
+                        val request = com.sonara.app.intelligence.provider.InsightRequest(
+                            title = _state.value.title, artist = _state.value.artist,
+                            genre = "unknown", subGenre = null, tags = emptyList(),
+                            lyricalTone = text, energy = 0.5f, confidence = 0f,
+                            currentEqBands = app.eqState.value.bands)
+                        val result = app.insightManager.getInsight(request)
+                        if (result.success && result.eqAdjustment != null && result.eqAdjustment.size == 10) {
+                            app.applyEq(result.eqAdjustment, "AI: ${result.summary.take(20)}", manual = false, preamp = result.preamp)
+                            Log.d(TAG, "Direct AI EQ applied")
+                        } else {
+                            // Last resort: apply NLP-based adjustment to current EQ
+                            val mapped = mapCustomFeedback(text.lowercase())
+                            val currentBands = app.eqState.value.bands.copyOf()
+                            val deltas = quickDeltas(mapped)
+                            val newBands = FloatArray(10) { i -> (currentBands[i] + deltas[i]).coerceIn(-12f, 12f) }
+                            app.applyEq(newBands, "Feedback: $mapped", manual = false)
+                            Log.d(TAG, "NLP EQ applied: $mapped")
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Direct feedback failed: ${e.message}")
+                        // Ultra fallback
+                        val mapped = mapCustomFeedback(text.lowercase())
+                        val currentBands = app.eqState.value.bands.copyOf()
+                        val deltas = quickDeltas(mapped)
+                        val newBands = FloatArray(10) { i -> (currentBands[i] + deltas[i]).coerceIn(-12f, 12f) }
+                        app.applyEq(newBands, "Feedback: $mapped", manual = false)
+                    }
+                }
+                return@launch
+            }
             if (type == "perfect") {
                 val f = currentFeatures ?: return@launch
                 classifier.learn(f, current.primaryGenre.lowercase(), current.mood, current.energy, "user_confirmed", _state.value.title, _state.value.artist)
@@ -115,17 +152,36 @@ class SonaraAi private constructor(
     }
 
     private fun mapCustomFeedback(text: String): String = when {
-        text.contains("bass") && (text.contains("more") || text.contains("fazla")) -> "more_bass"
-        text.contains("bass") && (text.contains("less") || text.contains("az")) -> "too_bassy"
-        text.contains("treble") || text.contains("tiz") || text.contains("bright") -> "too_bright"
-        text.contains("vocal") || text.contains("vokal") -> "more_vocal"
-        text.contains("warm") || text.contains("sıcak") -> "prefer_warmer"
-        text.contains("clear") || text.contains("temiz") -> "prefer_clearer"
-        text.contains("harsh") || text.contains("sert") -> "too_harsh"
-        text.contains("thin") || text.contains("ince") -> "too_thin"
-        text.contains("muddy") || text.contains("bulanık") -> "too_muddy"
-        text.contains("flat") || text.contains("düz") -> "too_flat"
+        text.contains("bass") && (text.contains("more") || text.contains("fazla") || text.contains("artır") || text.contains("boost")) -> "more_bass"
+        text.contains("bass") && (text.contains("less") || text.contains("az") || text.contains("reduce") || text.contains("azalt")) -> "too_bassy"
+        text.contains("loud") || text.contains("yüksek") || text.contains("güçlü") || text.contains("louder") -> "more_bass"
+        text.contains("quiet") || text.contains("soft") || text.contains("sessiz") || text.contains("kıs") -> "too_bassy"
+        text.contains("treble") || text.contains("tiz") || text.contains("bright") || text.contains("parlak") -> "too_bright"
+        text.contains("vocal") || text.contains("vokal") || text.contains("ses") || text.contains("voice") -> "more_vocal"
+        text.contains("warm") || text.contains("sıcak") || text.contains("deep") || text.contains("derin") -> "prefer_warmer"
+        text.contains("clear") || text.contains("temiz") || text.contains("net") || text.contains("crisp") -> "prefer_clearer"
+        text.contains("harsh") || text.contains("sert") || text.contains("sharp") || text.contains("keskin") -> "too_harsh"
+        text.contains("thin") || text.contains("ince") || text.contains("weak") || text.contains("zayıf") -> "too_thin"
+        text.contains("muddy") || text.contains("bulanık") || text.contains("boğuk") -> "too_muddy"
+        text.contains("flat") || text.contains("düz") || text.contains("boring") || text.contains("sıkıcı") -> "too_flat"
+        text.contains("rock") || text.contains("metal") || text.contains("punch") -> "too_flat"
+        text.contains("chill") || text.contains("rahat") || text.contains("relax") -> "prefer_warmer"
+        text.contains("dance") || text.contains("party") || text.contains("club") || text.contains("energy") -> "more_bass"
         else -> "prefer_clearer"
+    }
+
+    private fun quickDeltas(type: String): FloatArray = when (type) {
+        "too_bassy" -> floatArrayOf(-3f,-2f,-1f,0f,0f,0f,0f,0f,0f,0f)
+        "too_bright" -> floatArrayOf(0f,0f,0f,0f,0f,0f,-1f,-2f,-2.5f,-3f)
+        "too_thin" -> floatArrayOf(2f,1.5f,1f,0.5f,0f,0f,0f,0f,0f,0f)
+        "too_harsh" -> floatArrayOf(0f,0f,0f,0f,0f,-1f,-2f,-1.5f,-1f,0f)
+        "too_flat" -> floatArrayOf(2f,1.5f,0f,0f,-0.5f,-0.5f,0f,0f,1.5f,2f)
+        "too_muddy" -> floatArrayOf(0f,0f,-1f,-2f,-1.5f,0f,0.5f,1f,0.5f,0f)
+        "prefer_warmer" -> floatArrayOf(1.5f,1f,0.5f,0f,0f,0f,0f,-0.5f,-1f,-1f)
+        "prefer_clearer" -> floatArrayOf(-0.5f,0f,0f,0f,0f,0.5f,1f,1.5f,1f,0f)
+        "more_bass" -> floatArrayOf(3f,2.5f,1.5f,0.5f,0f,0f,0f,0f,0f,0f)
+        "more_vocal" -> floatArrayOf(0f,0f,0f,0f,0.5f,1.5f,2f,1.5f,0f,0f)
+        else -> FloatArray(10)
     }
 
     fun onGenreCorrection(correctedGenre: String) {
@@ -271,6 +327,10 @@ class SonaraAi private constructor(
         val explanation = ExplanationBuilder.build(result, pEq, _state.value.title, _state.value.artist)
         val updated = result.copy(eqBands = pEq.bands, eqPreamp = pEq.preamp, isSpectralEq = pEq.isSpectralBased, explanation = explanation)
         _state.value = _state.value.copy(result = updated)
+        // Actually apply to audio system
+        val app = com.sonara.app.SonaraApp.instance
+        app.applyEq(pEq.bands, "AI: ${result.primaryGenre}", manual = false, preamp = pEq.preamp)
+        Log.d(TAG, "EQ applied: ${pEq.bands.toList()}")
     }
 }
 
