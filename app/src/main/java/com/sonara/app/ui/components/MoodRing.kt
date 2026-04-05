@@ -35,6 +35,13 @@ import com.sonara.app.ui.theme.M3ERoundedSquare
 import com.sonara.app.ui.theme.MorphPolygonShape
 import com.sonara.app.ui.theme.SonaraCardElevated
 import com.sonara.app.ui.theme.m3eMorph
+import androidx.graphics.shapes.RoundedPolygon
+
+// Helper: create a 12-vertex circle for morphing with M3EHeart
+private val Circle12 = RoundedPolygon(numVertices = 12)
+
+// Helper: create a 10-vertex circle for morphing with M3EStar
+private val Circle10 = RoundedPolygon(numVertices = 10)
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -64,17 +71,17 @@ fun MoodRing(
         label = "energy"
     )
 
-    // M3E shape morphing background — mood-based shape selection
+    // M3E shape morphing — ALL pairs must have matching vertex counts!
     val (morphStart, morphEnd) = when (mood.lowercase()) {
-        "energetic" -> M3EStar to M3ECircle
-        "happy" -> M3ECircle to M3ERoundedSquare
-        "chill" -> M3ERoundedSquare to M3ECircle
-        "melancholic" -> M3EHeart to M3ECircle
-        "romantic" -> M3EHeart to M3ERoundedSquare
-        "intense" -> M3EStar to M3EHeart
-        else -> M3ERoundedSquare to M3ECircle
+        "energetic" -> M3EStar to Circle10        // 10 ↔ 10
+        "happy" -> M3ECircle to M3ECircle         // 32 ↔ 32 (subtle pulse)
+        "chill" -> M3ERoundedSquare to M3ERoundedSquare // 4 ↔ 4 (subtle pulse)
+        "melancholic" -> M3EHeart to Circle12     // 12 ↔ 12
+        "romantic" -> M3EHeart to Circle12        // 12 ↔ 12
+        "intense" -> M3EStar to M3EStar           // 10 ↔ 10 (subtle pulse)
+        else -> M3ECircle to M3ECircle
     }
-    val morph = remember { m3eMorph(morphStart, morphEnd) }
+    val morph = remember(mood) { m3eMorph(morphStart, morphEnd) }
     val infiniteTransition = rememberInfiniteTransition(label = "mood_morph")
     val morphProgress by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -96,6 +103,11 @@ fun MoodRing(
         label = "mood_pulse"
     )
 
+    val morphShape = MorphPolygonShape(morph, morphProgress)
+    
+    // Retrieve theme colors in composable context (needed for Canvas draw operations)
+    val ringColor = SonaraCardElevated
+
     Box(modifier = modifier.size(140.dp), contentAlignment = Alignment.Center) {
         // Morphing background shape
         Canvas(
@@ -103,7 +115,7 @@ fun MoodRing(
                 .size(130.dp)
                 .graphicsLayer {
                     clip = true
-                    shape = MorphPolygonShape(morph, morphProgress)
+                    shape = morphShape
                 }
         ) {
             drawRect(color = moodColor.copy(alpha = 0.08f + 0.07f * energyAnim))
@@ -113,7 +125,7 @@ fun MoodRing(
         Canvas(Modifier.size(130.dp)) {
             val s = size
             drawArc(
-                color = SonaraCardElevated,
+                color = ringColor,
                 startAngle = 135f,
                 sweepAngle = 270f,
                 useCenter = false,
