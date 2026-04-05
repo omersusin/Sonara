@@ -39,11 +39,13 @@ data class InsightsUiState(
     val totalScrobbles: String = "0",
     val totalArtists: String = "0",
     val topArtists: List<Triple<String, String, String>> = emptyList(),
-    val topTracks: List<Triple<String, String, String>> = emptyList(),
+    val topTracks: List<TopTrackItem> = emptyList(),
     val weeklyTracks: List<Triple<String, String, String>> = emptyList(),
     val recentTracks: List<RecentTrackItem> = emptyList(),
     val selectedPeriod: String = "overall"
 )
+
+data class TopTrackItem(val title: String, val artist: String, val plays: String, val imageUrl: String = "")
 
 data class RecentTrackItem(val title: String, val artist: String, val album: String, val imageUrl: String, val isNowPlaying: Boolean, val date: String)
 
@@ -167,8 +169,14 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
             try {
                 // Top tracks
                 val tracks = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 8)
-                val list = tracks.toptracks?.track?.map { t -> Triple(t.name, t.artist?.name ?: "", t.playcount) } ?: emptyList()
+                val list = tracks.toptracks?.track?.map { t -> TopTrackItem(t.name, t.artist?.name ?: "", t.playcount, t.imageUrl ?: "") } ?: emptyList()
                 _uiState.update { it.copy(topTracks = list) }
+                // Enrich track images via Deezer
+                val enrichedTracks = list.map { t ->
+                    val img = if (t.imageUrl.isNotBlank()) t.imageUrl else DeezerImageResolver.getTrackImage(t.title, t.artist) ?: ""
+                    t.copy(imageUrl = img)
+                }
+                _uiState.update { it.copy(topTracks = enrichedTracks) }
             } catch (_: Exception) {}
             try {
                 // Weekly chart
@@ -205,7 +213,9 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update { it.copy(topArtists = enriched) }
             } catch (_: Exception) {}
             try { val t = LastFmClient.api.getUserTopTracks(u, k, period, 8)
-                _uiState.update { it.copy(topTracks = t.toptracks?.track?.map { Triple(it.name, it.artist?.name ?: "", it.playcount) } ?: emptyList()) }
+                val tl = t.toptracks?.track?.map { tr -> TopTrackItem(tr.name, tr.artist?.name ?: "", tr.playcount, tr.imageUrl ?: "") } ?: emptyList()
+                val enrichedT = tl.map { tr -> val img = if (tr.imageUrl.isNotBlank()) tr.imageUrl else DeezerImageResolver.getTrackImage(tr.title, tr.artist) ?: ""; tr.copy(imageUrl = img) }
+                _uiState.update { it.copy(topTracks = enrichedT) }
             } catch (_: Exception) {}
         }
     }

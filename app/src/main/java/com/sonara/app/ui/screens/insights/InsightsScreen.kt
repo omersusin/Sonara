@@ -380,21 +380,27 @@ private fun TopTracksCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Co
     FluentCard {
         Text("Top Tracks", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
         Spacer(Modifier.height(12.dp))
-        s.topTracks.forEachIndexed { i, (title, artist, plays) ->
+        val ctx = LocalContext.current
+        s.topTracks.forEachIndexed { i, track ->
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.size(32.dp).background(if (i < 3) p.copy(alpha = 0.15f) else SonaraCardElevated, RoundedCornerShape(8.dp)),
+                Box(Modifier.size(28.dp).background(if (i < 3) p.copy(alpha = 0.15f) else SonaraCardElevated, RoundedCornerShape(6.dp)),
                     contentAlignment = Alignment.Center) {
-                    Text("${i + 1}", style = if (i < 3) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+                    Text("${i + 1}", style = if (i < 3) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium,
                         color = if (i < 3) p else SonaraTextTertiary)
                 }
-                Box(Modifier.size(40.dp).background(SonaraCardElevated, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.MusicNote, null, tint = p.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                if (track.imageUrl.isNotBlank()) {
+                    AsyncImage(model = ImageRequest.Builder(ctx).data(track.imageUrl).crossfade(true).build(),
+                        contentDescription = null, modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+                } else {
+                    Box(Modifier.size(44.dp).background(SonaraCardElevated, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.MusicNote, null, tint = p.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                    }
                 }
                 Column(Modifier.weight(1f)) {
-                    Text(title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
-                    Text(artist, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary, maxLines = 1)
+                    Text(track.title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
+                    Text(track.artist, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary, maxLines = 1)
                 }
-                Text(try { fmt.format(plays.toLong()) } catch (_: Exception) { plays },
+                Text(try { fmt.format(track.plays.toLong()) } catch (_: Exception) { track.plays },
                     style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
             }
             if (i < s.topTracks.lastIndex) Box(Modifier.fillMaxWidth().height(0.5.dp).background(SonaraDivider.copy(0.2f)))

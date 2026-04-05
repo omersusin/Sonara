@@ -56,8 +56,11 @@ data class LastFmTopTrack(
     val name: String = "",
     val artist: LastFmArtist? = null,
     val playcount: String = "0",
+    val image: List<LastFmImage> = emptyList(),
     @SerializedName("@attr") val attr: LastFmRank? = null
-)
+) {
+    val imageUrl: String? get() = image.lastOrNull { it.text.isNotBlank() && !it.text.contains("2a96cbd8b46e") }?.text
+}
 
 data class LastFmWeeklyChartResponse(val weeklytrackchart: LastFmWeeklyChart? = null)
 data class LastFmWeeklyChart(val track: List<LastFmTopTrack> = emptyList())

@@ -69,4 +69,24 @@ object DeezerImageResolver {
 
     data class ArtistDetail(val name: String, val imageUrl: String, val fans: Int, val albums: Int, val topTracks: List<TrackItem>)
     data class TrackItem(val title: String, val durationSec: Int, val rank: Int)
+
+    suspend fun getTrackImage(title: String, artist: String): String? = withContext(Dispatchers.IO) {
+        val key = "${artist.lowercase()}::${title.lowercase()}"
+        cache[key]?.let { return@withContext it }
+        try {
+            val q = URLEncoder.encode("$artist $title", "UTF-8")
+            val conn = URL("$BASE/search/track?q=$q&limit=1").openConnection() as HttpURLConnection
+            conn.connectTimeout = 4000; conn.readTimeout = 4000
+            if (conn.responseCode != 200) { conn.disconnect(); return@withContext null }
+            val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
+            val data = JSONObject(json).optJSONArray("data")
+            if (data != null && data.length() > 0) {
+                val album = data.getJSONObject(0).optJSONObject("album")
+                val img = album?.optString("cover_medium", "") ?: ""
+                if (img.isNotBlank()) { cache[key] = img; return@withContext img }
+            }
+            null
+        } catch (e: Exception) { Log.w(TAG, "${e.message}"); null }
+    }
+
 }
