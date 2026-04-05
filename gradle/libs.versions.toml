@@ -2,6 +2,7 @@
 agp = "9.0.0"
 kotlin = "2.3.20"
 ksp = "2.3.6"
+gradle = "9.3.0"
 composeCompiler = "2.3.20"
 composeBom = "2026.03.00"
 material3 = "1.5.0-alpha16"

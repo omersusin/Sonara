@@ -30,6 +30,16 @@ android {
         buildConfigField("String", "GEMINI_API_KEY", "\"${System.getenv("GEMINI_API_KEY") ?: ""}\"")
     }
 
+    // Force compose-group-mapping to Kotlin 2.3.20 instead of AGP's bundled 2.2.10
+    configurations.all {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "org.jetbrains.kotlin" && requested.name == "compose-group-mapping") {
+                useVersion("2.3.20")
+                because("AGP 9.0.0 bundles Kotlin 2.2.10 but we use 2.3.20")
+            }
+        }
+    }
+
     signingConfigs {
         create("release") {
             if (keystorePropertiesFile.exists()) {
