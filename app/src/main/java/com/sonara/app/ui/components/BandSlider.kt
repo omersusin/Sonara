@@ -43,9 +43,11 @@ fun BandSlider(
     val range = maxValue - minValue
     val primary = MaterialTheme.colorScheme.primary
 
-    var dragOffset by remember(value) {
-        mutableFloatStateOf((1f - (value - minValue) / range) * trackHeightPx)
-    }
+    val initialOffset = (1f - (value - minValue) / range) * trackHeightPx
+    var dragOffset by remember { mutableFloatStateOf(initialOffset) }
+
+    val thumbSize = 14.dp
+    val halfThumbSize = thumbSize / 2
 
     Column(
         modifier = modifier.width(32.dp),
@@ -63,7 +65,6 @@ fun BandSlider(
             modifier = Modifier.width(32.dp).height(trackHeight),
             contentAlignment = Alignment.TopCenter
         ) {
-            // Track background
             Box(
                 modifier = Modifier
                     .width(3.dp)
@@ -73,19 +74,12 @@ fun BandSlider(
                     .align(Alignment.Center)
             )
 
-            // Active fill
             val midPx = trackHeightPx / 2f
-            val fillTopPx: Float
-            val fillHeightPx: Float
-            if (dragOffset < midPx) {
-                fillTopPx = dragOffset
-                fillHeightPx = midPx - dragOffset
-            } else {
-                fillTopPx = midPx
-                fillHeightPx = dragOffset - midPx
-            }
+            val fillTopPx = if (dragOffset < midPx) dragOffset else midPx
+            val fillHeightPx = if (dragOffset < midPx) midPx - dragOffset else dragOffset - midPx
             val fillTopDp = with(density) { fillTopPx.toDp() }
             val fillHeightDp = with(density) { fillHeightPx.toDp() }
+            val activeColor = if (enabled) primary.copy(alpha = 0.7f) else SonaraTextTertiary.copy(alpha = 0.3f)
 
             Box(
                 modifier = Modifier
@@ -94,28 +88,29 @@ fun BandSlider(
                     .align(Alignment.TopCenter)
                     .offset(x = 0.dp, y = fillTopDp)
                     .clip(MaterialTheme.shapes.extraSmall)
-                    .background(if (enabled) primary.copy(alpha = 0.7f) else SonaraTextTertiary.copy(alpha = 0.3f))
+                    .background(activeColor)
             )
 
-            // Thumb
-            val thumbOffsetDp = with(density) { (dragOffset - 7.dp.toPx()).toDp() }
+            val thumbOffsetDp = with(density) { (dragOffset - halfThumbSize.toPx()).toDp() }
+            val thumbColor = if (enabled) primary else SonaraTextTertiary
+
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .offset(x = 0.dp, y = thumbOffsetDp)
-                    .size(14.dp)
+                    .size(thumbSize)
                     .clip(CircleShape)
-                    .background(if (enabled) primary else SonaraTextTertiary)
-                    .then(
-                        if (enabled) Modifier.pointerInput(Unit) {
+                    .background(thumbColor)
+                    .pointerInput(enabled) {
+                        if (enabled) {
                             detectVerticalDragGestures { _, dragAmount ->
                                 val newOffset = (dragOffset + dragAmount).coerceIn(0f, trackHeightPx)
                                 dragOffset = newOffset
                                 val newValue = maxValue - (newOffset / trackHeightPx) * range
                                 onValueChange(newValue)
                             }
-                        } else Modifier
-                    )
+                        }
+                    }
             )
         }
 
