@@ -200,6 +200,13 @@ class LastFmAuthManager(private val context: Context) {
 
     fun hasPendingAuth(): Boolean = pendingToken != null
     fun reconnect() { disconnect() }
+    fun ensureConnectedState() {
+        if (secrets.getLastFmSessionKey().isNotBlank() && _authState.value != AuthState.CONNECTED) {
+            _authState.value = AuthState.CONNECTED
+            Log.d(TAG, "State restored to CONNECTED")
+        }
+    }
+
     fun isConnected(): Boolean = secrets.getLastFmSessionKey().isNotBlank()
     fun getActiveApiKey(): String = resolveApiKey()
     fun getActiveSecret(): String = resolveSharedSecret()

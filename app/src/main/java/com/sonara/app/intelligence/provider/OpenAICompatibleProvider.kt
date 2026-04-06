@@ -89,6 +89,11 @@ class OpenAICompatibleProvider(
                     listeningFocus = result.optString("listening_focus", ""),
                     lyricalTone = result.optString("lyrical_tone", ""),
                     confidenceNote = result.optString("confidence_note", ""),
+                    eqAdjustment = result.optJSONArray("eq_adjustment")?.let { a -> if (a.length() >= 10) FloatArray(10) { i -> a.optDouble(i, 0.0).toFloat().coerceIn(-12f, 12f) } else null },
+                    preamp = result.optDouble("preamp", 0.0).toFloat().coerceIn(-6f, 6f),
+                    bassBoost = result.optInt("bass_boost", 0).coerceIn(0, 1000),
+                    virtualizer = result.optInt("virtualizer", 0).coerceIn(0, 1000),
+                    loudness = result.optInt("loudness", 0).coerceIn(0, 3000),
                     success = true, provider = name
                 )
             } catch (e: Exception) {
@@ -118,7 +123,11 @@ Return JSON with:
 - "summary": 1 sentence about what you changed
 - "eq_adjustment": array of 10 floats (31Hz,62Hz,125Hz,250Hz,500Hz,1kHz,2kHz,4kHz,8kHz,16kHz) each -12 to +12 dB
 - "preamp": float -6 to +6
-- "confidence_note": brief note"""
+- "bass_boost": int 0-1000 (0=off, 500=medium, 1000=max)
+- "virtualizer": int 0-1000
+- "loudness": int 0-3000 (in centibels, 1000=10dB boost)
+- "confidence_note": brief note
+If user says louder/yüksek, increase loudness AND bass. If clearer/temiz, boost 2-8kHz."""
         }
     }
 }
