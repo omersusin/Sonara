@@ -3,6 +3,7 @@ package com.sonara.app.ai
 import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
+import com.sonara.app.data.SonaraLogger
 import com.sonara.app.ai.classifier.EmbeddedPrototypes
 import com.sonara.app.ai.classifier.KnnClassifier
 import com.sonara.app.ai.cloud.CloudLearningManager
@@ -98,7 +99,7 @@ class SonaraAi private constructor(
                             val currentBands = app.eqState.value.bands.copyOf()
                             val deltas = quickDeltas(mapped)
                             val newBands = FloatArray(10) { i -> (currentBands[i] + deltas[i]).coerceIn(-12f, 12f) }
-                            app.applyEq(newBands, app.eqState.value.presetName, manual = false, bassBoost = if (text.contains("loud") || text.contains("yüksek")) (app.eqState.value.bassBoost + 200).coerceAtMost(1000) else app.eqState.value.bassBoost, loudness = if (text.contains("loud") || text.contains("yüksek")) (app.eqState.value.loudness + 500).coerceAtMost(3000) else app.eqState.value.loudness)
+                            val sa = com.sonara.app.SonaraApp.instance; sa.applyEq(newBands, sa.eqState.value.presetName, manual = false, bassBoost = if (text.contains("loud") || text.contains("yüksek")) (sa.eqState.value.bassBoost + 200).coerceAtMost(1000) else sa.eqState.value.bassBoost, loudness = if (text.contains("loud") || text.contains("yüksek")) (sa.eqState.value.loudness + 500).coerceAtMost(3000) else sa.eqState.value.loudness)
                             Log.d(TAG, "NLP EQ applied: $mapped")
                         }
                     } catch (e: Exception) {
@@ -108,7 +109,7 @@ class SonaraAi private constructor(
                         val currentBands = app.eqState.value.bands.copyOf()
                         val deltas = quickDeltas(mapped)
                         val newBands = FloatArray(10) { i -> (currentBands[i] + deltas[i]).coerceIn(-12f, 12f) }
-                        app.applyEq(newBands, app.eqState.value.presetName, manual = false, bassBoost = if (text.contains("loud") || text.contains("yüksek")) (app.eqState.value.bassBoost + 200).coerceAtMost(1000) else app.eqState.value.bassBoost, loudness = if (text.contains("loud") || text.contains("yüksek")) (app.eqState.value.loudness + 500).coerceAtMost(3000) else app.eqState.value.loudness)
+                        val sa = com.sonara.app.SonaraApp.instance; sa.applyEq(newBands, sa.eqState.value.presetName, manual = false, bassBoost = if (text.contains("loud") || text.contains("yüksek")) (sa.eqState.value.bassBoost + 200).coerceAtMost(1000) else sa.eqState.value.bassBoost, loudness = if (text.contains("loud") || text.contains("yüksek")) (sa.eqState.value.loudness + 500).coerceAtMost(3000) else sa.eqState.value.loudness)
                     }
                 }
                 return@launch
