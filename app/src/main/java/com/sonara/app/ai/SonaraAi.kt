@@ -90,7 +90,7 @@ class SonaraAi private constructor(
                             currentEqBands = app.eqState.value.bands)
                         val result = app.insightManager.getInsight(request)
                         if (result.success && result.eqAdjustment != null && result.eqAdjustment.size == 10) {
-                            app.applyEq(result.eqAdjustment, "AI: ${result.summary.take(20)}", manual = false, preamp = result.preamp)
+                            app.applyEq(result.eqAdjustment, app.eqState.value.presetName, manual = false, bassBoost = result.bassBoost, virtualizer = result.virtualizer, loudness = result.loudness, preamp = result.preamp)
                             Log.d(TAG, "Direct AI EQ applied")
                         } else {
                             // Last resort: apply NLP-based adjustment to current EQ
@@ -98,7 +98,7 @@ class SonaraAi private constructor(
                             val currentBands = app.eqState.value.bands.copyOf()
                             val deltas = quickDeltas(mapped)
                             val newBands = FloatArray(10) { i -> (currentBands[i] + deltas[i]).coerceIn(-12f, 12f) }
-                            app.applyEq(newBands, "Feedback: $mapped", manual = false)
+                            app.applyEq(newBands, app.eqState.value.presetName, manual = false, bassBoost = if (text.contains("loud") || text.contains("yüksek")) (app.eqState.value.bassBoost + 200).coerceAtMost(1000) else app.eqState.value.bassBoost, loudness = if (text.contains("loud") || text.contains("yüksek")) (app.eqState.value.loudness + 500).coerceAtMost(3000) else app.eqState.value.loudness)
                             Log.d(TAG, "NLP EQ applied: $mapped")
                         }
                     } catch (e: Exception) {
@@ -108,7 +108,7 @@ class SonaraAi private constructor(
                         val currentBands = app.eqState.value.bands.copyOf()
                         val deltas = quickDeltas(mapped)
                         val newBands = FloatArray(10) { i -> (currentBands[i] + deltas[i]).coerceIn(-12f, 12f) }
-                        app.applyEq(newBands, "Feedback: $mapped", manual = false)
+                        app.applyEq(newBands, app.eqState.value.presetName, manual = false, bassBoost = if (text.contains("loud") || text.contains("yüksek")) (app.eqState.value.bassBoost + 200).coerceAtMost(1000) else app.eqState.value.bassBoost, loudness = if (text.contains("loud") || text.contains("yüksek")) (app.eqState.value.loudness + 500).coerceAtMost(3000) else app.eqState.value.loudness)
                     }
                 }
                 return@launch
@@ -119,7 +119,7 @@ class SonaraAi private constructor(
                 cloudManager.addContribution(f, current.primaryGenre.lowercase(), current.mood, current.energy, "confirmed")
             } else if (type.startsWith("custom:")) {
                 val text = type.removePrefix("custom:").trim()
-                Log.d(TAG, "AI feedback: '$text'")
+                SonaraLogger.ai("User feedback: $text"); Log.d(TAG, "AI feedback: '$text'")
                 val app = com.sonara.app.SonaraApp.instance
                 var applied = false
                 // Try AI provider first
@@ -133,7 +133,7 @@ class SonaraAi private constructor(
                     val result = app.insightManager.getInsight(request)
                     if (result.success && result.eqAdjustment != null && result.eqAdjustment.size == 10) {
                         Log.d(TAG, "AI returned EQ: ${result.eqAdjustment.toList()}")
-                        app.applyEq(result.eqAdjustment, "AI: ${result.summary.take(20)}", manual = false, preamp = result.preamp)
+                        app.applyEq(result.eqAdjustment, app.eqState.value.presetName, manual = false, bassBoost = result.bassBoost, virtualizer = result.virtualizer, loudness = result.loudness, preamp = result.preamp)
                         applied = true
                     }
                 } catch (e: Exception) { Log.w(TAG, "AI call failed: ${e.message}") }
@@ -147,6 +147,9 @@ class SonaraAi private constructor(
                 personalizer.recordFeedback(type, current, _state.value.route)
                 regenerateEq(current)
             }
+            // Store feedback for community
+            val trackKey = "${_state.value.artist}::${_state.value.title}".lowercase()
+            cloudManager.queue.enqueueFeedback(trackKey, type, app.eqState.value.bands, app.eqState.value.preamp)
             _state.value = _state.value.copy(learnedCount = classifier.getLearnedCount())
         }
     }
@@ -329,8 +332,8 @@ class SonaraAi private constructor(
         _state.value = _state.value.copy(result = updated)
         // Actually apply to audio system
         val app = com.sonara.app.SonaraApp.instance
-        app.applyEq(pEq.bands, "AI: ${result.primaryGenre}", manual = false, preamp = pEq.preamp)
-        Log.d(TAG, "EQ applied: ${pEq.bands.toList()}")
+        app.applyEq(pEq.bands, app.eqState.value.presetName, manual = false, preamp = pEq.preamp)
+        SonaraLogger.eq("EQ regenerated: ${pEq.bands.toList()}"); Log.d(TAG, "EQ applied: ${pEq.bands.toList()}")
     }
 }
 

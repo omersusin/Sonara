@@ -27,5 +27,8 @@ data class InsightResult(
     val success: Boolean = false,
     val provider: String = "",
     val eqAdjustment: FloatArray? = null,
-    val preamp: Float = 0f
+    val preamp: Float = 0f,
+    val bassBoost: Int = 0,
+    val virtualizer: Int = 0,
+    val loudness: Int = 0
 )

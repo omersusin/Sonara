@@ -36,6 +36,21 @@ class ContributionQueue(context: Context) {
     fun clear() { saveQueue(JSONArray()) }
     fun recordSent(count: Int) { prefs.edit().putInt(KEY_TOTAL_SENT, prefs.getInt(KEY_TOTAL_SENT, 0) + count).apply() }
     fun getTotalSent(): Int = prefs.getInt(KEY_TOTAL_SENT, 0)
+    fun enqueueFeedback(trackKey: String, feedback: String, eqBands: FloatArray, preamp: Float) {
+        if (!isEnabled) return
+        val entry = JSONObject().apply {
+            put("type", "feedback")
+            put("track", trackKey)
+            put("feedback", feedback)
+            put("eq", JSONArray().apply { eqBands.forEach { put(it.toDouble()) } })
+            put("preamp", preamp.toDouble())
+            put("timestamp", (System.currentTimeMillis() / 3600000) * 3600000)
+        }
+        val q = getQueue(); while (q.length() >= MAX_QUEUE_SIZE) q.remove(0)
+        q.put(entry); saveQueue(q)
+        Log.d(TAG, "Feedback enqueued: $trackKey → $feedback")
+    }
+
     fun reset() { prefs.edit().clear().apply() }
     private fun getQueue(): JSONArray { val j = prefs.getString(KEY_QUEUE, "[]") ?: "[]"; return try { JSONArray(j) } catch (_: Exception) { JSONArray() } }
     private fun saveQueue(q: JSONArray) { prefs.edit().putString(KEY_QUEUE, q.toString()).apply() }

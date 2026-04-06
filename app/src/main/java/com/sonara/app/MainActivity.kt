@@ -52,8 +52,9 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         val app = application as SonaraApp
+        // Always restore connection if session key exists
+        app.lastFmAuth.ensureConnectedState()
         val authState = app.lastFmAuth.authState.value
-        // Try completing auth if we were in AUTHENTICATING state (even after activity recreation)
         if (authState == LastFmAuthManager.AuthState.AUTHENTICATING ||
             authState == LastFmAuthManager.AuthState.DISCONNECTED) {
             MainScope().launch {
