@@ -77,6 +77,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.asImageBitmap
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -125,8 +126,14 @@ fun DashboardScreen() {
         }
 
         item {
-            NowPlayingBar(title = if (s.hasTrack) s.title else "No music playing",
-                artist = s.artist, isPlaying = s.isPlaying, albumArt = art)
+            NowPlayingBar(
+    title = if (s.hasTrack) s.title else "No music playing",
+    artist = s.artist,
+    isPlaying = s.isPlaying,
+    albumArt = art?.asImageBitmap(),
+    onPlayPause = {},
+    onClick = {}
+)
         }
 
         // AI Audio Analysis
