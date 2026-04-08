@@ -16,7 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 fun SonaraTheme(
     accentColor: AccentColor = AccentColor.Amber,
     themeMode: String = "dark",
-    dynamicColors: Boolean = false,
+    dynamicColors: Boolean = true,
     highContrast: Boolean = false,
     amoledMode: Boolean = false,
     content: @Composable () -> Unit
