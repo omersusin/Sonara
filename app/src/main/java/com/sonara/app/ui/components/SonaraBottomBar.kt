@@ -1,65 +1,80 @@
 package com.sonara.app.ui.components
 
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.sonara.app.ui.navigation.Screen
-import com.sonara.app.ui.theme.*
 
-private data class NavItem(val screen: Screen, val icon: ImageVector)
+data class BottomItem(
+    val route: String,
+    val label: String,
+    val icon: @Composable () -> Unit
+)
 
 @Composable
 fun SonaraBottomBar(navController: NavController) {
-    val items = listOf(
-        NavItem(Screen.Dashboard, Icons.Rounded.Home),
-        NavItem(Screen.Equalizer, Icons.Rounded.Tune),
-        NavItem(Screen.Insights, Icons.Rounded.BarChart),
-        NavItem(Screen.Settings, Icons.Rounded.Settings)
-    )
-    val backStack by navController.currentBackStackEntryAsState()
-    val currentRoute = backStack?.destination?.route
-    val primary = MaterialTheme.colorScheme.primary
 
-    Column {
-        HorizontalDivider(thickness = 0.5.dp, color = SonaraDivider.copy(alpha = 0.5f))
-        NavigationBar(containerColor = SonaraSurface, tonalElevation = 0.dp) {
-            items.forEach { item ->
-                val selected = currentRoute == item.screen.route
-                NavigationBarItem(
-                    selected = selected,
-                    onClick = {
-                        if (currentRoute != item.screen.route) {
-                            navController.navigate(item.screen.route) {
-                                popUpTo(Screen.Dashboard.route) { saveState = true }
-                                launchSingleTop = true; restoreState = true
-                            }
+    val items = listOf(
+        BottomItem("dashboard", "Home") { Icon(Icons.Rounded.Home, contentDescription = null) },
+        BottomItem("equalizer", "EQ") { Icon(Icons.Rounded.Equalizer, contentDescription = null) },
+        BottomItem("insights", "Insights") { Icon(Icons.Rounded.Insights, contentDescription = null) },
+        BottomItem("settings", "Settings") { Icon(Icons.Rounded.Settings, contentDescription = null) }
+    )
+
+    val navBackStackEntry = navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry.value?.destination?.route
+
+    NavigationBar(
+        modifier = Modifier.height(72.dp),
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+        tonalElevation = 8.dp
+    ) {
+
+        items.forEach { item ->
+
+            val selected = currentRoute == item.route
+
+            NavigationBarItem(
+                selected = selected,
+                onClick = {
+                    if (!selected) {
+                        navController.navigate(item.route) {
+                            popUpTo("dashboard") { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                    },
-                    icon = { Icon(item.icon, contentDescription = item.screen.label) },
-                    label = { Text(item.screen.label) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = primary, selectedTextColor = primary,
-                        unselectedIconColor = SonaraTextTertiary, unselectedTextColor = SonaraTextTertiary,
-                        indicatorColor = primary.copy(alpha = 0.1f)
+                    }
+                },
+                icon = {
+                    item.icon()
+                },
+                label = {
+                    Text(
+                        text = item.label,
+                        style = if (selected) {
+                            MaterialTheme.typography.labelMedium
+                        } else {
+                            MaterialTheme.typography.labelSmall
+                        }
                     )
+                },
+                alwaysShowLabel = true,
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer
                 )
-            }
+            )
         }
     }
 }

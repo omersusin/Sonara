@@ -16,7 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 fun SonaraTheme(
     accentColor: AccentColor = AccentColor.Amber,
     themeMode: String = "dark",
-    dynamicColors: Boolean = false,
+    dynamicColors: Boolean = true,
     highContrast: Boolean = false,
     amoledMode: Boolean = false,
     content: @Composable () -> Unit
@@ -31,57 +31,99 @@ fun SonaraTheme(
     val useDynamic = dynamicColors && Build.VERSION.SDK_INT >= 31
     val p = if (accentColor == AccentColor.Auto) AccentColor.Amber else accentColor
 
-    // ═══ Pick the right Sonara palette ═══
     val palette = when {
         !useDark -> LightPalette
         amoledMode -> AmoledPalette
         else -> DarkPalette
     }
 
-    // ═══ Material color scheme ═══
     val colorScheme = when {
         useDynamic && useDark -> {
             val base = dynamicDarkColorScheme(context)
             base.copy(
-                background = palette.background, surface = palette.surface,
+                background = palette.background,
+                surface = palette.surface,
                 surfaceVariant = palette.card,
-                onBackground = if (highContrast) Color.White else palette.textPrimary,
-                onSurface = if (highContrast) Color.White else palette.textPrimary,
-                onSurfaceVariant = if (highContrast) palette.textPrimary else palette.textSecondary,
-                outline = palette.divider, outlineVariant = palette.divider, error = SonaraError
+                surfaceTint = p.primary, // 🔥 ADD
+                onBackground = palette.textPrimary,
+                onSurface = palette.textPrimary,
+                onSurfaceVariant = palette.textSecondary,
+                outline = palette.divider,
+                outlineVariant = palette.divider,
+                error = SonaraError
             )
         }
+
         useDynamic && !useDark -> {
             val base = dynamicLightColorScheme(context)
             base.copy(
-                background = palette.background, surface = palette.surface,
-                surfaceVariant = palette.card,
-                onBackground = if (highContrast) Color.Black else palette.textPrimary,
-                onSurface = if (highContrast) Color.Black else palette.textPrimary,
-                onSurfaceVariant = if (highContrast) palette.textPrimary else palette.textSecondary,
-                outline = palette.divider, error = SonaraError
+                background = Color(0xFFF4F6FA), // 🔥 FIX WHITE ISSUE
+                surface = Color(0xFFFFFFFF),
+                surfaceVariant = Color(0xFFEAF0F8),
+                surfaceTint = p.primary,
+                onBackground = palette.textPrimary,
+                onSurface = palette.textPrimary,
+                onSurfaceVariant = palette.textSecondary,
+                outline = palette.divider,
+                error = SonaraError
             )
         }
+
         !useDark -> lightColorScheme(
-            primary = p.primary, onPrimary = Color.White,
-            primaryContainer = p.primary.copy(alpha = 0.10f), onPrimaryContainer = p.primaryDark,
-            secondary = Color(0xFF5A7A8A), onSecondary = Color.White,
-            background = palette.background, onBackground = if (highContrast) Color.Black else palette.textPrimary,
-            surface = palette.surface, onSurface = if (highContrast) Color.Black else palette.textPrimary,
-            surfaceVariant = palette.card, onSurfaceVariant = if (highContrast) palette.textPrimary else palette.textSecondary,
-            outline = palette.divider, outlineVariant = Color(0xFFE5E5EA),
-            error = Color(0xFFD32F2F), inverseSurface = Color(0xFF2C2C2E), inverseOnSurface = Color(0xFFF5F5F5)
+            primary = p.primary,
+            onPrimary = Color.White,
+
+            primaryContainer = p.primary.copy(alpha = 0.18f), // 🔥 FIX
+
+            onPrimaryContainer = p.primaryDark,
+
+            secondary = Color(0xFF5A7A8A),
+            onSecondary = Color.White,
+
+            background = Color(0xFFF4F6FA), // 🔥 MAIN FIX
+            onBackground = palette.textPrimary,
+
+            surface = Color(0xFFFFFFFF),
+            onSurface = palette.textPrimary,
+
+            surfaceVariant = Color(0xFFEAF0F8),
+            onSurfaceVariant = palette.textSecondary,
+
+            outline = palette.divider,
+            outlineVariant = Color(0xFFD7DDE7),
+
+            surfaceTint = p.primary, // 🔥 ADD
+
+            error = Color(0xFFD32F2F),
+
+            inverseSurface = Color(0xFF2C2C2E),
+            inverseOnSurface = Color(0xFFF5F5F5)
         )
+
         else -> darkColorScheme(
-            primary = p.primary, onPrimary = palette.background,
-            primaryContainer = p.primary.copy(alpha = 0.1f), onPrimaryContainer = p.primaryLight,
+            primary = p.primary,
+            onPrimary = palette.background,
+
+            primaryContainer = p.primary.copy(alpha = 0.15f),
+
+            onPrimaryContainer = p.primaryLight,
+
             secondary = SonaraInfo,
-            background = palette.background, surface = palette.surface,
+
+            background = palette.background,
+            surface = palette.surface,
+
             surfaceVariant = palette.card,
-            onBackground = if (highContrast) Color.White else palette.textPrimary,
-            onSurface = if (highContrast) Color.White else palette.textPrimary,
-            onSurfaceVariant = if (highContrast) palette.textPrimary else palette.textSecondary,
-            outline = palette.divider, outlineVariant = palette.divider, error = SonaraError
+            surfaceTint = p.primary, // 🔥 ADD
+
+            onBackground = palette.textPrimary,
+            onSurface = palette.textPrimary,
+            onSurfaceVariant = palette.textSecondary,
+
+            outline = palette.divider,
+            outlineVariant = palette.divider,
+
+            error = SonaraError
         )
     }
 
