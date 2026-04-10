@@ -31,3 +31,18 @@
 -keep class com.sonara.app.intelligence.lastfm.LastFmRecentAlbum { *; }
 -keep class com.sonara.app.intelligence.lastfm.LastFmDate { *; }
 -keep class com.sonara.app.intelligence.lastfm.LastFmNowPlaying { *; }
+
+# Sonara data classes (added by bug bounty)
+-keep class com.sonara.app.intelligence.deezer.DeezerImageResolver$* { *; }
+-keep class com.sonara.app.intelligence.provider.InsightResult { *; }
+-keep class com.sonara.app.intelligence.provider.InsightRequest { *; }
+-keep class com.sonara.app.ui.screens.insights.InsightsViewModel$TopTrackItem { *; }
+-keep class com.sonara.app.ui.screens.insights.InsightsViewModel$RecentTrackItem { *; }
+-keep class com.sonara.app.backup.BackupManager$* { *; }
+-keep class com.sonara.app.intelligence.lastfm.LastFmRecentTracksResponse { *; }
+-keep class com.sonara.app.intelligence.lastfm.LastFmRecentTracks { *; }
+-keep class com.sonara.app.intelligence.lastfm.LastFmRecentTrack { *; }
+-keep class com.sonara.app.intelligence.lastfm.LastFmRecentArtist { *; }
+-keep class com.sonara.app.intelligence.lastfm.LastFmRecentAlbum { *; }
+-keep class com.sonara.app.intelligence.lastfm.LastFmDate { *; }
+-keep class com.sonara.app.intelligence.lastfm.LastFmNowPlaying { *; }
