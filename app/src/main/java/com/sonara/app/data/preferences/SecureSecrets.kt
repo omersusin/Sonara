@@ -46,7 +46,7 @@ class SecureSecrets(private val context: Context) {
             Base64.encodeToString(combined, Base64.NO_WRAP)
         } catch (e: Exception) {
             Log.e(TAG, "Encrypt failed: ${e.message}")
-            plainText
+            ""  // Never store plaintext
         }
     }
 
@@ -61,7 +61,7 @@ class SecureSecrets(private val context: Context) {
             String(cipher.doFinal(encrypted))
         } catch (e: Exception) {
             Log.e(TAG, "Decrypt failed: ${e.message}")
-            encoded
+            ""  // Never return undecrypted data
         }
     }
 

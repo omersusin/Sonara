@@ -89,4 +89,45 @@ object DeezerImageResolver {
         } catch (e: Exception) { Log.w(TAG, "${e.message}"); null }
     }
 
+
+    // iTunes Search API fallback for cover art (free, no auth)
+    suspend fun getTrackImageItunes(title: String, artist: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val q = URLEncoder.encode("$artist $title", "UTF-8")
+            val conn = URL("https://itunes.apple.com/search?term=$q&entity=song&limit=1").openConnection() as HttpURLConnection
+            conn.connectTimeout = 4000; conn.readTimeout = 4000
+            if (conn.responseCode != 200) { conn.disconnect(); return@withContext null }
+            val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
+            val results = JSONObject(json).optJSONArray("results")
+            if (results != null && results.length() > 0) {
+                val img = results.getJSONObject(0).optString("artworkUrl100", "")
+                    .replace("100x100", "600x600") // Get higher res
+                if (img.isNotBlank()) return@withContext img
+            }
+            null
+        } catch (e: Exception) { Log.w(TAG, "iTunes: ${e.message}"); null }
+    }
+
+    // Enhanced: try Deezer first, then iTunes
+    suspend fun getTrackImageAny(title: String, artist: String): String? {
+        return getTrackImage(title, artist) ?: getTrackImageItunes(title, artist)
+    }
+
+    suspend fun getArtistImageAny(name: String): String? {
+        return getArtistImage(name) ?: withContext(Dispatchers.IO) {
+            try {
+                val q = URLEncoder.encode(name, "UTF-8")
+                val conn = URL("https://itunes.apple.com/search?term=$q&entity=musicArtist&limit=1").openConnection() as HttpURLConnection
+                conn.connectTimeout = 4000; conn.readTimeout = 4000
+                if (conn.responseCode != 200) { conn.disconnect(); return@withContext null }
+                val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
+                val results = JSONObject(json).optJSONArray("results")
+                if (results != null && results.length() > 0) {
+                    // iTunes doesn't return artist images directly, but album art works
+                    null
+                } else null
+            } catch (_: Exception) { null }
+        }
+    }
+
 }
