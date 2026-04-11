@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.sonara.app.SonaraApp
 import com.sonara.app.ui.theme.*
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 data class AppItem(val pkg: String, val label: String, val isMusic: Boolean)
@@ -80,7 +81,7 @@ fun AppPickerScreen(onBack: () -> Unit) {
                         } else {
                             val r = allowedApps - appItem.pkg; if (r.isEmpty()) emptySet() else r
                         }
-                        kotlinx.coroutines.MainScope().launch { app.preferences.setAllowedScrobbleApps(allowedApps) }
+                        scope.launch { app.preferences.setAllowedScrobbleApps(allowedApps) }
                     }
                 }
             }
@@ -91,7 +92,7 @@ fun AppPickerScreen(onBack: () -> Unit) {
                         allowedApps = if (checked) allowedApps + appItem.pkg else {
                             val r = allowedApps - appItem.pkg; if (r.isEmpty()) emptySet() else r
                         }
-                        kotlinx.coroutines.MainScope().launch { app.preferences.setAllowedScrobbleApps(allowedApps) }
+                        scope.launch { app.preferences.setAllowedScrobbleApps(allowedApps) }
                     }
                 }
             }
