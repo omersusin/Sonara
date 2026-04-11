@@ -138,11 +138,12 @@ class SonaraService : Service() {
                                     artist = np.artist,
                                     genre = SonaraNotificationListener._currentGenre.value,
                                     subGenre = null,
-                                    tags = listOf(text),
+                                    tags = emptyList(),
                                     lyricalTone = null,
                                     energy = SonaraNotificationListener._currentEnergy.value,
                                     confidence = SonaraNotificationListener._currentConfidence.value,
-                                    currentEqBands = eqBands
+                                    currentEqBands = eqBands,
+                                    userRequest = text
                                 )
                             )
                             if (result.success && result.eqAdjustment != null) {

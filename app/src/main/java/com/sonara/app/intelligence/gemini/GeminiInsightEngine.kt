@@ -33,7 +33,12 @@ class GeminiInsightEngine(private var apiKey: String = "") {
         val listeningFocus: String,
         val lyricalTone: String,
         val confidenceNote: String,
-        val success: Boolean = true
+        val success: Boolean = true,
+        val eqAdjustment: FloatArray? = null,
+        val preamp: Float = 0f,
+        val bassBoost: Int = 0,
+        val virtualizer: Int = 0,
+        val loudness: Int = 0
     )
 
     private val client = OkHttpClient.Builder()
@@ -56,7 +61,8 @@ class GeminiInsightEngine(private var apiKey: String = "") {
     suspend fun getInsight(
         title: String, artist: String, genre: String, subGenre: String?,
         tags: List<String>, lyricalTone: String?, energy: Float,
-        confidence: Float, currentEqBands: FloatArray?
+        confidence: Float, currentEqBands: FloatArray?,
+        userRequest: String? = null
     ): GeminiInsight {
         if (apiKey.isBlank()) return GeminiInsight("", "", "", "", "", false)
         if (System.currentTimeMillis() < quotaPausedUntil) return GeminiInsight("", "", "", "", "", false)
@@ -75,13 +81,20 @@ class GeminiInsightEngine(private var apiKey: String = "") {
                     put("current_eq", currentEqBands?.joinToString(",") ?: "")
                 }
 
-                val prompt = """You are Sonara, an AI-powered music EQ engine. 
+                val userMsg = if (!userRequest.isNullOrBlank()) "\nUser request: \"$userRequest\" — adjust EQ bands to fulfill this request." else ""
+                val prompt = """You are Sonara, an AI-powered music EQ engine.
 Given this track analysis, provide a JSON response with these exact fields:
-- "summary": 1-2 sentence description of the track's character
-- "why_this_eq": Why the current EQ settings suit this track  
+- "summary": 1-2 sentence description of what you're doing
+- "why_this_eq": Why these EQ settings suit this track
 - "listening_focus": What to listen for with these settings
 - "lyrical_tone": Brief note on lyrical mood/theme
-- "confidence_note": How confident the analysis is and why
+- "confidence_note": How confident the analysis is
+- "eq_adjustment": array of 10 floats (31Hz,62Hz,125Hz,250Hz,500Hz,1kHz,2kHz,4kHz,8kHz,16kHz) each -12 to +12 dB
+- "preamp": float -6 to +6
+- "bass_boost": int 0-1000 (0=off, 500=medium, 1000=max)
+- "virtualizer": int 0-1000
+- "loudness": int 0-3000 (centibels, 1000=10dB boost)
+If user says louder, increase loudness AND low bands. If clearer, boost 2-8kHz. If more bass, boost 31-250Hz and bass_boost.$userMsg
 
 Track data: $trackJson
 
@@ -132,12 +145,20 @@ Respond ONLY with valid JSON, no markdown backticks."""
                     .trim()
 
                 val result = JSONObject(text)
+                val eqArr = result.optJSONArray("eq_adjustment")?.let { a ->
+                    if (a.length() >= 10) FloatArray(10) { i -> a.optDouble(i, 0.0).toFloat().coerceIn(-12f, 12f) } else null
+                }
                 GeminiInsight(
                     summary = result.optString("summary", ""),
                     whyThisEq = result.optString("why_this_eq", ""),
                     listeningFocus = result.optString("listening_focus", ""),
                     lyricalTone = result.optString("lyrical_tone", ""),
-                    confidenceNote = result.optString("confidence_note", "")
+                    confidenceNote = result.optString("confidence_note", ""),
+                    eqAdjustment = eqArr,
+                    preamp = result.optDouble("preamp", 0.0).toFloat().coerceIn(-6f, 6f),
+                    bassBoost = result.optInt("bass_boost", 0).coerceIn(0, 1000),
+                    virtualizer = result.optInt("virtualizer", 0).coerceIn(0, 1000),
+                    loudness = result.optInt("loudness", 0).coerceIn(0, 3000)
                 )
             } catch (e: Exception) {
                 SonaraLogger.w("Gemini", "Insight error: ${e.message}")
