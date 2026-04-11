@@ -97,9 +97,9 @@ object SonaraLogger {
     private fun redact(msg: String): String {
         return msg
             .replace(Regex("[a-zA-Z0-9]{32,}"), "***REDACTED***")
-            .replace(Regex("key=[^&\s]+"), "key=***")
-            .replace(Regex("sk=[^&\s]+"), "sk=***")
-            .replace(Regex("Bearer [^\s]+"), "Bearer ***")
+            .replace(Regex("""key=[^&\s]+"""), "key=***")
+            .replace(Regex("""sk=[^&\s]+"""), "sk=***")
+            .replace(Regex("""Bearer [^\s]+"""), "Bearer ***")
     }
 
     private fun log(level: LogLevel, tag: String, msg: String) {
