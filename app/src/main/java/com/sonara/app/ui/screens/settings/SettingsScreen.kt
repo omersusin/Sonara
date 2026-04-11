@@ -144,31 +144,29 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
 
         item { SectionHeader("Data & Developer") }
         item { DataCard(state, vm) }
-        if (BuildConfig.DEBUG) {
-            item {
-                FluentCard {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column {
-                            Text("Debug Log", style = MaterialTheme.typography.titleMedium)
-                            Text("View real-time app logs", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                        }
-                        OutlinedButton(onClick = onOpenDebugLog, shape = MaterialTheme.shapes.extraLarge,
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                        ) { Text("Open") }
+        item {
+            FluentCard {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text("Debug Log", style = MaterialTheme.typography.titleMedium)
+                        Text("View real-time app logs", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                     }
+                    OutlinedButton(onClick = onOpenDebugLog, shape = MaterialTheme.shapes.extraLarge,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                    ) { Text("Open") }
                 }
             }
-            item {
-                FluentCard {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column {
-                            Text("Pipeline Debug", style = MaterialTheme.typography.titleMedium)
-                            Text("Track detection, source, EQ state", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                        }
-                        OutlinedButton(onClick = onOpenPipelineDebug, shape = MaterialTheme.shapes.extraLarge,
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                        ) { Text("Open") }
+        }
+        item {
+            FluentCard {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text("Pipeline Debug", style = MaterialTheme.typography.titleMedium)
+                        Text("Track detection, source, EQ state", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                     }
+                    OutlinedButton(onClick = onOpenPipelineDebug, shape = MaterialTheme.shapes.extraLarge,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                    ) { Text("Open") }
                 }
             }
         }

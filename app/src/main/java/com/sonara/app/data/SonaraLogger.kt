@@ -2,7 +2,6 @@ package com.sonara.app.data
 
 import android.content.Context
 import android.util.Log
-import com.sonara.app.BuildConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,7 +42,6 @@ object SonaraLogger {
     private val fileFmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
 
     fun init(context: Context) {
-        if (!BuildConfig.DEBUG) return  // VULN-13: No file logging in release
         try {
             val dir = context.filesDir
             logFile = File(dir, LOG_FILE)
@@ -72,8 +70,37 @@ object SonaraLogger {
     fun ai(msg: String) = log(LogLevel.AI, "AI", msg)
     fun bt(msg: String) = log(LogLevel.BT, "Bluetooth", msg)
     fun media(msg: String) = log(LogLevel.MEDIA, "Media", msg)
-    fun net(msg: String) = log(LogLevel.NET, "Network", msg)
+    fun net(msg: String) = log(LogLevel.NET, "Network", redact(msg))
     fun ui(msg: String) = log(LogLevel.UI, "UI", msg)
+
+    // Detailed event logging helpers
+    fun trackChange(title: String, artist: String, source: String) =
+        log(LogLevel.MEDIA, "Track", "Now playing: $title - $artist [source=$source]")
+    fun eqApplied(genre: String, bands: FloatArray, source: String) =
+        log(LogLevel.EQ, "EqApply", "Genre=$genre Source=$source Bands=${bands.take(5).joinToString(",") { "%.1f".format(it) }}...")
+    fun scrobble(title: String, artist: String, success: Boolean) =
+        log(LogLevel.NET, "Scrobble", "${if (success) "OK" else "FAIL"}: $title - $artist")
+    fun aiRequest(provider: String, model: String) =
+        log(LogLevel.AI, "Request", "Provider=$provider Model=$model")
+    fun aiResponse(provider: String, hasEq: Boolean, latencyMs: Long) =
+        log(LogLevel.AI, "Response", "Provider=$provider hasEQ=$hasEq latency=${latencyMs}ms")
+    fun sessionEvent(action: String, sessionId: Int, pkg: String?) =
+        log(LogLevel.EQ, "Session", "$action sid=$sessionId pkg=${pkg ?: "unknown"}")
+    fun lastfmAuth(state: String) =
+        log(LogLevel.NET, "LastFm", "Auth state: $state")
+    fun headphone(name: String, autoEq: Boolean) =
+        log(LogLevel.EQ, "Headphone", "Connected: $name autoEQ=$autoEq")
+    fun appEvent(event: String) =
+        log(LogLevel.INFO, "App", event)
+
+    /** Redact sensitive data from log messages (API keys, tokens) */
+    private fun redact(msg: String): String {
+        return msg
+            .replace(Regex("[a-zA-Z0-9]{32,}"), "***REDACTED***")
+            .replace(Regex("key=[^&\s]+"), "key=***")
+            .replace(Regex("sk=[^&\s]+"), "sk=***")
+            .replace(Regex("Bearer [^\s]+"), "Bearer ***")
+    }
 
     private fun log(level: LogLevel, tag: String, msg: String) {
         if (!_isEnabled.value) return
