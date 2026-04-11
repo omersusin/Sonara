@@ -45,8 +45,8 @@ class SecureSecrets(private val context: Context) {
             val combined = iv + encrypted
             Base64.encodeToString(combined, Base64.NO_WRAP)
         } catch (e: Exception) {
-            Log.e(TAG, "Encrypt failed: ${e.message}")
-            plainText
+            Log.e(TAG, "Encrypt failed, refusing to store")
+            ""
         }
     }
 
@@ -60,8 +60,8 @@ class SecureSecrets(private val context: Context) {
             cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(128, iv))
             String(cipher.doFinal(encrypted))
         } catch (e: Exception) {
-            Log.e(TAG, "Decrypt failed: ${e.message}")
-            encoded
+            Log.e(TAG, "Decrypt failed, returning empty")
+            ""
         }
     }
 
@@ -77,6 +77,16 @@ class SecureSecrets(private val context: Context) {
     /** GitHub PAT for cloud learning sync */
     fun getGitHubTokenInstance(): String = decrypt(prefs.getString("github_token", "") ?: "")
     fun setGitHubToken(value: String) { prefs.edit().putString("github_token", encrypt(value)).apply() }
+
+    // ═══ AI Provider Keys (VULN-02 fix: encrypted storage) ═══
+    fun getGeminiApiKey(): String = decrypt(prefs.getString("gemini_api_key", "") ?: "")
+    fun setGeminiApiKey(value: String) { prefs.edit().putString("gemini_api_key", encrypt(value)).apply() }
+
+    fun getOpenRouterApiKey(): String = decrypt(prefs.getString("openrouter_api_key", "") ?: "")
+    fun setOpenRouterApiKey(value: String) { prefs.edit().putString("openrouter_api_key", encrypt(value)).apply() }
+
+    fun getGroqApiKey(): String = decrypt(prefs.getString("groq_api_key", "") ?: "")
+    fun setGroqApiKey(value: String) { prefs.edit().putString("groq_api_key", encrypt(value)).apply() }
 
     fun clearAll() { prefs.edit().clear().apply() }
 

@@ -101,6 +101,37 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
             ) }
         }
 
+        // Sync now-playing into recently played list + refresh on track change
+        viewModelScope.launch {
+            SonaraNotificationListener.nowPlaying.collect { np ->
+                if (np.title.isNotBlank()) {
+                    _uiState.update { st ->
+                        val nowItem = RecentTrackItem(
+                            title = np.title,
+                            artist = np.artist,
+                            album = np.album,
+                            imageUrl = "",
+                            isNowPlaying = np.isPlaying,
+                            date = "Now"
+                        )
+                        // Remove any existing entry for same track, prepend current
+                        val filtered = st.recentTracks.filter {
+                            !(it.title == np.title && it.artist == np.artist && it.isNowPlaying)
+                        }
+                        // Clear old nowPlaying flags
+                        val cleared = filtered.map { it.copy(isNowPlaying = false) }
+                        st.copy(recentTracks = listOf(nowItem) + cleared)
+                    }
+                    // Refresh from Last.fm after a delay (new track may take a moment to appear)
+                    val u = _uiState.value.lastFmUsername
+                    if (u.isNotBlank()) {
+                        kotlinx.coroutines.delay(5000)
+                        refreshRecentTracks(u)
+                    }
+                }
+            }
+        }
+
         // Last.fm connection + stats
         viewModelScope.launch {
             app.lastFmAuth.authState.collect { state ->
@@ -208,6 +239,52 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                     Triple(t.first, t.second, resolved)
                 }
                 _uiState.update { it.copy(topArtists = enriched) }
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun refreshRecentTracks(username: String) {
+        val apiKey = app.lastFmAuth.getActiveApiKey()
+        if (apiKey.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val recent = LastFmClient.api.getRecentTracks(username, apiKey, 10)
+                val apiList = recent.recenttracks?.track?.map { t ->
+                    RecentTrackItem(
+                        title = t.name,
+                        artist = t.artist?.text ?: "",
+                        album = t.album?.text ?: "",
+                        imageUrl = t.imageUrl ?: "",
+                        isNowPlaying = t.isNowPlaying,
+                        date = t.date?.text ?: "Now"
+                    )
+                } ?: emptyList()
+
+                // Merge: keep local now-playing at top if still playing
+                val np = SonaraNotificationListener.nowPlaying.value
+                _uiState.update { st ->
+                    if (np.isPlaying && np.title.isNotBlank()) {
+                        val nowItem = RecentTrackItem(
+                            title = np.title, artist = np.artist, album = np.album,
+                            imageUrl = apiList.firstOrNull { it.title == np.title }?.imageUrl ?: "",
+                            isNowPlaying = true, date = "Now"
+                        )
+                        val rest = apiList.filter {
+                            !(it.title == np.title && it.artist == np.artist && it.isNowPlaying)
+                        }.map { it.copy(isNowPlaying = false) }
+                        st.copy(recentTracks = listOf(nowItem) + rest)
+                    } else {
+                        st.copy(recentTracks = apiList)
+                    }
+                }
+                // Enrich images via Deezer for items missing art
+                val enriched = _uiState.value.recentTracks.map { t ->
+                    if (t.imageUrl.isBlank() || t.imageUrl.contains("2a96cbd8b46e")) {
+                        val img = DeezerImageResolver.getTrackImage(t.title, t.artist) ?: ""
+                        t.copy(imageUrl = img)
+                    } else t
+                }
+                _uiState.update { it.copy(recentTracks = enriched) }
             } catch (_: Exception) {}
         }
     }

@@ -33,12 +33,9 @@ class DailySyncWorker(appContext: Context, params: WorkerParameters) : Coroutine
         try {
             val db = SonaraDatabase.get(ctx); val dao = db.trainingExampleDao(); val classifier = KnnClassifier(dao)
             val dlCount = sync.checkAndDownloadPrototypes()
+            // VULN-11: Removed duplicate raw URL download — checkAndDownloadPrototypes() handles this
             if (dlCount > 0) {
-                val raw = "https://raw.githubusercontent.com/omersusin/sonara-models/main/prototypes.json"
-                try { val c = java.net.URL(raw).openConnection() as java.net.HttpURLConnection; c.connectTimeout = 15000; c.readTimeout = 15000
-                    val pJson = if (c.responseCode == 200) c.inputStream.bufferedReader().readText() else null; c.disconnect()
-                    if (pJson != null) { val protos = sync.parsePrototypes(pJson); if (protos.isNotEmpty()) { classifier.loadPrototypes(protos); classifier.refreshCache() } }
-                } catch (_: Exception) {}
+                Log.d(TAG, "Downloaded $dlCount prototypes via GitHubSync")
             }
             if (queue.isEnabled && queue.size() > 0) {
                 val token = SecureSecrets.getGitHubToken(ctx)

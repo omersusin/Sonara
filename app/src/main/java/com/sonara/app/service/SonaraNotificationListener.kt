@@ -131,9 +131,19 @@ class SonaraNotificationListener : NotificationListenerService() {
             val mediaType = MediaSourceDetector.detect(pkg)
             Log.d("SonaraListener", "Media source: $pkg → $mediaType")
         }
-        val target = controllers.firstOrNull {
+
+        // Scrobble app filter: skip controllers from non-allowed apps
+        val allowedApps = try {
+            val app = application as SonaraApp
+            kotlinx.coroutines.runBlocking { app.preferences.allowedScrobbleAppsFlow.first() }
+        } catch (_: Exception) { emptySet<String>() }
+
+        val filtered = if (allowedApps.isEmpty()) controllers
+        else controllers.filter { c -> c.packageName in allowedApps }
+
+        val target = (filtered.firstOrNull {
             it.playbackState?.state == PlaybackState.STATE_PLAYING
-        } ?: controllers.firstOrNull() ?: return
+        } ?: filtered.firstOrNull()) ?: return
 
         if (activeController?.sessionToken == target.sessionToken) {
             target.metadata?.let { processMetadata(it) }

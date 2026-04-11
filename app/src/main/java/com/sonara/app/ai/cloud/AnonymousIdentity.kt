@@ -7,7 +7,7 @@ object AnonymousIdentity {
     private const val PREFS = "sonara_identity"
     private const val KEY_ID = "anonymous_id"
     private const val KEY_BATCH = "batch_counter"
-    private const val ROTATE_EVERY = 10  // Rotate ID every N batches
+    private const val ROTATE_EVERY = 1  // VULN-16: Rotate every upload for privacy
 
     fun getId(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -16,7 +16,7 @@ object AnonymousIdentity {
 
         // Rotate identity periodically for privacy
         if (id == null || batch >= ROTATE_EVERY) {
-            id = UUID.randomUUID().toString().replace("-", "").take(8)
+            id = UUID.randomUUID().toString().replace("-", "").take(16)  // VULN-16: 16 chars
             prefs.edit().putString(KEY_ID, id).putInt(KEY_BATCH, 0).apply()
         }
         return id

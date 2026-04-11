@@ -19,7 +19,7 @@ data class Preset(
     val isFavorite: Boolean = false,
     val lastUsed: Long = 0
 ) {
-    fun bandsArray(): FloatArray = bands.split(",").map { it.toFloat() }.toFloatArray()
+    fun bandsArray(): FloatArray = bands.split(",").map { it.trim().replace(",", ".").toFloatOrNull() ?: 0f }.toFloatArray()
 
     companion object {
         fun fromArray(arr: FloatArray): String = arr.joinToString(",") { String.format(java.util.Locale.US, "%.1f", it) }

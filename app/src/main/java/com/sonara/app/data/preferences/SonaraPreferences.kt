@@ -20,6 +20,9 @@ class SonaraPreferences(private val context: Context) {
     private val LASTFM_API_KEY = stringPreferencesKey("lastfm_api_key")
     private val LASTFM_SHARED_SECRET = stringPreferencesKey("lastfm_shared_secret")
     private val LASTFM_SESSION_KEY = stringPreferencesKey("lastfm_session_key")
+    private val LASTFM_USERNAME = stringPreferencesKey("lastfm_username")
+    // Scrobble app filter
+    private val ALLOWED_SCROBBLE_APPS = stringPreferencesKey("allowed_scrobble_apps")
     private val AI_ENABLED = booleanPreferencesKey("ai_enabled")
     private val AUTOEQ_ENABLED = booleanPreferencesKey("autoeq_enabled")
     private val SMOOTH_TRANSITIONS = booleanPreferencesKey("smooth_transitions")
@@ -58,14 +61,26 @@ class SonaraPreferences(private val context: Context) {
     }
     suspend fun setAccentColor(c: AccentColor) { context.dataStore.edit { it[ACCENT_COLOR] = c.name } }
 
+    // VULN-25 note: prefer SecureSecrets for sensitive keys. These DataStore flows
+    // are kept for backward compatibility in NLS/Onboarding/scrobbling code paths.
     val lastFmApiKeyFlow: Flow<String> = context.dataStore.data.map { it[LASTFM_API_KEY] ?: "" }
     suspend fun setLastFmApiKey(k: String) { context.dataStore.edit { it[LASTFM_API_KEY] = k } }
-
     val lastFmSharedSecretFlow: Flow<String> = context.dataStore.data.map { it[LASTFM_SHARED_SECRET] ?: "" }
     suspend fun setLastFmSharedSecret(s: String) { context.dataStore.edit { it[LASTFM_SHARED_SECRET] = s } }
-
     val lastFmSessionKeyFlow: Flow<String> = context.dataStore.data.map { it[LASTFM_SESSION_KEY] ?: "" }
     suspend fun setLastFmSessionKey(k: String) { context.dataStore.edit { it[LASTFM_SESSION_KEY] = k } }
+
+    val lastFmUsernameFlow: Flow<String> = context.dataStore.data.map { it[LASTFM_USERNAME] ?: "" }
+    suspend fun setLastFmUsername(u: String) { context.dataStore.edit { it[LASTFM_USERNAME] = u } }
+
+    // Scrobble app filter
+    val allowedScrobbleAppsFlow: Flow<Set<String>> = context.dataStore.data.map { prefs ->
+        val raw = prefs[ALLOWED_SCROBBLE_APPS] ?: ""
+        if (raw.isBlank()) emptySet() else raw.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
+    }
+    suspend fun setAllowedScrobbleApps(apps: Set<String>) {
+        context.dataStore.edit { it[ALLOWED_SCROBBLE_APPS] = apps.joinToString(",") }
+    }
 
     val aiEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[AI_ENABLED] ?: true }
     suspend fun setAiEnabled(e: Boolean) { context.dataStore.edit { it[AI_ENABLED] = e } }

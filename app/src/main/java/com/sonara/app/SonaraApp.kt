@@ -112,16 +112,18 @@ class SonaraApp : Application() {
         }
 
         // Madde 10 FIX: Gemini engine
-        val geminiKey = runBlocking { preferences.geminiApiKeyFlow.first() }.ifBlank { BuildConfig.GEMINI_API_KEY }
+        val geminiKey = secureSecrets.getGeminiApiKey().ifBlank {
+            runBlocking { preferences.geminiApiKeyFlow.first() }
+        }
         geminiEngine = GeminiInsightEngine(geminiKey)
         insightManager = InsightProviderManager()
         insightManager.configureGemini(geminiEngine)
 
         // Configure OpenRouter/Groq from prefs
         runBlocking {
-            val orKey = preferences.openRouterApiKeyFlow.first()
+            val orKey = secureSecrets.getOpenRouterApiKey().ifBlank { preferences.openRouterApiKeyFlow.first() }
             val orModel = preferences.openRouterModelFlow.first()
-            val grKey = preferences.groqApiKeyFlow.first()
+            val grKey = secureSecrets.getGroqApiKey().ifBlank { preferences.groqApiKeyFlow.first() }
             val grModel = preferences.groqModelFlow.first()
             val provider = preferences.aiProviderFlow.first()
             insightManager.configureOpenRouter(orKey, orModel)
@@ -138,8 +140,7 @@ class SonaraApp : Application() {
             }
         }
 
-        val apiKey = secureSecrets.getLastFmApiKey().takeIf { it.isNotBlank() }
-            ?: runBlocking { preferences.lastFmApiKeyFlow.first() }
+        val apiKey = secureSecrets.getLastFmApiKey()
 
         inferencePipeline = SonaraInferencePipeline(apiKey.takeIf { it.isNotBlank() })
         nextTrackPreloader = NextTrackPreloader(inferencePipeline, appScope)
@@ -320,9 +321,9 @@ class SonaraApp : Application() {
 
     suspend fun loveTrack(title: String, artist: String, love: Boolean): Boolean {
         return try {
-            val apiKey = secureSecrets.getLastFmApiKey().takeIf { it.isNotBlank() } ?: preferences.lastFmApiKeyFlow.first()
-            val secret = secureSecrets.getLastFmSharedSecret().takeIf { it.isNotBlank() } ?: preferences.lastFmSharedSecretFlow.first()
-            val sessionKey = secureSecrets.getLastFmSessionKey().takeIf { it.isNotBlank() } ?: preferences.lastFmSessionKeyFlow.first()
+            val apiKey = secureSecrets.getLastFmApiKey()
+            val secret = secureSecrets.getLastFmSharedSecret()
+            val sessionKey = secureSecrets.getLastFmSessionKey()
             SonaraLogger.i("Love", "key=set session=set")
             if (apiKey.isBlank()) { SonaraLogger.w("Love", "No API key"); return false }
             if (sessionKey.isBlank()) { SonaraLogger.w("Love", "No session key"); return false }
@@ -343,8 +344,7 @@ class SonaraApp : Application() {
 
     fun reloadPipeline() {
         val apiKey = lastFmAuth.getActiveApiKey().takeIf { it.isNotBlank() }
-            ?: secureSecrets.getLastFmApiKey().takeIf { it.isNotBlank() }
-            ?: runBlocking { preferences.lastFmApiKeyFlow.first() }
+            ?: secureSecrets.getLastFmApiKey()
         inferencePipeline.destroy()
         inferencePipeline = SonaraInferencePipeline(apiKey.takeIf { it.isNotBlank() })
         inferencePipeline.onPrediction = { track, prediction ->
