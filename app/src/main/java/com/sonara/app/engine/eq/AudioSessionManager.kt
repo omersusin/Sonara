@@ -74,9 +74,10 @@ class AudioSessionManager(private val context: Context) {
         handleActivePlayback(audioManager.activePlaybackConfigurations)
         if (dpEq == null) tryFallbackEqualizer()
 
-        // Attach effects chain to session 0 (global)
+        // Try effects on session 0 first (may not work on all devices)
         effectsChain.attach(0)
         effectsAttachedSession = 0
+        SonaraLogger.eq("Effects initially on session 0 (will move to real session)")
 
         SonaraLogger.eq("Started. Strategy: ${_activeStrategy.value}")
     }
@@ -104,8 +105,13 @@ class AudioSessionManager(private val context: Context) {
      * Apply BassBoost + Virtualizer + Loudness from FinalEqProfile
      */
     fun applyEffects(bassBoost: Int, virtualizer: Int, loudness: Int) {
+        if (!effectsChain.isAttached && sessionEqualizers.keys.isNotEmpty()) {
+            val realSession = sessionEqualizers.keys.first()
+            effectsChain.forceReattach(realSession)
+            effectsAttachedSession = realSession
+        }
         effectsChain.applyProfile(bassBoost, virtualizer, loudness)
-        SonaraLogger.eq("Effects applied: bass=$bassBoost virt=$virtualizer loud=$loudness")
+        SonaraLogger.eq("Effects applied: bass=$bassBoost virt=$virtualizer loud=$loudness sid=${effectsChain.attachedSession}")
     }
 
     fun setEnabled(enabled: Boolean) {
@@ -129,7 +135,9 @@ class AudioSessionManager(private val context: Context) {
         handleActivePlayback(audioManager.activePlaybackConfigurations)
         if (dpEq == null) tryFallbackEqualizer()
 
-        effectsChain.attach(0)
+        val bestSession = sessionEqualizers.keys.firstOrNull() ?: 0
+        effectsChain.forceReattach(bestSession)
+        effectsAttachedSession = bestSession
         currentBandsDb = saved; eqEnabled = en
         applyBands(saved); setEnabled(en)
     }
@@ -156,9 +164,9 @@ class AudioSessionManager(private val context: Context) {
         sessionEqualizers[sid] = eq; _activeSessions.value = sessionEqualizers.keys.toSet()
         val mb = IntArray(currentBandsDb.size) { (currentBandsDb[it] * 100).toInt() }
         eq.setBands(mb); eq.setEnabled(eqEnabled)
-        // Also attach effects to this session
-        if (effectsAttachedSession <= 0) {
-            effectsChain.attach(sid)
+        // Always move effects to real sessions (session 0 often fails)
+        if (sid > 0 && sid != effectsAttachedSession) {
+            effectsChain.forceReattach(sid)
             effectsAttachedSession = sid
         }
         if (_activeStrategy.value == "none" || _activeStrategy.value == "equalizer_session0") {

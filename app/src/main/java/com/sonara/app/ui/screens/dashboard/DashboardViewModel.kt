@@ -115,7 +115,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
 
-        viewModelScope.launch { app.eqState.collect { eq -> _uiState.update { it.copy(bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer, loudness = eq.loudness, currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset) } } }
+        viewModelScope.launch { app.eqState.collect { eq -> _uiState.update { it.copy(bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer, loudness = eq.loudness, currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset, eqActive = eq.isEnabled) } } }
         viewModelScope.launch { SonaraNotificationListener.nowPlaying.collect { np ->
             _uiState.update { it.copy(title = np.title, artist = np.artist, isPlaying = np.isPlaying, hasTrack = np.title.isNotBlank()) }
             if (np.title.isNotBlank()) {

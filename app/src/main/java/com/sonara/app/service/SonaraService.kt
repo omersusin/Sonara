@@ -86,8 +86,16 @@ class SonaraService : Service() {
                     val n = buildNotification(np.title.ifBlank { "Sonara" }, np.artist, np.isPlaying, art)
                     getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, n)
 
-                    if (!np.isPlaying && np.title.isNotBlank()) handlePausedState()
-                    else { dismissJob?.cancel(); dismissJob = null }
+                    if (!np.isPlaying) {
+                        if (np.title.isNotBlank()) handlePausedState()
+                        else {
+                            // Nothing playing at all — check if we should dismiss
+                            val keepNotif = try { (application as SonaraApp).preferences.keepNotificationPausedFlow.first() } catch (_: Exception) { true }
+                            if (!keepNotif) {
+                                scope.launch { delay(2000); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
+                            }
+                        }
+                    } else { dismissJob?.cancel(); dismissJob = null }
                 }
         }
     }
@@ -99,8 +107,9 @@ class SonaraService : Service() {
                 val app = application as SonaraApp
                 val keepNotification = app.preferences.keepNotificationPausedFlow.first()
                 if (!keepNotification) {
-                    delay(5000)
-                    if (!SonaraNotificationListener.nowPlaying.value.isPlaying) {
+                    delay(3000)
+                    val np = SonaraNotificationListener.nowPlaying.value
+                    if (!np.isPlaying) {
                         SonaraLogger.i("Service", "Removing notification (keepNotification=false, paused)")
                         stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
                     }
@@ -113,7 +122,9 @@ class SonaraService : Service() {
         when (intent?.action) {
             ACTION_STOP -> { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return START_NOT_STICKY }
             ACTION_REQUEST -> {
-                val text = intent?.getStringExtra(EXTRA_REQUEST_TEXT)
+                val remoteResults = android.app.RemoteInput.getResultsFromIntent(intent)
+                val text = remoteResults?.getCharSequence(EXTRA_REQUEST_TEXT)?.toString()
+                    ?: intent?.getStringExtra(EXTRA_REQUEST_TEXT)
                 if (!text.isNullOrBlank()) {
                     SonaraLogger.ai("Notification request: $text")
                     scope.launch(Dispatchers.IO) {
