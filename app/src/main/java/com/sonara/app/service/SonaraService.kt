@@ -35,6 +35,8 @@ class SonaraService : Service() {
         const val NOTIFICATION_ID = 1
         const val ACTION_STOP = "com.sonara.app.STOP"
         const val ACTION_LOVE = "com.sonara.app.LOVE"
+        const val ACTION_REQUEST = "com.sonara.app.REQUEST"
+        const val EXTRA_REQUEST_TEXT = "request_text"
         fun start(ctx: Context) { ctx.startForegroundService(Intent(ctx, SonaraService::class.java)) }
     }
 
@@ -110,6 +112,40 @@ class SonaraService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return START_NOT_STICKY }
+            ACTION_REQUEST -> {
+                val text = intent?.getStringExtra(EXTRA_REQUEST_TEXT)
+                if (!text.isNullOrBlank()) {
+                    SonaraLogger.ai("Notification request: $text")
+                    scope.launch(Dispatchers.IO) {
+                        try {
+                            val app = application as SonaraApp
+                            val result = app.insightManager.getInsight(
+                                com.sonara.app.intelligence.provider.InsightRequest(
+                                    trackTitle = SonaraNotificationListener.nowPlaying.value.title,
+                                    trackArtist = SonaraNotificationListener.nowPlaying.value.artist,
+                                    currentGenre = SonaraNotificationListener._currentGenre.value,
+                                    userMessage = text
+                                )
+                            )
+                            if (result.success && result.eqAdjustment != null) {
+                                app.applyEq(
+                                    bands = result.eqAdjustment!!,
+                                    presetName = "AI Request",
+                                    manual = false,
+                                    bassBoost = result.bassBoost,
+                                    virtualizer = result.virtualizer,
+                                    loudness = result.loudness,
+                                    preamp = result.preamp
+                                )
+                                SonaraLogger.ai("Request applied: $text")
+                            }
+                        } catch (e: Exception) {
+                            SonaraLogger.e("Service", "Request failed: ${e.message}")
+                        }
+                    }
+                }
+                return START_STICKY
+            }
             ACTION_LOVE -> {
                 val np = SonaraNotificationListener.nowPlaying.value
                 if (!hasSessionKey) { SonaraLogger.w("Love", "No session key"); return START_STICKY }
@@ -154,6 +190,17 @@ class SonaraService : Service() {
             artist.isNotBlank() && isPlaying -> "$artist · Playing"
             artist.isNotBlank() -> artist; isPlaying -> "Playing"; else -> "Sound engine active"
         }
+        // Request button with RemoteInput for inline text
+        val requestIntent = PendingIntent.getService(this, 3,
+            Intent(this, SonaraService::class.java).apply { action = ACTION_REQUEST },
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val remoteInput = android.app.RemoteInput.Builder(EXTRA_REQUEST_TEXT)
+            .setLabel("Ask AI (e.g. more bass)")
+            .build()
+        val requestAction = Notification.Action.Builder(null, "🧠 Ask AI", requestIntent)
+            .addRemoteInput(remoteInput)
+            .build()
+
         val heartIcon = Icon.createWithResource(this, if (isLoved) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
         val heartAction = if (hasSessionKey) Notification.Action.Builder(heartIcon, if (isLoved) "Loved" else "Love", love).build() else null
         val builder = Notification.Builder(this, CHANNEL_ID)

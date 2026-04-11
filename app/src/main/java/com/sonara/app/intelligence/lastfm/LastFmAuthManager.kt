@@ -3,7 +3,6 @@ package com.sonara.app.intelligence.lastfm
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import com.sonara.app.BuildConfig
 import android.util.Log
 import com.sonara.app.data.SonaraLogger
 import com.sonara.app.data.preferences.SecureSecrets
@@ -74,29 +73,19 @@ class LastFmAuthManager(private val context: Context) {
         }
     }
 
-    // FIX: Kullanici key ONCE kontrol edilir, BuildConfig sonra
+    // VULN-24: BuildConfig fallback removed — user keys only
     private fun resolveApiKey(): String {
-        // resolveApiKey called
-        val userKey = secrets.getLastFmApiKey()
-        if (userKey.isNotBlank()) return userKey
-        val buildKey = BuildConfig.LASTFM_API_KEY
-        if (buildKey.isNotBlank()) return buildKey
-        return ""
+        return secrets.getLastFmApiKey().ifBlank { "" }
     }
 
     private fun resolveSharedSecret(): String {
-        val userSecret = secrets.getLastFmSharedSecret()
-        if (userSecret.isNotBlank()) return userSecret
-        val buildSecret = BuildConfig.LASTFM_SHARED_SECRET
-        if (buildSecret.isNotBlank()) return buildSecret
-        return ""
+        return secrets.getLastFmSharedSecret().ifBlank { "" }
     }
 
     fun hasApiKey(): Boolean = resolveApiKey().isNotBlank()
 
     fun keySource(): String = when {
         secrets.getLastFmApiKey().isNotBlank() -> "user"
-        BuildConfig.LASTFM_API_KEY.isNotBlank() -> "built-in"
         else -> "none"
     }
 
@@ -190,6 +179,68 @@ class LastFmAuthManager(private val context: Context) {
         }
     }
 
+
+    /**
+     * Direct login: username + API key + secret → auth.getMobileSession
+     * No browser redirect needed.
+     */
+    suspend fun directLogin(username: String, password: String): Boolean {
+        val apiKey = resolveApiKey()
+        val sharedSecret = resolveSharedSecret()
+        if (apiKey.isBlank() || sharedSecret.isBlank()) {
+            _authState.value = AuthState.ERROR
+            _errorMessage.value = "Save API key and secret first"
+            return false
+        }
+        _authState.value = AuthState.AUTHENTICATING
+        _errorMessage.value = ""
+
+        return withContext(Dispatchers.IO) {
+            try {
+                val params = sortedMapOf(
+                    "method" to "auth.getMobileSession",
+                    "api_key" to apiKey,
+                    "username" to username,
+                    "password" to password
+                )
+                val sig = generateSignature(params, sharedSecret)
+                val body = FormBody.Builder()
+                params.forEach { (k, v) -> body.add(k, v) }
+                body.add("api_sig", sig).add("format", "json")
+
+                val request = Request.Builder().url(API_URL).post(body.build()).build()
+                val response = client.newCall(request).execute()
+                val json = response.body?.string() ?: throw Exception("Empty response")
+                val obj = JSONObject(json)
+
+                if (obj.has("error")) {
+                    val msg = obj.optString("message", "Login failed")
+                    _authState.value = AuthState.ERROR
+                    _errorMessage.value = msg
+                    return@withContext false
+                }
+
+                val session = obj.getJSONObject("session")
+                val sessionKey = session.getString("key")
+                val name = session.getString("name")
+
+                secrets.setLastFmSessionKey(sessionKey)
+                _username.value = name
+                _authState.value = AuthState.CONNECTED
+                _errorMessage.value = ""
+                pendingToken = null
+                authNonce = null
+                SonaraLogger.i("LastFmAuth", "Direct login success: $name")
+                true
+            } catch (e: Exception) {
+                SonaraLogger.e("LastFmAuth", "Direct login failed: ${e.message}")
+                _authState.value = AuthState.ERROR
+                _errorMessage.value = e.message ?: "Connection error"
+                false
+            }
+        }
+    }
+
     fun disconnect() {
         secrets.setLastFmSessionKey("")
         _authState.value = AuthState.DISCONNECTED
@@ -225,8 +276,13 @@ class LastFmAuthManager(private val context: Context) {
             val apiKey = resolveApiKey()
             val sk = secrets.getLastFmSessionKey()
             if (apiKey.isBlank() || sk.isBlank()) return
-            val url = "${API_URL}?method=user.getInfo&api_key=$apiKey&sk=$sk&format=json"
-            val request = Request.Builder().url(url).get().build()
+            val body = FormBody.Builder()
+                .add("method", "user.getInfo")
+                .add("api_key", apiKey)
+                .add("sk", sk)
+                .add("format", "json")
+                .build()
+            val request = Request.Builder().url(API_URL).post(body).build()
             val response = client.newCall(request).execute()
             val json = response.body?.string() ?: return
             val obj = JSONObject(json)

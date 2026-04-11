@@ -40,7 +40,16 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Upload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Surface
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.ArrowDropUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -323,12 +332,56 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
             else -> {
                 Text("Connect your Last.fm account for accurate genre detection and scrobbling.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                 Spacer(Modifier.height(12.dp))
-                OutlinedButton(
-                    onClick = { vm.connectLastFm { intent -> ctx.startActivity(intent) } },
-                    Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
-                    border = BorderStroke(1.dp, SonaraInfo),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraInfo)
-                ) { Text("Connect Last.fm") }
+                // Direct login option
+                var showDirectLogin by remember { mutableStateOf(false) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { vm.connectLastFm { intent -> ctx.startActivity(intent) } },
+                        Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge,
+                        border = BorderStroke(1.dp, SonaraInfo),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraInfo)
+                    ) { Text("Browser Auth") }
+                    OutlinedButton(
+                        onClick = { showDirectLogin = !showDirectLogin },
+                        Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge,
+                        border = BorderStroke(1.dp, p),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
+                    ) { Text("Direct Login") }
+                }
+
+                if (showDirectLogin && state.isApiKeySet && state.isSharedSecretSet) {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = state.lastFmUsernameInput,
+                        onValueChange = { vm.updateLastFmUsernameInput(it) },
+                        label = { Text("Last.fm Username") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = tfColors()
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedTextField(
+                        value = state.lastFmPasswordInput,
+                        onValueChange = { vm.updateLastFmPasswordInput(it) },
+                        label = { Text("Last.fm Password") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        colors = tfColors()
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(
+                        onClick = { vm.directLoginLastFm() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = state.lastFmUsernameInput.isNotBlank() && state.lastFmPasswordInput.isNotBlank(),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        border = BorderStroke(1.dp, if (state.lastFmUsernameInput.isNotBlank()) SonaraSuccess else SonaraDivider),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraSuccess)
+                    ) { Text("Login") }
+                } else if (showDirectLogin) {
+                    Spacer(Modifier.height(4.dp))
+                    Text("Save API Key & Secret first", style = MaterialTheme.typography.bodySmall, color = SonaraWarning)
+                }
 
                 // --- API Key guide + inputs ---
                 var showApiGuide by remember { mutableStateOf(false) }
@@ -365,10 +418,12 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
                     OutlinedTextField(
                         value = state.apiKeyInput,
                         onValueChange = { vm.updateApiKeyInput(it) },
-                        label = { Text("API Key") },
+                        label = { Text(if (state.isApiKeySet) "API Key ✓ Saved" else "API Key") },
+                        placeholder = { Text(if (state.isApiKeySet) "••••••••" else "Enter API Key", color = SonaraTextTertiary) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        visualTransformation = PasswordVisualTransformation()
+                        visualTransformation = PasswordVisualTransformation(),
+                        colors = tfColors()
                     )
 
                     Spacer(Modifier.height(8.dp))
@@ -376,10 +431,12 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
                     OutlinedTextField(
                         value = state.sharedSecretInput,
                         onValueChange = { vm.updateSharedSecretInput(it) },
-                        label = { Text("Shared Secret") },
+                        label = { Text(if (state.isSharedSecretSet) "Shared Secret ✓ Saved" else "Shared Secret") },
+                        placeholder = { Text(if (state.isSharedSecretSet) "••••••••" else "Enter Secret", color = SonaraTextTertiary) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        visualTransformation = PasswordVisualTransformation()
+                        visualTransformation = PasswordVisualTransformation(),
+                        colors = tfColors()
                     )
 
                     Spacer(Modifier.height(8.dp))
@@ -501,6 +558,55 @@ private fun AdvancedCard(s: SettingsUiState, vm: SettingsViewModel) {
         }
         SettingsDivider()
         SwitchRow("Keep Notification", "Show notification when paused", s.keepNotificationPaused) { vm.setKeepNotificationPaused(it) }
+    }
+}
+
+@Composable
+private fun ModelDropdown(
+    models: List<Pair<String, String>>,
+    selectedId: String,
+    isLoading: Boolean,
+    onSelect: (String) -> Unit,
+    onRefresh: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val displayName = models.find { it.first == selectedId }?.second
+        ?: selectedId.substringAfterLast("/")
+    val p = MaterialTheme.colorScheme.primary
+
+    Box {
+        OutlinedButton(
+            onClick = { if (models.isEmpty()) onRefresh() else expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            border = BorderStroke(1.dp, SonaraDivider),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraTextPrimary)
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = p)
+                Spacer(Modifier.width(8.dp))
+                Text("Loading models...", style = MaterialTheme.typography.bodySmall)
+            } else {
+                Text(displayName, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                Icon(if (expanded) Icons.Rounded.ArrowDropUp else Icons.Rounded.ArrowDropDown, null, tint = SonaraTextSecondary)
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false },
+            modifier = Modifier.heightIn(max = 300.dp)) {
+            models.forEach { (id, name) ->
+                DropdownMenuItem(
+                    text = { Text(name, style = MaterialTheme.typography.bodyMedium) },
+                    onClick = { onSelect(id); expanded = false }
+                )
+            }
+            if (models.isNotEmpty()) {
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text("Refresh list", style = MaterialTheme.typography.bodySmall, color = p) },
+                    onClick = { expanded = false; onRefresh() }
+                )
+            }
+        }
     }
 }
 
@@ -754,14 +860,20 @@ private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
             Spacer(Modifier.height(4.dp))
-            OutlinedTextField(value = s.openRouterModel, onValueChange = { vm.setOpenRouterModel(it) },
-                label = { Text("Model") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
-            Spacer(Modifier.height(4.dp))
             OutlinedButton(onClick = { vm.saveOpenRouterKey() }, enabled = s.openRouterKeyInput.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
                 border = BorderStroke(1.dp, if (s.openRouterKeyInput.isNotBlank()) p2 else SonaraDivider)
             ) { Text("Save Key") }
+            Spacer(Modifier.height(8.dp))
+            Text("Model", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
+            Spacer(Modifier.height(4.dp))
+            ModelDropdown(
+                models = s.availableModels,
+                selectedId = s.openRouterModel,
+                isLoading = s.isLoadingModels,
+                onSelect = { vm.setOpenRouterModel(it) },
+                onRefresh = { vm.fetchModels("openrouter") }
+            )
         }
         if (s.aiProvider == "groq") {
             Spacer(Modifier.height(8.dp))
@@ -771,14 +883,20 @@ private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
             Spacer(Modifier.height(4.dp))
-            OutlinedTextField(value = s.groqModel, onValueChange = { vm.setGroqModel(it) },
-                label = { Text("Model") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
-            Spacer(Modifier.height(4.dp))
             OutlinedButton(onClick = { vm.saveGroqKey() }, enabled = s.groqKeyInput.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
                 border = BorderStroke(1.dp, if (s.groqKeyInput.isNotBlank()) p2 else SonaraDivider)
             ) { Text("Save Key") }
+            Spacer(Modifier.height(8.dp))
+            Text("Model", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
+            Spacer(Modifier.height(4.dp))
+            ModelDropdown(
+                models = s.availableModels,
+                selectedId = s.groqModel,
+                isLoading = s.isLoadingModels,
+                onSelect = { vm.setGroqModel(it) },
+                onRefresh = { vm.fetchModels("groq") }
+            )
         }
     }
 }

@@ -17,6 +17,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import org.json.JSONArray
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
 
 data class SettingsUiState(
     val lastFmApiKey: String = "", val lastFmSharedSecret: String = "",
@@ -62,7 +69,15 @@ data class SettingsUiState(
     val isGithubTokenSet: Boolean = false,
     val syncInterval: Int = 50,
     val legacyAnalysis: Boolean = false,
-    val hearTheDiffEnabled: Boolean = true)
+    val hearTheDiffEnabled: Boolean = true,
+    // Model dropdown
+    val availableModels: List<Pair<String, String>> = emptyList(),
+    val isLoadingModels: Boolean = false,
+    // Scrobble app filter
+    val allowedScrobbleApps: Set<String> = emptySet(),
+    // Last.fm direct login
+    val lastFmUsernameInput: String = "",
+    val lastFmPasswordInput: String = "")
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
@@ -77,8 +92,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(isGithubTokenSet = secrets.getGitHubTokenInstance().isNotBlank()) }
 
         viewModelScope.launch { prefs.accentColorFlow.collect { c -> _uiState.update { it.copy(accentColor = c) } } }
-        viewModelScope.launch { prefs.lastFmApiKeyFlow.collect { k -> _uiState.update { it.copy(lastFmApiKey = k, isApiKeySet = k.isNotBlank() || secrets.getLastFmApiKey().isNotBlank()) } } }
-        viewModelScope.launch { prefs.lastFmSharedSecretFlow.collect { s -> _uiState.update { it.copy(lastFmSharedSecret = s, isSharedSecretSet = s.isNotBlank() || secrets.getLastFmSharedSecret().isNotBlank()) } } }
+        // Read key status from SecureSecrets directly
+        _uiState.update { it.copy(
+            isApiKeySet = secrets.getLastFmApiKey().isNotBlank(),
+            isSharedSecretSet = secrets.getLastFmSharedSecret().isNotBlank(),
+            isGithubTokenSet = secrets.getGitHubTokenInstance().isNotBlank()
+        ) }
         viewModelScope.launch { prefs.aiEnabledFlow.collect { e -> _uiState.update { it.copy(aiEnabled = e) } } }
         viewModelScope.launch { prefs.autoEqEnabledFlow.collect { e -> _uiState.update { it.copy(autoEqEnabled = e) } } }
         viewModelScope.launch { prefs.smoothTransitionsFlow.collect { e -> _uiState.update { it.copy(smoothTransitions = e) } } }
@@ -139,7 +158,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val k = _uiState.value.apiKeyInput
             if (k.isNotBlank()) {
-                secrets.setLastFmApiKey(k); prefs.setLastFmApiKey(k); app.reloadPipeline()
+                secrets.setLastFmApiKey(k); app.reloadPipeline()
                 _uiState.update { it.copy(apiKeyInput = "", isApiKeySet = true) }
             }
         }
@@ -149,7 +168,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val s = _uiState.value.sharedSecretInput
             if (s.isNotBlank()) {
-                secrets.setLastFmSharedSecret(s); prefs.setLastFmSharedSecret(s)
+                secrets.setLastFmSharedSecret(s)
                 _uiState.update { it.copy(sharedSecretInput = "", isSharedSecretSet = true) }
             }
         }
@@ -159,7 +178,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val k = _uiState.value.geminiKeyInput
             if (k.isNotBlank()) {
+                secrets.setGeminiApiKey(k)
                 prefs.setGeminiApiKey(k)
+                app.geminiEngine.updateApiKey(k)
                 _uiState.update { it.copy(geminiKeyInput = "", geminiApiKey = k) }
             }
         }
@@ -207,9 +228,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val k = _uiState.value.openRouterKeyInput
             if (k.isNotBlank()) {
+                secrets.setOpenRouterApiKey(k)
                 prefs.setOpenRouterApiKey(k)
                 app.insightManager.configureOpenRouter(k, _uiState.value.openRouterModel)
                 _uiState.update { it.copy(openRouterKeyInput = "", openRouterApiKey = k) }
+                fetchModels("openrouter")
             }
         }
     }
@@ -219,9 +242,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val k = _uiState.value.groqKeyInput
             if (k.isNotBlank()) {
+                secrets.setGroqApiKey(k)
                 prefs.setGroqApiKey(k)
                 app.insightManager.configureGroq(k, _uiState.value.groqModel)
                 _uiState.update { it.copy(groqKeyInput = "", groqApiKey = k) }
+                fetchModels("groq")
             }
         }
     }
@@ -307,7 +332,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setLegacyAnalysis(v: Boolean) { viewModelScope.launch { app.preferences.setLegacyAnalysis(v); _uiState.update { it.copy(legacyAnalysis = v) } } }
-    fun setHearTheDiffEnabled(v: Boolean) { viewModelScope.launch { app.preferences.setHearTheDiffEnabled(v); _uiState.update { it.copy(hearTheDiffEnabled = v) } } }
+    fun setHearTheDiffEnabled(v: Boolean) {
+        viewModelScope.launch {
+            app.preferences.setHearTheDiffEnabled(v)
+            _uiState.update { it.copy(hearTheDiffEnabled = v) }
+            // Reset "seen" flag when re-enabled so banner shows again
+            if (v) {
+                app.preferences.setHasSeenHearTheDifference(false)
+            }
+        }
+    }
 
     fun saveGithubToken() {
         viewModelScope.launch {
@@ -317,6 +351,116 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 com.sonara.app.ai.SonaraAi.getInstance()?.cloudManager?.setContributionEnabled(true)
                 _uiState.update { it.copy(githubTokenInput = "", isGithubTokenSet = true, communityUploadEnabled = true) }
             }
+        }
+    }
+
+    // ═══ Direct Last.fm login ═══
+    fun updateLastFmUsernameInput(v: String) { _uiState.update { it.copy(lastFmUsernameInput = v) } }
+    fun updateLastFmPasswordInput(v: String) { _uiState.update { it.copy(lastFmPasswordInput = v) } }
+
+    fun directLoginLastFm() {
+        viewModelScope.launch {
+            val user = _uiState.value.lastFmUsernameInput
+            val pass = _uiState.value.lastFmPasswordInput
+            if (user.isNotBlank() && pass.isNotBlank()) {
+                val ok = app.lastFmAuth.directLogin(user, pass)
+                if (ok) {
+                    _uiState.update { it.copy(lastFmUsernameInput = "", lastFmPasswordInput = "", lastFmConnected = true) }
+                }
+            }
+        }
+    }
+
+    // ═══ Model Dropdown ═══
+    fun fetchModels(provider: String? = null) {
+        val target = provider ?: _uiState.value.aiProvider
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingModels = true) }
+            val models = withContext(Dispatchers.IO) { fetchModelsFromApi(target) }
+            _uiState.update { it.copy(availableModels = models, isLoadingModels = false) }
+        }
+    }
+
+    private fun fetchModelsFromApi(provider: String): List<Pair<String, String>> {
+        val fallbackOpenRouter = listOf(
+            "google/gemini-2.5-flash" to "Gemini 2.5 Flash",
+            "google/gemini-2.5-pro" to "Gemini 2.5 Pro",
+            "openai/gpt-4o-mini" to "GPT-4o Mini",
+            "openai/gpt-4o" to "GPT-4o",
+            "anthropic/claude-sonnet-4" to "Claude Sonnet 4",
+            "anthropic/claude-3.5-haiku" to "Claude 3.5 Haiku",
+            "meta-llama/llama-3.3-70b-instruct" to "Llama 3.3 70B",
+            "deepseek/deepseek-chat" to "DeepSeek V3",
+            "deepseek/deepseek-r1" to "DeepSeek R1"
+        )
+        val fallbackGroq = listOf(
+            "llama-3.3-70b-versatile" to "Llama 3.3 70B Versatile",
+            "llama-3.1-70b-versatile" to "Llama 3.1 70B Versatile",
+            "llama-3.1-8b-instant" to "Llama 3.1 8B Instant",
+            "mixtral-8x7b-32768" to "Mixtral 8x7B",
+            "gemma2-9b-it" to "Gemma 2 9B"
+        )
+        if (provider == "groq") {
+            val key = secrets.getGroqApiKey()
+            if (key.isBlank()) return fallbackGroq
+            try {
+                val client = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
+                val req = Request.Builder().url("https://api.groq.com/openai/v1/models")
+                    .addHeader("Authorization", "Bearer $key").get().build()
+                val resp = client.newCall(req).execute()
+                val json = resp.body?.string() ?: return fallbackGroq
+                val obj = JSONObject(json)
+                val data = obj.optJSONArray("data") ?: return fallbackGroq
+                val list = mutableListOf<Pair<String, String>>()
+                for (i in 0 until data.length()) {
+                    val m = data.getJSONObject(i)
+                    val id = m.getString("id")
+                    if (id.contains("whisper") || id.contains("tts") || id.contains("guard")) continue
+                    list.add(id to id.replace("-", " ").replaceFirstChar { it.uppercase() })
+                }
+                return if (list.isEmpty()) fallbackGroq else list.take(20)
+            } catch (_: Exception) { return fallbackGroq }
+        }
+        if (provider == "openrouter") {
+            val key = secrets.getOpenRouterApiKey()
+            if (key.isBlank()) return fallbackOpenRouter
+            try {
+                val client = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
+                val req = Request.Builder().url("https://openrouter.ai/api/v1/models")
+                    .addHeader("Authorization", "Bearer $key").get().build()
+                val resp = client.newCall(req).execute()
+                val json = resp.body?.string() ?: return fallbackOpenRouter
+                val obj = JSONObject(json)
+                val data = obj.optJSONArray("data") ?: return fallbackOpenRouter
+                val list = mutableListOf<Pair<String, String>>()
+                val keywords = listOf("gpt", "claude", "gemini", "llama", "mistral", "deepseek", "qwen", "gemma", "command")
+                for (i in 0 until data.length()) {
+                    val m = data.getJSONObject(i)
+                    val id = m.getString("id")
+                    val name = m.optString("name", id)
+                    if (keywords.any { id.contains(it, ignoreCase = true) }) {
+                        list.add(id to name)
+                    }
+                }
+                return if (list.isEmpty()) fallbackOpenRouter else list.take(30)
+            } catch (_: Exception) { return fallbackOpenRouter }
+        }
+        return emptyList()
+    }
+
+    // ═══ Scrobble App Filter ═══
+    fun loadAllowedApps() {
+        viewModelScope.launch {
+            prefs.allowedScrobbleAppsFlow.collect { apps ->
+                _uiState.update { it.copy(allowedScrobbleApps = apps) }
+            }
+        }
+    }
+
+    fun setAllowedScrobbleApps(apps: Set<String>) {
+        viewModelScope.launch {
+            prefs.setAllowedScrobbleApps(apps)
+            _uiState.update { it.copy(allowedScrobbleApps = apps) }
         }
     }
 

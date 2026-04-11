@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit
  * Madde 11: Gemini insight/explanation katmanı.
  * Final EQ'yu tek başına üretmez — sadece insight, explanation, refinement yapar.
  */
-class GeminiInsightEngine(private var apiKey: String = com.sonara.app.BuildConfig.GEMINI_API_KEY) {
+class GeminiInsightEngine(private var apiKey: String = "") {
 
     companion object {
         private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -26,6 +26,8 @@ class GeminiInsightEngine(private var apiKey: String = com.sonara.app.BuildConfi
         BALANCED("gemini-2.5-flash", "Balanced"),
         STRONG("gemini-2.5-pro", "Strong")
     }
+
+    fun updateApiKey(key: String) { apiKey = key }
 
     data class GeminiInsight(
         val summary: String,
@@ -99,10 +101,11 @@ Respond ONLY with valid JSON, no markdown backticks."""
                     })
                 }.toString()
 
-                val url = "$BASE_URL/${model.id}:generateContent?key=$apiKey"
+                val url = "$BASE_URL/${model.id}:generateContent"
                 val request = Request.Builder()
                     .url(url)
-                    .post(requestBody.toRequestBody("application/json".toMediaType()))
+                    .addHeader("X-Goog-Api-Key", apiKey)
+                .post(requestBody.toRequestBody("application/json".toMediaType()))
                     .build()
 
                 val response = client.newCall(request).execute()

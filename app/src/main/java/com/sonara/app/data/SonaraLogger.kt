@@ -13,8 +13,8 @@ import java.util.Date
 import java.util.Locale
 
 enum class LogLevel(val tag: String, val emoji: String) {
-    DEBUG("DEBUG", "D"), INFO("INFO", "I"), WARN("WARN", "W"), ERROR("ERROR", "E"),
-    EQ("EQ", "EQ"), AI("AI", "AI"), BT("BT", "BT"), MEDIA("MEDIA", "M"), NET("NET", "N"), UI("UI", "U")
+    DEBUG("DEBUG", "🐛"), INFO("INFO", "ℹ️"), WARN("WARN", "⚠️"), ERROR("ERROR", "❌"),
+    EQ("EQ", "🎵"), AI("AI", "🧠"), BT("BT", "🔵"), MEDIA("MEDIA", "🎬"), NET("NET", "🌐"), UI("UI", "🖥️")
 }
 
 data class LogEntry(
