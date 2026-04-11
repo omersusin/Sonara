@@ -11,7 +11,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.sonara.app.BuildConfig
 import com.sonara.app.SonaraApp
 import com.sonara.app.ui.components.SonaraBottomBar
 import com.sonara.app.ui.screens.dashboard.DashboardScreen
@@ -64,10 +63,8 @@ fun SonaraNavigation() {
                     onOpenPipelineDebug = { navController.navigate(Screen.DebugPipeline.route) }
                 )
             }
-            if (BuildConfig.DEBUG) {
-                composable(Screen.DebugLog.route) { DebugLogScreen(onBack = { navController.popBackStack() }) }
-                composable(Screen.DebugPipeline.route) { DebugPipelineScreen() }
-            }
+            composable(Screen.DebugLog.route) { DebugLogScreen(onBack = { navController.popBackStack() }) }
+            composable(Screen.DebugPipeline.route) { DebugPipelineScreen() }
         }
     }
 }
