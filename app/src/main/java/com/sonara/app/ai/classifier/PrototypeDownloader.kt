@@ -9,11 +9,18 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object PrototypeDownloader {
+    private const val ALLOWED_HOST = "raw.githubusercontent.com"
     private const val TAG = "SonaraDownloader"
 
     suspend fun download(url: String): List<TrainingExample> = withContext(Dispatchers.IO) {
         try {
-            val conn = URL(url).openConnection() as HttpURLConnection
+            val parsed = URL(url)
+        // VULN-19: Only allow GitHub raw URLs
+        if (parsed.host != ALLOWED_HOST) {
+            Log.w("PrototypeDownloader", "Blocked non-whitelisted URL: ${parsed.host}")
+            return@withContext emptyList()
+        }
+        val conn = parsed.openConnection() as HttpURLConnection
             conn.connectTimeout = 15000; conn.readTimeout = 15000
             if (conn.responseCode != 200) { conn.disconnect(); return@withContext emptyList() }
             val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()

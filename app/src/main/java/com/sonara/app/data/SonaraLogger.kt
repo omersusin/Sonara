@@ -2,6 +2,7 @@ package com.sonara.app.data
 
 import android.content.Context
 import android.util.Log
+import com.sonara.app.BuildConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,6 +43,7 @@ object SonaraLogger {
     private val fileFmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
 
     fun init(context: Context) {
+        if (!BuildConfig.DEBUG) return  // VULN-13: No file logging in release
         try {
             val dir = context.filesDir
             logFile = File(dir, LOG_FILE)

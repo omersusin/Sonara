@@ -12,7 +12,7 @@ object LastFmClient {
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .addInterceptor(HttpLoggingInterceptor().apply {
-            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
+            level = HttpLoggingInterceptor.Level.NONE  // VULN-17: Never log headers (may contain keys)
         })
         .build()
 

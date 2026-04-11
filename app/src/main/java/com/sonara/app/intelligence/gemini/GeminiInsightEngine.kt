@@ -27,8 +27,6 @@ class GeminiInsightEngine(private var apiKey: String = "") {
         STRONG("gemini-2.5-pro", "Strong")
     }
 
-    fun updateApiKey(key: String) { apiKey = key }
-
     data class GeminiInsight(
         val summary: String,
         val whyThisEq: String,

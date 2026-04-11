@@ -16,6 +16,10 @@ class AudioEffectSessionReceiver : BroadcastReceiver() {
             action != AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION) return
         val sid = intent.getIntExtra(AudioEffect.EXTRA_AUDIO_SESSION, -1)
         val pkg = intent.getStringExtra(AudioEffect.EXTRA_PACKAGE_NAME)
+        // VULN-07: Validate package name exists and belongs to an installed app
+        if (pkg != null && ctx != null) {
+            try { ctx.packageManager.getPackageInfo(pkg, 0) } catch (_: Exception) { return }
+        }
         if (sid > 0) {
             bridgeCallback?.invoke(intent.action ?: "", sid, pkg)
             when (intent.action) {

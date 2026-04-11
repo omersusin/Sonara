@@ -119,9 +119,9 @@ object BackupManager {
         }
     }
 
-    fun saveToFile(json: String): File? {
+    fun saveToFile(json: String, context: android.content.Context? = null): File? {
         return try {
-            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS) ?: context.filesDir
             val file = File(dir, "sonara_full_backup_${System.currentTimeMillis() / 1000}.json")
             file.writeText(json)
             file

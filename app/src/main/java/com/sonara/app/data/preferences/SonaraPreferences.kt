@@ -17,7 +17,9 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class SonaraPreferences(private val context: Context) {
 
     private val ACCENT_COLOR = stringPreferencesKey("accent_color")
-    // VULN-25: Last.fm keys removed — use SecureSecrets only
+    private val LASTFM_API_KEY = stringPreferencesKey("lastfm_api_key")
+    private val LASTFM_SHARED_SECRET = stringPreferencesKey("lastfm_shared_secret")
+    private val LASTFM_SESSION_KEY = stringPreferencesKey("lastfm_session_key")
     private val LASTFM_USERNAME = stringPreferencesKey("lastfm_username")
     // Scrobble app filter
     private val ALLOWED_SCROBBLE_APPS = stringPreferencesKey("allowed_scrobble_apps")
@@ -59,11 +61,19 @@ class SonaraPreferences(private val context: Context) {
     }
     suspend fun setAccentColor(c: AccentColor) { context.dataStore.edit { it[ACCENT_COLOR] = c.name } }
 
-    // Last.fm username (non-sensitive, OK in DataStore)
+    // VULN-25 note: prefer SecureSecrets for sensitive keys. These DataStore flows
+    // are kept for backward compatibility in NLS/Onboarding/scrobbling code paths.
+    val lastFmApiKeyFlow: Flow<String> = context.dataStore.data.map { it[LASTFM_API_KEY] ?: "" }
+    suspend fun setLastFmApiKey(k: String) { context.dataStore.edit { it[LASTFM_API_KEY] = k } }
+    val lastFmSharedSecretFlow: Flow<String> = context.dataStore.data.map { it[LASTFM_SHARED_SECRET] ?: "" }
+    suspend fun setLastFmSharedSecret(s: String) { context.dataStore.edit { it[LASTFM_SHARED_SECRET] = s } }
+    val lastFmSessionKeyFlow: Flow<String> = context.dataStore.data.map { it[LASTFM_SESSION_KEY] ?: "" }
+    suspend fun setLastFmSessionKey(k: String) { context.dataStore.edit { it[LASTFM_SESSION_KEY] = k } }
+
     val lastFmUsernameFlow: Flow<String> = context.dataStore.data.map { it[LASTFM_USERNAME] ?: "" }
     suspend fun setLastFmUsername(u: String) { context.dataStore.edit { it[LASTFM_USERNAME] = u } }
 
-    // Scrobble app filter: comma-separated package names, empty = all allowed
+    // Scrobble app filter
     val allowedScrobbleAppsFlow: Flow<Set<String>> = context.dataStore.data.map { prefs ->
         val raw = prefs[ALLOWED_SCROBBLE_APPS] ?: ""
         if (raw.isBlank()) emptySet() else raw.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()

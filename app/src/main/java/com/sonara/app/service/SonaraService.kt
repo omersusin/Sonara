@@ -119,12 +119,19 @@ class SonaraService : Service() {
                     scope.launch(Dispatchers.IO) {
                         try {
                             val app = application as SonaraApp
+                            val np = SonaraNotificationListener.nowPlaying.value
+                            val eqBands = app.eqState.value.bands
                             val result = app.insightManager.getInsight(
                                 com.sonara.app.intelligence.provider.InsightRequest(
-                                    trackTitle = SonaraNotificationListener.nowPlaying.value.title,
-                                    trackArtist = SonaraNotificationListener.nowPlaying.value.artist,
-                                    currentGenre = SonaraNotificationListener._currentGenre.value,
-                                    userMessage = text
+                                    title = np.title,
+                                    artist = np.artist,
+                                    genre = SonaraNotificationListener._currentGenre.value,
+                                    subGenre = null,
+                                    tags = listOf(text),
+                                    lyricalTone = null,
+                                    energy = SonaraNotificationListener._currentEnergy.value,
+                                    confidence = SonaraNotificationListener._currentConfidence.value,
+                                    currentEqBands = eqBands
                                 )
                             )
                             if (result.success && result.eqAdjustment != null) {

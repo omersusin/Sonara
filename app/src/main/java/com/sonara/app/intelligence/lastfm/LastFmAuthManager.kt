@@ -52,6 +52,7 @@ class LastFmAuthManager(private val context: Context) {
         get() = authPrefs.getString("pending_token", null)
         set(value) { authPrefs.edit().putString("pending_token", value).apply() }
     private var authNonce: String? = null
+    private val TOKEN_EXPIRY_MS = 10 * 60 * 1000L  // VULN-22: 10 min token expiry
 
     init {
         val sessionKey = secrets.getLastFmSessionKey()
@@ -68,8 +69,15 @@ class LastFmAuthManager(private val context: Context) {
                 }
             }
         } else if (pendingToken != null) {
-            _authState.value = AuthState.AUTHENTICATING
-            Log.d(TAG, "Auth state → AUTHENTICATING (pending token exists)")
+            // VULN-22: Check if pending token is expired
+            val tokenAge = System.currentTimeMillis() - authPrefs.getLong("pending_token_time", 0)
+            if (tokenAge > TOKEN_EXPIRY_MS) {
+                pendingToken = null
+                Log.d(TAG, "Pending token expired, clearing")
+            } else {
+                _authState.value = AuthState.AUTHENTICATING
+                Log.d(TAG, "Auth state → AUTHENTICATING (pending token exists)")
+            }
         }
     }
 
@@ -119,8 +127,14 @@ class LastFmAuthManager(private val context: Context) {
 
                 val token = obj.getString("token")
                 pendingToken = token
+                authPrefs.edit().putLong("pending_token_time", System.currentTimeMillis()).apply()
                 authNonce = java.util.UUID.randomUUID().toString().take(16)
-                Intent(Intent.ACTION_VIEW, Uri.parse("${AUTH_URL}?api_key=$apiKey&token=$token&cb=$CALLBACK_URL"))
+                val authUri = Uri.parse(AUTH_URL).buildUpon()
+                    .appendQueryParameter("api_key", apiKey)
+                    .appendQueryParameter("token", token)
+                    .appendQueryParameter("cb", CALLBACK_URL)
+                    .build()
+                Intent(Intent.ACTION_VIEW, authUri)
             } catch (e: Exception) {
                 SonaraLogger.e("LastFmAuth", "Token error: ${e.message}")
                 _authState.value = AuthState.ERROR
@@ -130,9 +144,16 @@ class LastFmAuthManager(private val context: Context) {
         }
     }
 
-    suspend fun handleCallback(token: String? = null): Boolean {
+    suspend fun handleCallback(token: String? = null, state: String? = null): Boolean {
         Log.d(TAG, "handleCallback() called")
         val useToken = token ?: pendingToken ?: return false
+        // VULN-26: CSRF state validation
+        if (authNonce != null && state != null && state != authNonce) {
+            Log.e(TAG, "CSRF check failed: state mismatch")
+            _authState.value = AuthState.ERROR
+            _errorMessage.value = "Security validation failed"
+            return false
+        }
         val apiKey = resolveApiKey()
         val sharedSecret = resolveSharedSecret()
 
