@@ -89,4 +89,30 @@ object DeezerImageResolver {
         } catch (e: Exception) { Log.w(TAG, "${e.message}"); null }
     }
 
+
+    // ═══ iTunes API fallback (free, no auth) ═══
+    private suspend fun getItunesArtwork(query: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val q = URLEncoder.encode(query, "UTF-8")
+            val conn = URL("https://itunes.apple.com/search?term=$q&media=music&limit=1").openConnection() as HttpURLConnection
+            conn.connectTimeout = 5000; conn.readTimeout = 5000
+            if (conn.responseCode != 200) { conn.disconnect(); return@withContext null }
+            val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
+            val results = JSONObject(json).optJSONArray("results")
+            if (results != null && results.length() > 0) {
+                val artwork = results.getJSONObject(0).optString("artworkUrl100", "")
+                if (artwork.isNotBlank()) return@withContext artwork.replace("100x100bb", "600x600bb")
+            }
+            null
+        } catch (e: Exception) { Log.w(TAG, "iTunes: ${e.message}"); null }
+    }
+
+    suspend fun getTrackImageWithFallback(title: String, artist: String): String? {
+        return getTrackImage(title, artist) ?: getItunesArtwork("$artist $title")
+    }
+
+    suspend fun getArtistImageWithFallback(name: String): String? {
+        return getArtistImage(name) ?: getItunesArtwork(name)
+    }
+
 }

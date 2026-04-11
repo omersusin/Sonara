@@ -202,7 +202,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 // Fetch Deezer images (Last.fm deprecated artist images in 2020)
                 val enriched = list.map { (name, plays, lfmImg) ->
                     val img = if (lfmImg.isNotBlank() && !lfmImg.contains("2a96cbd8b46e")) lfmImg
-                              else DeezerImageResolver.getArtistImage(name) ?: ""
+                              else DeezerImageResolver.getArtistImageWithFallback(name) ?: ""
                     Triple(name, plays, img)
                 }
                 _uiState.update { it.copy(topArtists = enriched) }
@@ -214,7 +214,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update { it.copy(topTracks = list) }
                 // Enrich track images via Deezer
                 val enrichedTracks = list.map { t ->
-                    val img = if (t.imageUrl.isNotBlank()) t.imageUrl else DeezerImageResolver.getTrackImage(t.title, t.artist) ?: ""
+                    val img = if (t.imageUrl.isNotBlank()) t.imageUrl else DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: ""
                     t.copy(imageUrl = img)
                 }
                 _uiState.update { it.copy(topTracks = enrichedTracks) }
@@ -235,7 +235,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
             try {
                 val enriched = _uiState.value.topArtists.map { t ->
                     val img = t.third
-                    val resolved = if (img.isNotBlank() && !img.contains("2a96cbd8b46e")) img else DeezerImageResolver.getArtistImage(t.first) ?: ""
+                    val resolved = if (img.isNotBlank() && !img.contains("2a96cbd8b46e")) img else DeezerImageResolver.getArtistImageWithFallback(t.first) ?: ""
                     Triple(t.first, t.second, resolved)
                 }
                 _uiState.update { it.copy(topArtists = enriched) }
@@ -280,7 +280,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 // Enrich images via Deezer for items missing art
                 val enriched = _uiState.value.recentTracks.map { t ->
                     if (t.imageUrl.isBlank() || t.imageUrl.contains("2a96cbd8b46e")) {
-                        val img = DeezerImageResolver.getTrackImage(t.title, t.artist) ?: ""
+                        val img = DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: ""
                         t.copy(imageUrl = img)
                     } else t
                 }
@@ -296,12 +296,12 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch(Dispatchers.IO) {
             try { val a = LastFmClient.api.getUserTopArtists(u, k, period, 8)
                 val l = a.topartists?.artist?.map { Triple(it.name, it.playcount, it.imageUrl ?: "") } ?: emptyList()
-                val enriched = l.map { t -> val img = if (t.third.isNotBlank() && !t.third.contains("2a96cbd8b46e")) t.third else DeezerImageResolver.getArtistImage(t.first) ?: ""; Triple(t.first, t.second, img) }
+                val enriched = l.map { t -> val img = if (t.third.isNotBlank() && !t.third.contains("2a96cbd8b46e")) t.third else DeezerImageResolver.getArtistImageWithFallback(t.first) ?: ""; Triple(t.first, t.second, img) }
                 _uiState.update { it.copy(topArtists = enriched) }
             } catch (_: Exception) {}
             try { val t = LastFmClient.api.getUserTopTracks(u, k, period, 8)
                 val tl = t.toptracks?.track?.map { tr -> TopTrackItem(tr.name, tr.artist?.name ?: "", tr.playcount, tr.imageUrl ?: "") } ?: emptyList()
-                val enrichedT = tl.map { tr -> val img = if (tr.imageUrl.isNotBlank()) tr.imageUrl else DeezerImageResolver.getTrackImage(tr.title, tr.artist) ?: ""; tr.copy(imageUrl = img) }
+                val enrichedT = tl.map { tr -> val img = if (tr.imageUrl.isNotBlank()) tr.imageUrl else DeezerImageResolver.getTrackImageWithFallback(tr.title, tr.artist) ?: ""; tr.copy(imageUrl = img) }
                 _uiState.update { it.copy(topTracks = enrichedT) }
             } catch (_: Exception) {}
         }

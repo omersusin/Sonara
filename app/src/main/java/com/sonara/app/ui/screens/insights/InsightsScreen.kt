@@ -75,7 +75,7 @@ import android.net.Uri
 import com.sonara.app.ui.theme.*
 
 @Composable
-fun InsightsScreen() {
+fun InsightsScreen(onArtistClick: (String) -> Unit = {}) {
     val vm: InsightsViewModel = viewModel()
     val s by vm.uiState.collectAsState()
     val art by vm.albumArt.collectAsState()
@@ -146,7 +146,7 @@ fun InsightsScreen() {
         if (s.trackTitle.isNotEmpty()) { item { TrackCard(s, art, p) } }
 
         // ═══ 5. TOP ARTISTS ═══
-        if (s.topArtists.isNotEmpty()) { item { TopArtistsCard(s, p) } }
+        if (s.topArtists.isNotEmpty()) { item { TopArtistsCard(s, p, onArtistClick) } }
 
         // ═══ 6. TOP TRACKS ═══
         if (s.topTracks.isNotEmpty()) { item { TopTracksCard(s, p) } }
@@ -423,7 +423,7 @@ private fun ListeningStatsCard(s: InsightsUiState, p: androidx.compose.ui.graphi
 }
 
 @Composable
-private fun TopArtistsCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color) {
+private fun TopArtistsCard(s: InsightsUiState, p: androidx.compose.ui.graphics.Color, onArtistClick: (String) -> Unit = {}) {
     val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
     FluentCard {
         Text("Top Artists", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
@@ -431,7 +431,7 @@ private fun TopArtistsCard(s: InsightsUiState, p: androidx.compose.ui.graphics.C
         val ctx = LocalContext.current
         s.topArtists.forEachIndexed { i, triple ->
             val name = triple.first; val plays = triple.second; val imageUrl = triple.third
-            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth().clickable { onArtistClick(name) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.size(28.dp).background(if (i < 3) p.copy(alpha = 0.15f) else SonaraCardElevated, RoundedCornerShape(6.dp)),
                     contentAlignment = Alignment.Center) {
                     Text("${i + 1}", style = if (i < 3) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium,
