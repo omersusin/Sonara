@@ -28,8 +28,8 @@ class EffectsChain {
      * Initialize effects chain on a given audio session.
      * Session 0 = global output mix.
      */
-    fun attach(sessionId: Int) {
-        if (sessionId == currentSessionId && bassBoost != null) return
+    fun attach(sessionId: Int, force: Boolean = false) {
+        if (!force && sessionId == currentSessionId && bassBoost != null) return
         release()
         currentSessionId = sessionId
         try {
@@ -107,6 +107,15 @@ class EffectsChain {
         setBassBoost(bassStrength)
         setVirtualizer(virtStrength)
         setLoudness(loudnessGain)
+    }
+
+    val isAttached: Boolean get() = bassBoost != null || virtualizer != null || loudnessEnhancer != null
+    val attachedSession: Int get() = currentSessionId
+
+    fun forceReattach(sessionId: Int) {
+        SonaraLogger.eq("Effects forceReattach to session $sessionId (was $currentSessionId)")
+        attach(sessionId, force = true)
+        applyProfile(currentBassStrength, currentVirtStrength, currentLoudnessGain)
     }
 
     fun release() {
