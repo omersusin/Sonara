@@ -88,7 +88,7 @@ import com.sonara.app.ui.components.StatusChip
 import com.sonara.app.ui.theme.*
 
 @Composable
-fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> Unit = {}) {
+fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> Unit = {}, onOpenAppPicker: () -> Unit = {}) {
     val vm: SettingsViewModel = viewModel()
     val state by vm.uiState.collectAsState()
     val ctx = LocalContext.current

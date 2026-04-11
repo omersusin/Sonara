@@ -1,16 +1,10 @@
 package com.sonara.app.ui.components
-
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -24,37 +18,15 @@ private data class NavItem(val screen: Screen, val icon: ImageVector)
 
 @Composable
 fun SonaraBottomBar(navController: NavController) {
-    val items = listOf(
-        NavItem(Screen.Dashboard, Icons.Rounded.Home),
-        NavItem(Screen.Equalizer, Icons.Rounded.Tune),
-        NavItem(Screen.Insights, Icons.Rounded.BarChart),
-        NavItem(Screen.Settings, Icons.Rounded.Settings)
-    )
+    val items = listOf(NavItem(Screen.Dashboard, Icons.Rounded.Home), NavItem(Screen.Equalizer, Icons.Rounded.Tune),
+        NavItem(Screen.Insights, Icons.Rounded.BarChart), NavItem(Screen.Settings, Icons.Rounded.Settings))
     val backStack by navController.currentBackStackEntryAsState()
-    val currentRoute = backStack?.destination?.route
-    val primary = MaterialTheme.colorScheme.primary
-
+    val cur = backStack?.destination?.route; val p = MaterialTheme.colorScheme.primary
     NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 0.dp) {
-        items.forEach { item ->
-            val selected = currentRoute == item.screen.route
-            NavigationBarItem(
-                selected = selected,
-                onClick = {
-                    if (currentRoute != item.screen.route) {
-                        navController.navigate(item.screen.route) {
-                            popUpTo(Screen.Dashboard.route) { saveState = true }
-                            launchSingleTop = true; restoreState = true
-                        }
-                    }
-                },
-                icon = { Icon(item.icon, contentDescription = item.screen.label) },
-                label = { Text(item.screen.label, style = MaterialTheme.typography.labelMedium) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = primary, selectedTextColor = primary,
-                    unselectedIconColor = SonaraTextTertiary, unselectedTextColor = SonaraTextTertiary,
-                    indicatorColor = primary.copy(alpha = 0.12f)
-                )
-            )
+        items.forEach { item -> val sel = cur == item.screen.route
+            NavigationBarItem(selected = sel, onClick = { if (cur != item.screen.route) navController.navigate(item.screen.route) { popUpTo(Screen.Dashboard.route) { saveState = true }; launchSingleTop = true; restoreState = true } },
+                icon = { Icon(item.icon, item.screen.label) }, label = { Text(item.screen.label, style = MaterialTheme.typography.labelMedium) },
+                colors = NavigationBarItemDefaults.colors(selectedIconColor = p, selectedTextColor = p, unselectedIconColor = SonaraTextTertiary, unselectedTextColor = SonaraTextTertiary, indicatorColor = p.copy(0.12f)))
         }
     }
 }

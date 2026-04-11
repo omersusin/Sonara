@@ -1,13 +1,6 @@
 package com.sonara.app.ui.theme
-
 import androidx.compose.ui.graphics.Color
-
-enum class AccentColor(
-    val displayName: String,
-    val primary: Color,
-    val primaryLight: Color,
-    val primaryDark: Color
-) {
+enum class AccentColor(val displayName: String, val primary: Color, val primaryLight: Color, val primaryDark: Color) {
     Auto("Auto", Color(0xFF8E8E93), Color(0xFFAAAAAA), Color(0xFF6E6E73)),
     Amber("Amber", Color(0xFFE8A854), Color(0xFFF5C882), Color(0xFFC48B3A)),
     Rose("Rose", Color(0xFFE07070), Color(0xFFEF9E9E), Color(0xFFC05050)),
