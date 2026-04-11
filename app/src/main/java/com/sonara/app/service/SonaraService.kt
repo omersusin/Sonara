@@ -224,6 +224,7 @@ class SonaraService : Service() {
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play).setContentTitle(title).setContentText(sub)
             .setContentIntent(open).also { if (heartAction != null) it.addAction(heartAction) }
+            .addAction(requestAction)
             .addAction(Notification.Action.Builder(null, "Stop", stop).build())
             .setOngoing(isPlaying).setShowWhen(false)
         if (art != null && !art.isRecycled) { try { builder.setLargeIcon(art) } catch (_: Exception) {} }
