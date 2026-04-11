@@ -9,6 +9,7 @@ import android.os.Build
 import android.provider.Settings
 import android.os.Environment
 import java.io.File
+import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -132,6 +133,9 @@ fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> U
         item { AiSourcesCard(state, vm) }
 
         item { AdvancedCard(state, vm) }
+
+        item { SectionHeader("Scrobble Filter") }
+        item { ScrobbleFilterCard(state, vm) }
 
         // Gemini merged into AI Sources
 
@@ -947,6 +951,61 @@ private fun AboutCard(state: SettingsUiState, vm: SettingsViewModel) {
                 border = BorderStroke(1.dp, SonaraError.copy(0.5f)),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
             ) { Text("Reset All Auth") }
+        }
+    }
+}
+
+@Composable
+private fun ScrobbleFilterCard(state: SettingsUiState, vm: SettingsViewModel) {
+    val ctx = LocalContext.current
+    FluentCard {
+        Text("Scrobble Apps", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text("Only process media from selected apps. Empty = all allowed.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(12.dp))
+
+        val musicApps = remember {
+            val pm = ctx.packageManager
+            listOf(
+                "com.spotify.music" to "Spotify",
+                "com.google.android.apps.youtube.music" to "YouTube Music",
+                "com.apple.android.music" to "Apple Music",
+                "deezer.android.app" to "Deezer",
+                "com.soundcloud.android" to "SoundCloud",
+                "com.amazon.mp3" to "Amazon Music",
+                "com.aspiro.tidal" to "Tidal",
+                "com.maxmpz.audioplayer" to "Poweramp",
+                "org.videolan.vlc" to "VLC",
+                "com.anker.soundcore" to "Soundcore"
+            ).filter { (pkg, _) -> try { pm.getPackageInfo(pkg, 0); true } catch (_: Exception) { false } }
+        }
+        val allowed = state.allowedScrobbleApps
+        val p = MaterialTheme.colorScheme.primary
+
+        if (musicApps.isEmpty()) {
+            Text("No known music apps detected", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+        } else {
+            musicApps.forEach { (pkg, name) ->
+                val checked = allowed.isEmpty() || pkg in allowed
+                Row(Modifier.fillMaxWidth().clickable {
+                    val newSet = if (allowed.isEmpty()) setOf(pkg)
+                    else if (pkg in allowed) { val r = allowed - pkg; if (r.isEmpty()) emptySet() else r }
+                    else allowed + pkg
+                    vm.setAllowedScrobbleApps(newSet)
+                }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Switch(checked = checked, onCheckedChange = null,
+                        colors = SwitchDefaults.colors(checkedThumbColor = p, checkedTrackColor = p.copy(0.3f)))
+                }
+            }
+            if (allowed.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = { vm.setAllowedScrobbleApps(emptySet()) },
+                    modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                    border = BorderStroke(1.dp, SonaraDivider),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraTextSecondary)
+                ) { Text("Allow All Apps") }
+            }
         }
     }
 }

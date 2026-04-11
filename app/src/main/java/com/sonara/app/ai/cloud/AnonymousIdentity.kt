@@ -29,6 +29,6 @@ object AnonymousIdentity {
 
     fun resetIdentity(context: Context) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_ID, UUID.randomUUID().toString().replace("-", "").take(8)).putInt(KEY_BATCH, 0).apply()
+        prefs.edit().putString(KEY_ID, UUID.randomUUID().toString().replace("-", "").take(16)).putInt(KEY_BATCH, 0).apply()
     }
 }
