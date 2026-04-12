@@ -15,7 +15,8 @@ data class InsightRequest(
     val title: String, val artist: String, val genre: String,
     val subGenre: String?, val tags: List<String>,
     val lyricalTone: String?, val energy: Float,
-    val confidence: Float, val currentEqBands: FloatArray?
+    val confidence: Float, val currentEqBands: FloatArray?,
+    val userRequest: String? = null
 )
 
 data class InsightResult(

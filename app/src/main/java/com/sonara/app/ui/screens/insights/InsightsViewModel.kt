@@ -33,24 +33,26 @@ data class InsightsUiState(
     val apiAccuracy: Int = 0, val eqStrategy: String = "none",
     val aiModelSamples: Int = 0, val route: String = "Unknown",
     val personalSamples: Int = 0,
-    // Last.fm stats
-    val lastFmConnected: Boolean = false,
-    val lastFmUsername: String = "",
-    val totalScrobbles: String = "0",
-    val totalArtists: String = "0",
+    // Last.fm
+    val lastFmConnected: Boolean = false, val lastFmUsername: String = "",
+    val totalScrobbles: String = "0", val totalArtists: String = "0",
     val topArtists: List<Triple<String, String, String>> = emptyList(),
     val topTracks: List<TopTrackItem> = emptyList(),
+    val topAlbums: List<TopAlbumItem> = emptyList(),
     val weeklyTracks: List<Triple<String, String, String>> = emptyList(),
     val recentTracks: List<RecentTrackItem> = emptyList(),
     val selectedPeriod: String = "overall",
     val avgDailyScrobbles: Int = 0,
     val trackCount: String = "0",
-    val registeredUnix: Long = 0
+    val registeredUnix: Long = 0,
+    // Derived stats
+    val listeningHours: Int = 0,
+    val weeklyActivity: List<Pair<String, Int>> = emptyList()
 )
 
 data class TopTrackItem(val title: String, val artist: String, val plays: String, val imageUrl: String = "")
-
-data class RecentTrackItem(val title: String, val artist: String, val album: String, val imageUrl: String, val isNowPlaying: Boolean, val date: String)
+data class TopAlbumItem(val name: String, val artist: String, val plays: String, val imageUrl: String = "")
+data class RecentTrackItem(val title: String, val artist: String, val album: String, val imageUrl: String, val isNowPlaying: Boolean, val date: String, val uts: Long = 0L)
 
 class InsightsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
@@ -63,10 +65,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
     ))
     val uiState: StateFlow<InsightsUiState> = _uiState.asStateFlow()
     val albumArt: StateFlow<Bitmap?> = SonaraNotificationListener.albumArt
-
-    // AI state
-    val aiState: StateFlow<SonaraAiState> =
-        SonaraAi.getInstance()?.state ?: MutableStateFlow(SonaraAiState()).asStateFlow()
+    val aiState: StateFlow<SonaraAiState> = SonaraAi.getInstance()?.state ?: MutableStateFlow(SonaraAiState()).asStateFlow()
 
     init {
         viewModelScope.launch { SonaraNotificationListener.nowPlaying.collect { np -> _uiState.update { it.copy(trackTitle = np.title, trackArtist = np.artist, isPlaying = np.isPlaying) } } }
@@ -84,90 +83,39 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.genreStatsFlow.collect { raw ->
             val map = if (raw.isBlank()) emptyMap()
             else raw.split(";").mapNotNull { entry -> val parts = entry.split(":"); if (parts.size == 2) parts[0] to (parts[1].toIntOrNull() ?: 0) else null }.toMap()
-            val formatted = map.mapKeys { (k, _) -> DisplayLabelMapper.formatGenre(k) }
+            val formatted = map.mapKeys { (k, _) -> DisplayLabelMapper.formatGenre(k) }.filterKeys { it.lowercase() != "unknown" && it.isNotBlank() }
             _uiState.update { it.copy(genreDistribution = formatted) }
         } }
-        viewModelScope.launch {
-            app.currentRoute.collect { route ->
-                val isHP = route != com.sonara.app.intelligence.pipeline.AudioRoute.SPEAKER && route != com.sonara.app.intelligence.pipeline.AudioRoute.UNKNOWN
-                _uiState.update { it.copy(headphoneConnected = isHP, headphoneName = if (isHP) route.displayName else "") }
-            }
-        }
-        viewModelScope.launch {
-            _uiState.update { it.copy(
-                cacheSize = cache.size(),
-                aiModelSamples = app.adaptiveLearning.getTotalSamples(),
-                personalSamples = app.personalization.getTotalSamples()
-            ) }
-        }
+        viewModelScope.launch { app.currentRoute.collect { route ->
+            val isHP = route != com.sonara.app.intelligence.pipeline.AudioRoute.SPEAKER && route != com.sonara.app.intelligence.pipeline.AudioRoute.UNKNOWN
+            _uiState.update { it.copy(headphoneConnected = isHP, headphoneName = if (isHP) route.displayName else "") }
+        } }
+        viewModelScope.launch { _uiState.update { it.copy(cacheSize = cache.size(), aiModelSamples = app.adaptiveLearning.getTotalSamples(), personalSamples = app.personalization.getTotalSamples()) } }
 
-        // Sync now-playing into recently played list + refresh on track change
+        // Now playing sync
         viewModelScope.launch {
             SonaraNotificationListener.nowPlaying.collect { np ->
                 if (np.title.isNotBlank()) {
                     _uiState.update { st ->
-                        val nowItem = RecentTrackItem(
-                            title = np.title,
-                            artist = np.artist,
-                            album = np.album,
-                            imageUrl = "",
-                            isNowPlaying = np.isPlaying,
-                            date = "Now"
-                        )
-                        // Remove any existing entry for same track, prepend current
-                        val filtered = st.recentTracks.filter {
-                            !(it.title == np.title && it.artist == np.artist && it.isNowPlaying)
-                        }
-                        // Clear old nowPlaying flags
-                        val cleared = filtered.map { it.copy(isNowPlaying = false) }
-                        st.copy(recentTracks = listOf(nowItem) + cleared)
+                        val nowItem = RecentTrackItem(np.title, np.artist, np.album, "", np.isPlaying, "Now")
+                        val filtered = st.recentTracks.filter { !(it.title == np.title && it.artist == np.artist && it.isNowPlaying) }.map { it.copy(isNowPlaying = false) }
+                        st.copy(recentTracks = listOf(nowItem) + filtered)
                     }
-                    // Refresh from Last.fm after a delay (new track may take a moment to appear)
                     val u = _uiState.value.lastFmUsername
-                    if (u.isNotBlank()) {
-                        kotlinx.coroutines.delay(5000)
-                        refreshRecentTracks(u)
-                    }
+                    if (u.isNotBlank()) { kotlinx.coroutines.delay(5000); refreshRecentTracks(u) }
                 }
             }
         }
 
-        // Last.fm connection + stats
+        // Last.fm auth
+        viewModelScope.launch { app.lastFmAuth.authState.collect { state -> _uiState.update { it.copy(lastFmConnected = state == LastFmAuthManager.AuthState.CONNECTED) } } }
+        viewModelScope.launch { app.lastFmAuth.username.collect { name -> _uiState.update { it.copy(lastFmUsername = name) }; if (name.isNotBlank()) fetchLastFmStats(name) } }
         viewModelScope.launch {
-            app.lastFmAuth.authState.collect { state ->
-                _uiState.update { it.copy(lastFmConnected = state == LastFmAuthManager.AuthState.CONNECTED) }
-            }
-        }
-        viewModelScope.launch {
-            app.lastFmAuth.username.collect { name ->
-                _uiState.update { it.copy(lastFmUsername = name) }
-                if (name.isNotBlank()) fetchLastFmStats(name)
-            }
-        }
-        // Fallback: if auth says connected but username didn't flow yet, trigger fetch
-        viewModelScope.launch {
-            kotlinx.coroutines.delay(2000) // Wait for flows to settle
+            kotlinx.coroutines.delay(2000)
             val st = _uiState.value
             if (st.lastFmConnected && st.lastFmUsername.isBlank()) {
-                // Try to get username from connection info
                 val info = app.lastFmAuth.getConnectionInfo()
-                if (info.username.isNotBlank()) {
-                    _uiState.update { it.copy(lastFmUsername = info.username) }
-                    fetchLastFmStats(info.username)
-                }
-            }
-        }
-        // Fallback: if auth says connected but username didn't flow yet, trigger fetch
-        viewModelScope.launch {
-            kotlinx.coroutines.delay(2000) // Wait for flows to settle
-            val st = _uiState.value
-            if (st.lastFmConnected && st.lastFmUsername.isBlank()) {
-                // Try to get username from connection info
-                val info = app.lastFmAuth.getConnectionInfo()
-                if (info.username.isNotBlank()) {
-                    _uiState.update { it.copy(lastFmUsername = info.username) }
-                    fetchLastFmStats(info.username)
-                }
+                if (info.username.isNotBlank()) { _uiState.update { it.copy(lastFmUsername = info.username) }; fetchLastFmStats(info.username) }
             }
         }
     }
@@ -175,70 +123,87 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
     private fun fetchLastFmStats(username: String) {
         val apiKey = app.lastFmAuth.getActiveApiKey()
         if (apiKey.isBlank()) return
-
         viewModelScope.launch(Dispatchers.IO) {
+            // User info
             try {
-                // User info
                 val info = LastFmClient.api.getUserInfo(username, apiKey)
                 info.user?.let { u ->
                     val regUnix = u.registered?.unixtime?.toLongOrNull() ?: 0L
                     val daysSince = if (regUnix > 0) ((System.currentTimeMillis() / 1000 - regUnix) / 86400).toInt().coerceAtLeast(1) else 1
                     val totalSc = u.playcount.toLongOrNull() ?: 0
                     val avgDaily = (totalSc / daysSince).toInt()
-                    _uiState.update { it.copy(
-                        totalScrobbles = u.playcount,
-                        totalArtists = u.artist_count,
-                        trackCount = u.track_count,
-                        registeredUnix = regUnix,
-                        avgDailyScrobbles = avgDaily
-                    ) }
+                    val hours = (totalSc * 3.5 / 60).toInt()
+                    _uiState.update { it.copy(totalScrobbles = u.playcount, totalArtists = u.artist_count, trackCount = u.track_count, registeredUnix = regUnix, avgDailyScrobbles = avgDaily, listeningHours = hours) }
                 }
             } catch (_: Exception) {}
+            // Top artists
             try {
-                // Top artists
-                val artists = LastFmClient.api.getUserTopArtists(username, apiKey, "overall", 8)
-                val list = artists.topartists?.artist?.map { a -> Triple(a.name, a.playcount, a.imageUrl ?: "") } ?: emptyList()
+                val artists = LastFmClient.api.getUserTopArtists(username, apiKey, "overall", 10)
+                val list = artists.topartists?.artist?.map { Triple(it.name, it.playcount, it.imageUrl ?: "") } ?: emptyList()
                 _uiState.update { it.copy(topArtists = list) }
-                // Fetch Deezer images (Last.fm deprecated artist images in 2020)
-                val enriched = list.map { (name, plays, lfmImg) ->
-                    val img = if (lfmImg.isNotBlank() && !lfmImg.contains("2a96cbd8b46e")) lfmImg
-                              else DeezerImageResolver.getArtistImageWithFallback(name) ?: ""
-                    Triple(name, plays, img)
-                }
+                val enriched = list.map { (name, plays, img) -> Triple(name, plays, if (img.isNotBlank() && !img.contains("2a96cbd8b46e")) img else DeezerImageResolver.getArtistImageWithFallback(name) ?: "") }
                 _uiState.update { it.copy(topArtists = enriched) }
             } catch (_: Exception) {}
+            // Top tracks
             try {
-                // Top tracks
-                val tracks = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 8)
-                val list = tracks.toptracks?.track?.map { t -> TopTrackItem(t.name, t.artist?.name ?: "", t.playcount, t.imageUrl ?: "") } ?: emptyList()
+                val tracks = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 10)
+                val list = tracks.toptracks?.track?.map { TopTrackItem(it.name, it.artist?.name ?: "", it.playcount, it.imageUrl ?: "") } ?: emptyList()
                 _uiState.update { it.copy(topTracks = list) }
-                // Enrich track images via Deezer
-                val enrichedTracks = list.map { t ->
-                    val img = if (t.imageUrl.isNotBlank()) t.imageUrl else DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: ""
-                    t.copy(imageUrl = img)
+                val enriched = list.map { t -> t.copy(imageUrl = if (t.imageUrl.isNotBlank()) t.imageUrl else DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") }
+                _uiState.update { it.copy(topTracks = enriched) }
+            } catch (_: Exception) {}
+            // Genres from Last.fm (aggregate top artists tags)
+            try {
+                val genreMap = mutableMapOf<String, Int>()
+                val topForGenre = _uiState.value.topArtists.take(5)
+                for (artist in topForGenre) {
+                    try {
+                        val tagsResp = LastFmClient.api.getArtistTags(artist.first, apiKey)
+                        tagsResp.toptags?.tag?.take(3)?.forEach { tag ->
+                            val name = tag.name.lowercase().replaceFirstChar { it.uppercase() }
+                            if (name.isNotBlank() && name.lowercase() != "seen live" && name.lowercase() != "favorites") {
+                                genreMap[name] = (genreMap[name] ?: 0) + (tag.count.coerceAtLeast(1))
+                            }
+                        }
+                    } catch (_: Exception) {}
                 }
-                _uiState.update { it.copy(topTracks = enrichedTracks) }
+                if (genreMap.isNotEmpty()) {
+                    _uiState.update { it.copy(genreDistribution = genreMap) }
+                }
             } catch (_: Exception) {}
+            // Top albums
             try {
-                // Weekly chart
-                val weekly = LastFmClient.api.getWeeklyTrackChart(username, apiKey)
-                val list = weekly.weeklytrackchart?.track?.take(8)?.map { t -> Triple(t.name, t.artist?.name ?: "", t.playcount) } ?: emptyList()
-                _uiState.update { it.copy(weeklyTracks = list) }
+                val albums = LastFmClient.api.getUserTopAlbums(username, apiKey, "overall", 6)
+                val list = albums.topalbums?.album?.map { TopAlbumItem(it.name, it.artist?.name ?: "", it.playcount, it.imageUrl ?: "") } ?: emptyList()
+                _uiState.update { it.copy(topAlbums = list) }
+                val enriched = list.map { a -> a.copy(imageUrl = if (a.imageUrl.isNotBlank() && !a.imageUrl.contains("2a96cbd8b46e")) a.imageUrl else DeezerImageResolver.getTrackImageWithFallback(a.name, a.artist) ?: "") }
+                _uiState.update { it.copy(topAlbums = enriched) }
             } catch (_: Exception) {}
-            // Recent tracks
+            // Recent tracks + weekly activity
             try {
-                val recent = LastFmClient.api.getRecentTracks(username, apiKey, 10)
-                val list = recent.recenttracks?.track?.map { t -> RecentTrackItem(title = t.name, artist = t.artist?.text ?: "", album = t.album?.text ?: "", imageUrl = t.imageUrl ?: "", isNowPlaying = t.isNowPlaying, date = t.date?.text ?: "Now") } ?: emptyList()
+                val recent = LastFmClient.api.getRecentTracks(username, apiKey, 50)
+                val list = recent.recenttracks?.track?.map { t -> RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "", t.imageUrl ?: "", t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L) } ?: emptyList()
                 _uiState.update { it.copy(recentTracks = list) }
-            } catch (_: Exception) {}
-            // Enrich artists with Deezer images
-            try {
-                val enriched = _uiState.value.topArtists.map { t ->
-                    val img = t.third
-                    val resolved = if (img.isNotBlank() && !img.contains("2a96cbd8b46e")) img else DeezerImageResolver.getArtistImageWithFallback(t.first) ?: ""
-                    Triple(t.first, t.second, resolved)
+                // Derive weekly activity from timestamps
+                val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                val dayCounts = IntArray(7)
+                recent.recenttracks?.track?.forEach { t ->
+                    val uts = t.date?.uts?.toLongOrNull() ?: return@forEach
+                    val cal = java.util.Calendar.getInstance().apply { timeInMillis = uts * 1000 }
+                    val dow = (cal.get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7
+                    dayCounts[dow]++
                 }
-                _uiState.update { it.copy(topArtists = enriched) }
+                val activity = days.mapIndexed { i, d -> d to dayCounts[i] }
+                _uiState.update { it.copy(weeklyActivity = activity) }
+                // Enrich images
+                val enrichedRecent = list.map { t -> if (t.imageUrl.isBlank() || t.imageUrl.contains("2a96cbd8b46e")) t.copy(imageUrl = DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") else t }
+                _uiState.update { it.copy(recentTracks = enrichedRecent) }
+            } catch (_: Exception) {}
+            // Weekly chart
+            try {
+                val weekly = LastFmClient.api.getWeeklyTrackChart(username, apiKey)
+                val list = weekly.weeklytrackchart?.track?.take(8)?.map { Triple(it.name, it.artist?.name ?: "", it.playcount) } ?: emptyList()
+                _uiState.update { it.copy(weeklyTracks = list) }
             } catch (_: Exception) {}
         }
     }
@@ -249,41 +214,16 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val recent = LastFmClient.api.getRecentTracks(username, apiKey, 10)
-                val apiList = recent.recenttracks?.track?.map { t ->
-                    RecentTrackItem(
-                        title = t.name,
-                        artist = t.artist?.text ?: "",
-                        album = t.album?.text ?: "",
-                        imageUrl = t.imageUrl ?: "",
-                        isNowPlaying = t.isNowPlaying,
-                        date = t.date?.text ?: "Now"
-                    )
-                } ?: emptyList()
-
-                // Merge: keep local now-playing at top if still playing
+                val apiList = recent.recenttracks?.track?.map { t -> RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "", t.imageUrl ?: "", t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L) } ?: emptyList()
                 val np = SonaraNotificationListener.nowPlaying.value
                 _uiState.update { st ->
                     if (np.isPlaying && np.title.isNotBlank()) {
-                        val nowItem = RecentTrackItem(
-                            title = np.title, artist = np.artist, album = np.album,
-                            imageUrl = apiList.firstOrNull { it.title == np.title }?.imageUrl ?: "",
-                            isNowPlaying = true, date = "Now"
-                        )
-                        val rest = apiList.filter {
-                            !(it.title == np.title && it.artist == np.artist && it.isNowPlaying)
-                        }.map { it.copy(isNowPlaying = false) }
+                        val nowItem = RecentTrackItem(np.title, np.artist, np.album, apiList.firstOrNull { it.title == np.title }?.imageUrl ?: "", true, "Now")
+                        val rest = apiList.filter { !(it.title == np.title && it.artist == np.artist && it.isNowPlaying) }.map { it.copy(isNowPlaying = false) }
                         st.copy(recentTracks = listOf(nowItem) + rest)
-                    } else {
-                        st.copy(recentTracks = apiList)
-                    }
+                    } else st.copy(recentTracks = apiList)
                 }
-                // Enrich images via Deezer for items missing art
-                val enriched = _uiState.value.recentTracks.map { t ->
-                    if (t.imageUrl.isBlank() || t.imageUrl.contains("2a96cbd8b46e")) {
-                        val img = DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: ""
-                        t.copy(imageUrl = img)
-                    } else t
-                }
+                val enriched = _uiState.value.recentTracks.map { t -> if (t.imageUrl.isBlank() || t.imageUrl.contains("2a96cbd8b46e")) t.copy(imageUrl = DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") else t }
                 _uiState.update { it.copy(recentTracks = enriched) }
             } catch (_: Exception) {}
         }
@@ -294,15 +234,20 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         val u = _uiState.value.lastFmUsername; val k = app.lastFmAuth.getActiveApiKey()
         if (u.isBlank() || k.isBlank()) return
         viewModelScope.launch(Dispatchers.IO) {
-            try { val a = LastFmClient.api.getUserTopArtists(u, k, period, 8)
-                val l = a.topartists?.artist?.map { Triple(it.name, it.playcount, it.imageUrl ?: "") } ?: emptyList()
-                val enriched = l.map { t -> val img = if (t.third.isNotBlank() && !t.third.contains("2a96cbd8b46e")) t.third else DeezerImageResolver.getArtistImageWithFallback(t.first) ?: ""; Triple(t.first, t.second, img) }
+            try {
+                val a = LastFmClient.api.getUserTopArtists(u, k, period, 10)
+                val enriched = (a.topartists?.artist?.map { Triple(it.name, it.playcount, it.imageUrl ?: "") } ?: emptyList()).map { t -> Triple(t.first, t.second, if (t.third.isNotBlank() && !t.third.contains("2a96cbd8b46e")) t.third else DeezerImageResolver.getArtistImageWithFallback(t.first) ?: "") }
                 _uiState.update { it.copy(topArtists = enriched) }
             } catch (_: Exception) {}
-            try { val t = LastFmClient.api.getUserTopTracks(u, k, period, 8)
-                val tl = t.toptracks?.track?.map { tr -> TopTrackItem(tr.name, tr.artist?.name ?: "", tr.playcount, tr.imageUrl ?: "") } ?: emptyList()
-                val enrichedT = tl.map { tr -> val img = if (tr.imageUrl.isNotBlank()) tr.imageUrl else DeezerImageResolver.getTrackImageWithFallback(tr.title, tr.artist) ?: ""; tr.copy(imageUrl = img) }
-                _uiState.update { it.copy(topTracks = enrichedT) }
+            try {
+                val t = LastFmClient.api.getUserTopTracks(u, k, period, 10)
+                val enriched = (t.toptracks?.track?.map { TopTrackItem(it.name, it.artist?.name ?: "", it.playcount, it.imageUrl ?: "") } ?: emptyList()).map { tr -> tr.copy(imageUrl = if (tr.imageUrl.isNotBlank()) tr.imageUrl else DeezerImageResolver.getTrackImageWithFallback(tr.title, tr.artist) ?: "") }
+                _uiState.update { it.copy(topTracks = enriched) }
+            } catch (_: Exception) {}
+            try {
+                val al = LastFmClient.api.getUserTopAlbums(u, k, period, 6)
+                val enriched = (al.topalbums?.album?.map { TopAlbumItem(it.name, it.artist?.name ?: "", it.playcount, it.imageUrl ?: "") } ?: emptyList()).map { a -> a.copy(imageUrl = if (a.imageUrl.isNotBlank() && !a.imageUrl.contains("2a96cbd8b46e")) a.imageUrl else DeezerImageResolver.getTrackImageWithFallback(a.name, a.artist) ?: "") }
+                _uiState.update { it.copy(topAlbums = enriched) }
             } catch (_: Exception) {}
         }
     }
