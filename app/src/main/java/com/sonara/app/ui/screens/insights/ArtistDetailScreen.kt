@@ -1,7 +1,5 @@
 package com.sonara.app.ui.screens.insights
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -79,7 +77,7 @@ fun ArtistDetailScreen(artistName: String, onBack: () -> Unit, onTrackClick: (St
             detail = DeezerImageResolver.getArtistDetail(artistName)
             val apiKey = app.lastFmAuth.getActiveApiKey()
             if (apiKey.isNotBlank()) {
-                try { artistTags = LastFmClient.api.getArtistTags(artistName, apiKey).toptags?.tag?.take(10)?.map { it.name } ?: emptyList() } catch (_: Exception) {}
+                try { artistTags = LastFmClient.api.getArtistTags(artistName, apiKey).toptags?.tag?.take(10)?.map { it.name }?.filter { it.isNotBlank() } ?: emptyList() } catch (_: Exception) {}
                 val username = app.lastFmAuth.getConnectionInfo().username
                 if (username.isNotBlank()) {
                     try {
@@ -171,9 +169,8 @@ fun ArtistDetailScreen(artistName: String, onBack: () -> Unit, onTrackClick: (St
                         FluentCard {
                             Text("Listen on", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary); Spacer(Modifier.height(8.dp))
                             platformLinks.forEach { link ->
-                                Row(Modifier.fillMaxWidth().clickable {
-                                    try { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link.url))) } catch (_: Exception) {}
-                                }.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Row(Modifier.fillMaxWidth().clickable { OdesliHelper.openLink(ctx, link) }.padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
                                     Text(link.name, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
                                 }
