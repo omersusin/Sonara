@@ -85,6 +85,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
             val map = if (raw.isBlank()) emptyMap()
             else raw.split(";").mapNotNull { entry -> val parts = entry.split(":"); if (parts.size == 2) parts[0] to (parts[1].toIntOrNull() ?: 0) else null }.toMap()
             val formatted = map.mapKeys { (k, _) -> DisplayLabelMapper.formatGenre(k) }
+                .filterKeys { it.lowercase() != "unknown" && it.isNotBlank() }
             _uiState.update { it.copy(genreDistribution = formatted) }
         } }
         viewModelScope.launch {
