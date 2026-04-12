@@ -17,6 +17,7 @@ data class InsightRequest(
     val lyricalTone: String?, val energy: Float,
     val confidence: Float, val currentEqBands: FloatArray?,
     val userRequest: String? = null,
+    val userRequest: String? = null,
     val userRequest: String? = null
 )
 

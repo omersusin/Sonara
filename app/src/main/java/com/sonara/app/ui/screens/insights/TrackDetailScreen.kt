@@ -1,5 +1,7 @@
 package com.sonara.app.ui.screens.insights
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -75,7 +77,6 @@ fun TrackDetailScreen(
 
     var artworkUrl by remember { mutableStateOf("") }
     var listeners by remember { mutableStateOf("") }
-    var userPlaycount by remember { mutableStateOf("") }
     var duration by remember { mutableStateOf("") }
     var albumName by remember { mutableStateOf("") }
     var tags by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -101,26 +102,9 @@ fun TrackDetailScreen(
                         listeners = t.listeners ?: ""
                         duration = t.duration ?: ""
                         albumName = t.album?.title ?: ""
-                        val trackTags = t.toptags?.tag?.map { it.name }?.filter { it.isNotBlank() } ?: emptyList()
-                        if (trackTags.isNotEmpty()) tags = trackTags.take(8)
+                        tags = t.toptags?.tag?.take(8)?.map { it.name } ?: emptyList()
                     }
                 } catch (_: Exception) {}
-                if (tags.isEmpty()) {
-                    try {
-                        val artistTags = LastFmClient.api.getArtistTags(trackArtist, apiKey)
-                        tags = artistTags.toptags?.tag?.take(8)?.map { it.name }?.filter { it.isNotBlank() } ?: emptyList()
-                    } catch (_: Exception) {}
-                }
-                val username = app.lastFmAuth.getConnectionInfo().username
-                if (username.isNotBlank()) {
-                    try {
-                        val topTracks = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 100)
-                        val match = topTracks.toptracks?.track?.find {
-                            it.name.equals(trackTitle, ignoreCase = true) && it.artist?.name.equals(trackArtist, ignoreCase = true)
-                        }
-                        userPlaycount = match?.playcount ?: ""
-                    } catch (_: Exception) {}
-                }
             }
             try { platformLinks = OdesliHelper.getLinks(trackTitle, trackArtist) } catch (_: Exception) {}
             loading = false
@@ -158,29 +142,23 @@ fun TrackDetailScreen(
                         if (albumName.isNotBlank()) { Spacer(Modifier.height(2.dp)); Text(albumName, style = MaterialTheme.typography.bodyMedium, color = SonaraTextTertiary) }
                     }
                 }
-                item {
-                    FluentCard {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            if (userPlaycount.isNotBlank()) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(try { fmt.format(userPlaycount.toLong()) } catch (_: Exception) { userPlaycount },
-                                        style = MaterialTheme.typography.titleLarge, color = p)
-                                    Text("your plays", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                if (listeners.isNotBlank() || (duration.toLongOrNull() ?: 0) > 0) {
+                    item {
+                        FluentCard {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                if (listeners.isNotBlank()) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(try { fmt.format(listeners.toLong()) } catch (_: Exception) { listeners }, style = MaterialTheme.typography.titleLarge, color = p)
+                                        Text("listeners", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                                    }
                                 }
-                            }
-                            if (listeners.isNotBlank()) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(try { fmt.format(listeners.toLong()) } catch (_: Exception) { listeners },
-                                        style = MaterialTheme.typography.titleLarge, color = p)
-                                    Text("listeners", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                                }
-                            }
-                            val durMs = duration.toLongOrNull() ?: 0
-                            if (durMs > 0) {
-                                val mins = durMs / 60000; val secs = (durMs % 60000) / 1000
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("$mins:${"%02d".format(secs)}", style = MaterialTheme.typography.titleLarge, color = p)
-                                    Text("duration", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                                val durMs = duration.toLongOrNull() ?: 0
+                                if (durMs > 0) {
+                                    val mins = durMs / 60000; val secs = (durMs % 60000) / 1000
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("$mins:${"%02d".format(secs)}", style = MaterialTheme.typography.titleLarge, color = p)
+                                        Text("duration", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                                    }
                                 }
                             }
                         }
@@ -227,8 +205,9 @@ fun TrackDetailScreen(
                         FluentCard {
                             Text("Listen on", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary); Spacer(Modifier.height(8.dp))
                             platformLinks.forEach { link ->
-                                Row(Modifier.fillMaxWidth().clickable { OdesliHelper.openLink(ctx, link) }.padding(vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Row(Modifier.fillMaxWidth().clickable {
+                                    try { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link.url))) } catch (_: Exception) {}
+                                }.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
                                     Text(link.name, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
                                 }
