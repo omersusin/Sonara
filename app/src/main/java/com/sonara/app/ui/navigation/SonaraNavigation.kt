@@ -19,6 +19,9 @@ import com.sonara.app.ui.screens.debug.DebugPipelineScreen
 import com.sonara.app.ui.screens.equalizer.EqualizerScreen
 import com.sonara.app.ui.screens.insights.ArtistDetailScreen
 import com.sonara.app.ui.screens.insights.TrackDetailScreen
+import com.sonara.app.ui.screens.insights.TopArtistsListScreen
+import com.sonara.app.ui.screens.insights.TopTracksListScreen
+import com.sonara.app.ui.screens.insights.TopAlbumsListScreen
 import com.sonara.app.ui.screens.insights.InsightsScreen
 import com.sonara.app.ui.screens.settings.AppPickerScreen
 import com.sonara.app.ui.screens.onboarding.OnboardingScreen
@@ -40,6 +43,9 @@ sealed class Screen(val route: String, val label: String) {
     data object ArtistDetail : Screen("artist_detail/{name}", "Artist") {
         fun createRoute(name: String) = "artist_detail/${java.net.URLEncoder.encode(name, "UTF-8")}"
     }
+    data object TopArtistsList : Screen("top_artists_list", "Top Artists")
+    data object TopTracksList : Screen("top_tracks_list", "Top Tracks")
+    data object TopAlbumsList : Screen("top_albums_list", "Top Albums")
     data object TrackDetail : Screen("track_detail/{title}/{artist}", "Track") {
         fun createRoute(title: String, artist: String) = "track_detail/${java.net.URLEncoder.encode(title, "UTF-8")}/${java.net.URLEncoder.encode(artist, "UTF-8")}"
     }
@@ -69,7 +75,10 @@ fun SonaraNavigation() {
             composable(Screen.Insights.route) {
                 InsightsScreen(
                     onArtistClick = { name -> navController.navigate(Screen.ArtistDetail.createRoute(name)) },
-                    onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) }
+                    onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) },
+                    onSeeAllArtists = { navController.navigate(Screen.TopArtistsList.route) },
+                    onSeeAllTracks = { navController.navigate(Screen.TopTracksList.route) },
+                    onSeeAllAlbums = { navController.navigate(Screen.TopAlbumsList.route) }
                 )
             }
             composable(Screen.Settings.route) {
