@@ -111,9 +111,7 @@ class OpenAICompatibleProvider(
             OpenAICompatibleProvider("Groq", "https://api.groq.com/openai/v1", apiKey, model)
 
         private fun buildPrompt(r: InsightRequest): String {
-            val userFeedback = if (!r.userRequest.isNullOrBlank()) {
-                "\nUser request: \"${r.userRequest}\" — adjust EQ bands to fulfill this request."
-            } else if (r.lyricalTone != null && !r.lyricalTone.matches(Regex("^(unknown|happy|sad|energetic|calm|neutral)$"))) {
+            val userFeedback = if (r.lyricalTone != null && !r.lyricalTone.matches(Regex("^(unknown|happy|sad|energetic|calm|neutral)$"))) {
                 "\nUser feedback: \"${r.lyricalTone}\" — adjust EQ bands accordingly."
             } else ""
             return """You are Sonara, an AI-powered EQ engine. Respond ONLY with valid JSON.

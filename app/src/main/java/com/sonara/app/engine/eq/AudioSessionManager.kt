@@ -165,8 +165,7 @@ class AudioSessionManager(private val context: Context) {
         val mb = IntArray(currentBandsDb.size) { (currentBandsDb[it] * 100).toInt() }
         eq.setBands(mb); eq.setEnabled(eqEnabled)
         // Always move effects to real sessions (session 0 often fails)
-        if (sid > 0 && (sid != effectsAttachedSession || !effectsChain.isAttached)) {
-            SonaraLogger.eq("Moving effects from session $effectsAttachedSession to real session $sid")
+        if (sid > 0 && sid != effectsAttachedSession) {
             effectsChain.forceReattach(sid)
             effectsAttachedSession = sid
         }

@@ -65,17 +65,6 @@ data class LastFmTopTrack(
 data class LastFmWeeklyChartResponse(val weeklytrackchart: LastFmWeeklyChart? = null)
 data class LastFmWeeklyChart(val track: List<LastFmTopTrack> = emptyList())
 
-data class LastFmTopAlbumsResponse(val topalbums: LastFmTopAlbumsList? = null)
-data class LastFmTopAlbumsList(val album: List<LastFmTopAlbum> = emptyList())
-data class LastFmTopAlbum(
-    val name: String = "",
-    val playcount: String = "0",
-    val artist: LastFmArtist? = null,
-    val image: List<LastFmImage> = emptyList()
-) {
-    val imageUrl: String? get() = image.lastOrNull { it.text.isNotBlank() && !it.text.contains("2a96cbd8b46e") }?.text
-}
-
 data class LastFmRecentTracksResponse(val recenttracks: LastFmRecentTracks? = null)
 data class LastFmRecentTracks(val track: List<LastFmRecentTrack> = emptyList())
 data class LastFmRecentTrack(val name: String = "", val artist: LastFmRecentArtist? = null, val album: LastFmRecentAlbum? = null, val image: List<LastFmImage> = emptyList(), val date: LastFmDate? = null, @SerializedName("@attr") val attr: LastFmNowPlaying? = null) { val imageUrl: String? get() = image.lastOrNull { it.text.isNotBlank() }?.text; val isNowPlaying: Boolean get() = attr?.nowplaying == "true" }

@@ -79,19 +79,13 @@ class InsightProviderManager {
             val r = engine.getInsight(
                 request.title, request.artist, request.genre, request.subGenre,
                 request.tags, request.lyricalTone, request.energy,
-                request.confidence, request.currentEqBands,
-                request.userRequest
+                request.confidence, request.currentEqBands
             )
             return InsightResult(
                 summary = r.summary, whyThisEq = r.whyThisEq,
                 listeningFocus = r.listeningFocus, lyricalTone = r.lyricalTone,
                 confidenceNote = r.confidenceNote, success = r.success,
-                provider = "Gemini",
-                eqAdjustment = r.eqAdjustment,
-                preamp = r.preamp,
-                bassBoost = r.bassBoost,
-                virtualizer = r.virtualizer,
-                loudness = r.loudness
+                provider = "Gemini"
             )
         }
     }
