@@ -1,7 +1,5 @@
 package com.sonara.app.ui.screens.insights
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -107,18 +105,16 @@ fun TrackDetailScreen(
                         if (trackTags.isNotEmpty()) tags = trackTags.take(8)
                     }
                 } catch (_: Exception) {}
-                // Fallback: artist tags if track tags empty
                 if (tags.isEmpty()) {
                     try {
                         val artistTags = LastFmClient.api.getArtistTags(trackArtist, apiKey)
                         tags = artistTags.toptags?.tag?.take(8)?.map { it.name }?.filter { it.isNotBlank() } ?: emptyList()
                     } catch (_: Exception) {}
                 }
-                // User playcount for this track
                 val username = app.lastFmAuth.getConnectionInfo().username
                 if (username.isNotBlank()) {
                     try {
-                        val topTracks = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 50)
+                        val topTracks = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 100)
                         val match = topTracks.toptracks?.track?.find {
                             it.name.equals(trackTitle, ignoreCase = true) && it.artist?.name.equals(trackArtist, ignoreCase = true)
                         }
@@ -141,7 +137,6 @@ fun TrackDetailScreen(
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p) }
         } else {
             LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Hero artwork
                 item {
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         if (artworkUrl.isNotBlank()) {
@@ -154,7 +149,6 @@ fun TrackDetailScreen(
                         }
                     }
                 }
-                // Track metadata
                 item {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(trackTitle, style = MaterialTheme.typography.headlineSmall, color = SonaraTextPrimary)
@@ -164,7 +158,6 @@ fun TrackDetailScreen(
                         if (albumName.isNotBlank()) { Spacer(Modifier.height(2.dp)); Text(albumName, style = MaterialTheme.typography.bodyMedium, color = SonaraTextTertiary) }
                     }
                 }
-                // Stats
                 item {
                     FluentCard {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -193,7 +186,6 @@ fun TrackDetailScreen(
                         }
                     }
                 }
-                // Tags
                 if (tags.isNotEmpty()) {
                     item {
                         FluentCard {
@@ -205,7 +197,6 @@ fun TrackDetailScreen(
                         }
                     }
                 }
-                // AI EQ card
                 if (isCurrentTrack && genre.isNotBlank()) {
                     item {
                         FluentCard {
@@ -231,15 +222,13 @@ fun TrackDetailScreen(
                         }
                     }
                 }
-                // Platform links
                 if (platformLinks.isNotEmpty()) {
                     item {
                         FluentCard {
                             Text("Listen on", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary); Spacer(Modifier.height(8.dp))
                             platformLinks.forEach { link ->
-                                Row(Modifier.fillMaxWidth().clickable {
-                                    try { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link.url))) } catch (_: Exception) {}
-                                }.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Row(Modifier.fillMaxWidth().clickable { OdesliHelper.openLink(ctx, link) }.padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
                                     Text(link.name, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
                                 }
