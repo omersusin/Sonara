@@ -18,7 +18,11 @@ import com.sonara.app.ui.screens.debug.DebugLogScreen
 import com.sonara.app.ui.screens.debug.DebugPipelineScreen
 import com.sonara.app.ui.screens.equalizer.EqualizerScreen
 import com.sonara.app.ui.screens.insights.ArtistDetailScreen
+import com.sonara.app.ui.screens.insights.TrackDetailScreen
 import com.sonara.app.ui.screens.insights.InsightsScreen
+import com.sonara.app.ui.screens.insights.TopArtistsListScreen
+import com.sonara.app.ui.screens.insights.TopTracksListScreen
+import com.sonara.app.ui.screens.insights.TopAlbumsListScreen
 import com.sonara.app.ui.screens.settings.AppPickerScreen
 import com.sonara.app.ui.screens.onboarding.OnboardingScreen
 import com.sonara.app.ui.screens.presets.PresetsScreen
@@ -36,8 +40,14 @@ sealed class Screen(val route: String, val label: String) {
     data object DebugLog : Screen("debug_log", "Debug")
     data object DebugPipeline : Screen("debug_pipeline", "Pipeline Debug")
     data object AppPicker : Screen("app_picker", "Choose Apps")
+    data object TopArtistsList : Screen("top_artists_list", "Top Artists")
+    data object TopTracksList : Screen("top_tracks_list", "Top Tracks")
+    data object TopAlbumsList : Screen("top_albums_list", "Top Albums")
     data object ArtistDetail : Screen("artist_detail/{name}", "Artist") {
-        fun createRoute(name: String) = "artist_detail/${java.net.URLEncoder.encode(name, "UTF-8")}"
+        fun createRoute(name: String) = "artist_detail/${'$'}{java.net.URLEncoder.encode(name, "UTF-8")}"
+    }
+    data object TrackDetail : Screen("track_detail/{title}/{artist}", "Track") {
+        fun createRoute(title: String, artist: String) = "track_detail/${'$'}{java.net.URLEncoder.encode(title, "UTF-8")}/${'$'}{java.net.URLEncoder.encode(artist, "UTF-8")}"
     }
 }
 
@@ -49,7 +59,9 @@ fun SonaraNavigation() {
     val startDest = if (!prompted) Screen.Onboarding.route else Screen.Dashboard.route
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
-    val hideBottomBar = currentRoute == Screen.Onboarding.route || currentRoute == Screen.DebugLog.route || currentRoute == Screen.DebugPipeline.route || currentRoute == Screen.AppPicker.route || currentRoute?.startsWith("artist_detail") == true
+
+    val mainTabs = setOf(Screen.Dashboard.route, Screen.Equalizer.route, Screen.Presets.route, Screen.Insights.route, Screen.Settings.route)
+    val hideBottomBar = currentRoute !in mainTabs
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = { if (!hideBottomBar) SonaraBottomBar(navController) }) { padding ->
         NavHost(navController, startDestination = startDest, Modifier.padding(padding)) {
@@ -63,7 +75,13 @@ fun SonaraNavigation() {
             composable(Screen.Equalizer.route) { EqualizerScreen() }
             composable(Screen.Presets.route) { PresetsScreen() }
             composable(Screen.Insights.route) {
-                InsightsScreen(onArtistClick = { name -> navController.navigate(Screen.ArtistDetail.createRoute(name)) })
+                InsightsScreen(
+                    onArtistClick = { name -> navController.navigate(Screen.ArtistDetail.createRoute(name)) },
+                    onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) },
+                    onSeeAllArtists = { navController.navigate(Screen.TopArtistsList.route) },
+                    onSeeAllTracks = { navController.navigate(Screen.TopTracksList.route) },
+                    onSeeAllAlbums = { navController.navigate(Screen.TopAlbumsList.route) }
+                )
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(
@@ -73,9 +91,31 @@ fun SonaraNavigation() {
                 )
             }
             composable(Screen.AppPicker.route) { AppPickerScreen(onBack = { navController.popBackStack() }) }
+            composable(Screen.TopArtistsList.route) {
+                TopArtistsListScreen(
+                    onBack = { navController.popBackStack() },
+                    onArtistClick = { name -> navController.navigate(Screen.ArtistDetail.createRoute(name)) }
+                )
+            }
+            composable(Screen.TopTracksList.route) {
+                TopTracksListScreen(
+                    onBack = { navController.popBackStack() },
+                    onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) }
+                )
+            }
+            composable(Screen.TopAlbumsList.route) {
+                TopAlbumsListScreen(onBack = { navController.popBackStack() })
+            }
             composable(Screen.ArtistDetail.route) { entry ->
                 val name = java.net.URLDecoder.decode(entry.arguments?.getString("name") ?: "", "UTF-8")
-                ArtistDetailScreen(artistName = name, onBack = { navController.popBackStack() })
+                ArtistDetailScreen(artistName = name, onBack = { navController.popBackStack() },
+                    onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) })
+            }
+            composable(Screen.TrackDetail.route) { entry ->
+                val title = java.net.URLDecoder.decode(entry.arguments?.getString("title") ?: "", "UTF-8")
+                val artist = java.net.URLDecoder.decode(entry.arguments?.getString("artist") ?: "", "UTF-8")
+                TrackDetailScreen(trackTitle = title, trackArtist = artist, onBack = { navController.popBackStack() },
+                    onArtistClick = { name -> navController.navigate(Screen.ArtistDetail.createRoute(name)) })
             }
             composable(Screen.DebugLog.route) { DebugLogScreen(onBack = { navController.popBackStack() }) }
             composable(Screen.DebugPipeline.route) { DebugPipelineScreen() }
