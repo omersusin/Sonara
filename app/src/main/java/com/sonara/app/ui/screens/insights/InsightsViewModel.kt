@@ -52,7 +52,7 @@ data class InsightsUiState(
 
 data class TopTrackItem(val title: String, val artist: String, val plays: String, val imageUrl: String = "")
 data class TopAlbumItem(val name: String, val artist: String, val plays: String, val imageUrl: String = "")
-data class RecentTrackItem(val title: String, val artist: String, val album: String, val imageUrl: String, val isNowPlaying: Boolean, val date: String, val uts: Long = 0L)
+data class RecentTrackItem(val title: String, val artist: String, val album: String, val imageUrl: String, val isNowPlaying: Boolean, val date: String)
 
 class InsightsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
@@ -152,25 +152,6 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 val enriched = list.map { t -> t.copy(imageUrl = if (t.imageUrl.isNotBlank()) t.imageUrl else DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") }
                 _uiState.update { it.copy(topTracks = enriched) }
             } catch (_: Exception) {}
-            // Genres from Last.fm (aggregate top artists tags)
-            try {
-                val genreMap = mutableMapOf<String, Int>()
-                val topForGenre = _uiState.value.topArtists.take(5)
-                for (artist in topForGenre) {
-                    try {
-                        val tagsResp = LastFmClient.api.getArtistTags(artist.first, apiKey)
-                        tagsResp.toptags?.tag?.take(3)?.forEach { tag ->
-                            val name = tag.name.lowercase().replaceFirstChar { it.uppercase() }
-                            if (name.isNotBlank() && name.lowercase() != "seen live" && name.lowercase() != "favorites") {
-                                genreMap[name] = (genreMap[name] ?: 0) + (tag.count.coerceAtLeast(1))
-                            }
-                        }
-                    } catch (_: Exception) {}
-                }
-                if (genreMap.isNotEmpty()) {
-                    _uiState.update { it.copy(genreDistribution = genreMap) }
-                }
-            } catch (_: Exception) {}
             // Top albums
             try {
                 val albums = LastFmClient.api.getUserTopAlbums(username, apiKey, "overall", 6)
@@ -182,7 +163,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
             // Recent tracks + weekly activity
             try {
                 val recent = LastFmClient.api.getRecentTracks(username, apiKey, 50)
-                val list = recent.recenttracks?.track?.map { t -> RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "", t.imageUrl ?: "", t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L) } ?: emptyList()
+                val list = recent.recenttracks?.track?.map { t -> RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "", t.imageUrl ?: "", t.isNowPlaying, t.date?.text ?: "Now") } ?: emptyList()
                 _uiState.update { it.copy(recentTracks = list) }
                 // Derive weekly activity from timestamps
                 val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
@@ -214,7 +195,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val recent = LastFmClient.api.getRecentTracks(username, apiKey, 10)
-                val apiList = recent.recenttracks?.track?.map { t -> RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "", t.imageUrl ?: "", t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L) } ?: emptyList()
+                val apiList = recent.recenttracks?.track?.map { t -> RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "", t.imageUrl ?: "", t.isNowPlaying, t.date?.text ?: "Now") } ?: emptyList()
                 val np = SonaraNotificationListener.nowPlaying.value
                 _uiState.update { st ->
                     if (np.isPlaying && np.title.isNotBlank()) {
