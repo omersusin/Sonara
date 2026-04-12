@@ -71,6 +71,7 @@ fun ArtistDetailScreen(artistName: String, onBack: () -> Unit, onTrackClick: (St
     var artistTags by remember { mutableStateOf<List<String>>(emptyList()) }
     var userPlayCount by remember { mutableStateOf("") }
     var platformLinks by remember { mutableStateOf<List<OdesliHelper.PlatformLink>>(emptyList()) }
+    var userTopTracks by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
 
     LaunchedEffect(artistName) {
         withContext(Dispatchers.IO) {
@@ -85,6 +86,18 @@ fun ArtistDetailScreen(artistName: String, onBack: () -> Unit, onTrackClick: (St
                         userPlayCount = top.topartists?.artist?.find { it.name.equals(artistName, ignoreCase = true) }?.playcount ?: ""
                     } catch (_: Exception) {}
                 }
+            }
+            // User's top tracks by this artist
+            val username2 = app.lastFmAuth.getConnectionInfo().username
+            val apiKey2 = app.lastFmAuth.getActiveApiKey()
+            if (username2.isNotBlank() && apiKey2.isNotBlank()) {
+                try {
+                    val topTr = LastFmClient.api.getUserTopTracks(username2, apiKey2, "overall", 100)
+                    val byArtist = topTr.toptracks?.track?.filter {
+                        it.artist?.name.equals(artistName, ignoreCase = true)
+                    }?.take(10)?.map { it.name to it.playcount } ?: emptyList()
+                    userTopTracks = byArtist
+                } catch (_: Exception) {}
             }
             try { platformLinks = OdesliHelper.getArtistLinks(artistName) } catch (_: Exception) {}
             loading = false
@@ -160,6 +173,22 @@ fun ArtistDetailScreen(artistName: String, onBack: () -> Unit, onTrackClick: (St
                                     }
                                 }
                                 if (i < d.topTracks.lastIndex) HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                            }
+                        }
+                    }
+                }
+                if (userTopTracks.isNotEmpty()) {
+                    item {
+                        FluentCard {
+                            Text("Your Top Tracks", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary); Spacer(Modifier.height(10.dp))
+                            userTopTracks.forEachIndexed { i, (title, plays) ->
+                                Row(Modifier.fillMaxWidth().clickable { onTrackClick(title, artistName) }.padding(vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text("${i + 1}", style = MaterialTheme.typography.labelLarge, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(24.dp))
+                                    Text(title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1, modifier = Modifier.weight(1f))
+                                    Text(try { fmt.format(plays.toLong()) } catch (_: Exception) { plays }, style = MaterialTheme.typography.labelMedium, color = p)
+                                }
+                                if (i < userTopTracks.lastIndex) HorizontalDivider(color = SonaraDivider.copy(0.2f))
                             }
                         }
                     }
