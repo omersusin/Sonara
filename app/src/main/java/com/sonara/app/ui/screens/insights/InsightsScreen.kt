@@ -58,7 +58,10 @@ import java.util.Locale
 @Composable
 fun InsightsScreen(
     onArtistClick: (String) -> Unit = {},
-    onTrackClick: (String, String) -> Unit = { _, _ -> }
+    onTrackClick: (String, String) -> Unit = { _, _ -> },
+    onSeeAllArtists: () -> Unit = {},
+    onSeeAllTracks: () -> Unit = {},
+    onSeeAllAlbums: () -> Unit = {}
 ) {
     val vm: InsightsViewModel = viewModel()
     val s by vm.uiState.collectAsState()
@@ -127,7 +130,7 @@ fun InsightsScreen(
 
         // ═══ TOP ARTISTS — Asymmetric collage ═══
         if (s.topArtists.size >= 3) {
-            item { Text("Top Artists", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary) }
+            item { SectionHeader("Top Artists") { onSeeAllArtists() } }
             item {
                 val ctx = LocalContext.current
                 Row(Modifier.fillMaxWidth().height(200.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -178,7 +181,7 @@ fun InsightsScreen(
                 }
             }
         } else if (s.topArtists.isNotEmpty()) {
-            item { Text("Top Artists", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary) }
+            item { SectionHeader("Top Artists") { onSeeAllArtists() } }
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(s.topArtists) { a ->
@@ -199,7 +202,7 @@ fun InsightsScreen(
         if (s.topTracks.isNotEmpty()) {
             item {
                 FluentCard {
-                    Text("Top Tracks", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary); Spacer(Modifier.height(10.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("Top Tracks", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary); Text("See all >", style = MaterialTheme.typography.labelMedium, color = p, modifier = Modifier.clickable { onSeeAllTracks() }) }; Spacer(Modifier.height(10.dp))
                     val ctx = LocalContext.current
                     s.topTracks.forEachIndexed { i, track ->
                         Row(Modifier.fillMaxWidth().clickable { onTrackClick(track.title, track.artist) }.padding(vertical = 5.dp),
@@ -221,7 +224,7 @@ fun InsightsScreen(
 
         // ═══ TOP ALBUMS ═══
         if (s.topAlbums.isNotEmpty()) {
-            item { Text("Top Albums", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary) }
+            item { SectionHeader("Top Albums") { onSeeAllAlbums() } }
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(s.topAlbums) { album ->
@@ -300,7 +303,7 @@ fun InsightsScreen(
                                 Text(t.artist, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, maxLines = 1)
                             }
                             if (t.isNowPlaying) Box(Modifier.size(8.dp).background(SonaraSuccess, CircleShape))
-                            else Text(t.date.takeLast(11).take(6), style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                            else Text(relativeTime(t.uts), style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                         }
                     }
                 }
@@ -328,13 +331,38 @@ fun InsightsScreen(
                         StatColumn(s.songsLearned.toString(), "learned", p)
                         StatColumn(s.cacheSize.toString(), "cached", p)
                         StatColumn("${s.apiAccuracy}%", "accuracy", p)
-                        StatColumn(s.dataSource, "source", p)
+                    }
+                    if (s.dataSource != "None") {
+                        Spacer(Modifier.height(6.dp))
+                        Text("Source: ${s.dataSource}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                     }
                 }
             }
         }
 
         item { Spacer(Modifier.height(16.dp)) }
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String, onSeeAll: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+        Text("See all >", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { onSeeAll() })
+    }
+}
+
+private fun relativeTime(uts: Long): String {
+    if (uts <= 0) return ""
+    val now = System.currentTimeMillis() / 1000
+    val diff = now - uts
+    return when {
+        diff < 60 -> "now"
+        diff < 3600 -> "${diff / 60}m ago"
+        diff < 86400 -> "${diff / 3600}h ago"
+        diff < 604800 -> "${diff / 86400}d ago"
+        diff < 2592000 -> "${diff / 604800}w ago"
+        else -> "${diff / 2592000}mo ago"
     }
 }
 
