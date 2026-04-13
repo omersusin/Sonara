@@ -94,14 +94,14 @@ fun DashboardScreen() {
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         item {
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
-                    Text("Sonara", style = MaterialTheme.typography.headlineLarge, color = p)
-                    Text("Personal Sound Engine", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                    Text("Sonara", style = MaterialTheme.typography.displaySmall, color = p)
+                    Text("Personal Sound Engine", style = MaterialTheme.typography.bodyMedium, color = SonaraTextTertiary)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     StatusChip(if (s.eqActive) "EQ On" else "EQ Off", if (s.eqActive) ChipStatus.Active else ChipStatus.Inactive)
@@ -185,10 +185,10 @@ fun DashboardScreen() {
         if (s.hasTrack) {
             item {
                 FluentCard {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                        MoodRing(mood = s.mood, energy = s.energy, genre = s.genre, modifier = Modifier.size(120.dp))
-                        Spacer(Modifier.width(16.dp))
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        MoodRing(mood = s.mood, energy = s.energy, genre = s.genre, modifier = Modifier.size(150.dp))
+                        Spacer(Modifier.width(24.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             if (s.sourceLabel != "None") StatusChip(
                                 s.sourceLabel, ChipStatus.Active,
                                 if (s.sourceLabel.contains("Last")) Icons.Rounded.Public else Icons.Rounded.Memory
