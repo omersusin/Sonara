@@ -26,7 +26,13 @@ fun SonaraBottomBar(navController: NavController) {
         items.forEach { item -> val sel = cur == item.screen.route
             NavigationBarItem(selected = sel, onClick = { if (cur != item.screen.route) navController.navigate(item.screen.route) { popUpTo(Screen.Dashboard.route) { saveState = true }; launchSingleTop = true; restoreState = true } },
                 icon = { Icon(item.icon, item.screen.label) }, label = { Text(item.screen.label, style = MaterialTheme.typography.labelMedium) },
-                colors = NavigationBarItemDefaults.colors(selectedIconColor = p, selectedTextColor = p, unselectedIconColor = SonaraTextTertiary, unselectedTextColor = SonaraTextTertiary, indicatorColor = p.copy(0.12f)))
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = p, 
+                    selectedTextColor = p, 
+                    unselectedIconColor = SonaraTextTertiary, 
+                    unselectedTextColor = SonaraTextTertiary, 
+                    indicatorColor = p.copy(0.25f)
+                ))
         }
     }
 }

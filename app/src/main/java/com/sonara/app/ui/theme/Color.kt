@@ -20,22 +20,43 @@ data class SonaraColorPalette(
 )
 
 val DarkPalette = SonaraColorPalette(
-    background = Color(0xFF0F1114), surface = Color(0xFF1A1B20),
-    surfaceContainer = Color(0xFF1F2127), surfaceContainerHigh = Color(0xFF282A31), surfaceContainerHighest = Color(0xFF32343B),
-    card = Color(0xFF1F2127), cardElevated = Color(0xFF282A31),
-    divider = Color(0xFF3A3C44), textPrimary = Color(0xFFF0F0F5), textSecondary = Color(0xFF9195A1), textTertiary = Color(0xFF62666F)
+    background = Color(0xFF08090A),
+    surface = Color(0xFF111316),
+    surfaceContainer = Color(0xFF181B1F),
+    surfaceContainerHigh = Color(0xFF22252B),
+    surfaceContainerHighest = Color(0xFF2C3038),
+    card = Color(0xFF181B1F),
+    cardElevated = Color(0xFF22252B),
+    divider = Color(0xFF2C3038),
+    textPrimary = Color(0xFFF0F2F5),
+    textSecondary = Color(0xFFA1AAB9),
+    textTertiary = Color(0xFF717C8C)
 )
 val LightPalette = SonaraColorPalette(
-    background = Color(0xFFF2F3F7), surface = Color(0xFFFAFAFC),
-    surfaceContainer = Color(0xFFEDEEF2), surfaceContainerHigh = Color(0xFFE5E6EB), surfaceContainerHighest = Color(0xFFDDDEE3),
-    card = Color(0xFFE8E9EE), cardElevated = Color(0xFFE0E1E7),
-    divider = Color(0xFFCFD0D6), textPrimary = Color(0xFF1B1C20), textSecondary = Color(0xFF5A5D66), textTertiary = Color(0xFF8A8D96)
+    background = Color(0xFFF8F9FC),
+    surface = Color(0xFFFFFFFF),
+    surfaceContainer = Color(0xFFEFF1F6),
+    surfaceContainerHigh = Color(0xFFE5E9F0),
+    surfaceContainerHighest = Color(0xFFDBE1EA),
+    card = Color(0xFFEFF1F6),
+    cardElevated = Color(0xFFE5E9F0),
+    divider = Color(0xFFDBE1EA),
+    textPrimary = Color(0xFF111418),
+    textSecondary = Color(0xFF535D6E),
+    textTertiary = Color(0xFF8692A6)
 )
 val AmoledPalette = SonaraColorPalette(
-    background = Color(0xFF000000), surface = Color(0xFF0A0A0E),
-    surfaceContainer = Color(0xFF111116), surfaceContainerHigh = Color(0xFF1A1A20), surfaceContainerHighest = Color(0xFF222228),
-    card = Color(0xFF111116), cardElevated = Color(0xFF1A1A20),
-    divider = Color(0xFF2A2A30), textPrimary = Color(0xFFF0F0F5), textSecondary = Color(0xFF8A8D96), textTertiary = Color(0xFF62666F)
+    background = Color(0xFF000000),
+    surface = Color(0xFF0A0B0D),
+    surfaceContainer = Color(0xFF121417),
+    surfaceContainerHigh = Color(0xFF1B1E22),
+    surfaceContainerHighest = Color(0xFF24282D),
+    card = Color(0xFF121417),
+    cardElevated = Color(0xFF1B1E22),
+    divider = Color(0xFF24282D),
+    textPrimary = Color(0xFFF0F2F5),
+    textSecondary = Color(0xFFA1AAB9),
+    textTertiary = Color(0xFF717C8C)
 )
 
 val LocalSonaraColors = staticCompositionLocalOf { DarkPalette }
