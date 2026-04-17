@@ -37,5 +37,41 @@ class SmoothTransitionEngine {
         }
     }
 
+    /**
+     * Interpolates 10-band EQ and effect strengths (BassBoost / Virtualizer / Loudness)
+     * in lock-step so a track change doesn't have a mismatched sonic jump between the
+     * spectral curve and the effects that shape it.
+     */
+    suspend fun transitionFull(
+        fromBands: FloatArray,
+        toBands: FloatArray,
+        fromBass: Int,
+        toBass: Int,
+        fromVirt: Int,
+        toVirt: Int,
+        fromLoud: Int,
+        toLoud: Int,
+        onBandStep: (FloatArray) -> Unit,
+        onEffectStep: (Int, Int, Int) -> Unit
+    ) {
+        if (fromBands.size != toBands.size) {
+            onBandStep(toBands)
+            onEffectStep(toBass, toVirt, toLoud)
+            return
+        }
+        for (step in 1..TRANSITION_STEPS) {
+            val progress = step.toFloat() / TRANSITION_STEPS
+            val s = smoothStep(progress)
+            val bands = FloatArray(fromBands.size) { i -> fromBands[i] + (toBands[i] - fromBands[i]) * s }
+            onBandStep(bands)
+            onEffectStep(
+                (fromBass + (toBass - fromBass) * s).toInt(),
+                (fromVirt + (toVirt - fromVirt) * s).toInt(),
+                (fromLoud + (toLoud - fromLoud) * s).toInt()
+            )
+            delay(STEP_DELAY_MS)
+        }
+    }
+
     private fun smoothStep(t: Float): Float = t * t * (3f - 2f * t)
 }

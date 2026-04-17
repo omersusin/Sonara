@@ -32,6 +32,7 @@ import com.sonara.app.media.NextTrackPreloader
 import com.sonara.app.preset.PresetRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -65,6 +66,12 @@ class SonaraApp : Application() {
     lateinit var insightManager: InsightProviderManager private set
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // Single slot for the active EQ transition. New applies cancel any in-flight
+    // transition so a fast track-change doesn't leave two coroutines fighting
+    // over the same audio session.
+    @Volatile private var transitionJob: Job? = null
+
     private val _eqState = MutableStateFlow(SharedEqState())
     val eqState: StateFlow<SharedEqState> = _eqState.asStateFlow()
     private val _currentRoute = MutableStateFlow(AudioRoute.UNKNOWN)
@@ -222,19 +229,29 @@ class SonaraApp : Application() {
 
         // ─── Smooth Transitions (toggle-aware) ───
         val useSmooth = runBlocking { preferences.smoothTransitionsFlow.first() }
+        val adjustedTarget = FloatArray(finalBands.size) { (finalBands[it] + finalPreamp).coerceIn(-12f, 12f) }
 
         if (useSmooth) {
-            val oldBands = _currentProfile.value.bands.copyOf()
-            val adjustedTarget = FloatArray(finalBands.size) { (finalBands[it] + finalPreamp).coerceIn(-12f, 12f) }
-            appScope.launch {
-                smoothTransitionEngine.transition(oldBands, adjustedTarget) { step ->
-                    audioSessionManager.applyBands(step)
-                }
-                audioSessionManager.applyEffects(profile.bassBoost, profile.virtualizer, profile.loudness)
+            val currentState = _eqState.value
+            val oldBands = paddedBands(currentState.bands, adjustedTarget.size)
+            transitionJob?.cancel()
+            transitionJob = appScope.launch {
+                smoothTransitionEngine.transitionFull(
+                    fromBands = oldBands,
+                    toBands = adjustedTarget,
+                    fromBass = currentState.bassBoost,
+                    toBass = profile.bassBoost,
+                    fromVirt = currentState.virtualizer,
+                    toVirt = profile.virtualizer,
+                    fromLoud = currentState.loudness,
+                    toLoud = profile.loudness,
+                    onBandStep = { audioSessionManager.applyBands(it) },
+                    onEffectStep = { b, v, l -> audioSessionManager.applyEffects(b, v, l) }
+                )
             }
         } else {
-            val adjusted = FloatArray(finalBands.size) { (finalBands[it] + finalPreamp).coerceIn(-12f, 12f) }
-            audioSessionManager.applyBands(adjusted)
+            transitionJob?.cancel()
+            audioSessionManager.applyBands(adjustedTarget)
             audioSessionManager.applyEffects(profile.bassBoost, profile.virtualizer, profile.loudness)
         }
 
@@ -279,14 +296,43 @@ class SonaraApp : Application() {
     }
 
     fun applyEq(bands: FloatArray, presetName: String = "Custom", manual: Boolean = true,
-                bassBoost: Int = 0, virtualizer: Int = 0, loudness: Int = 0, preamp: Float = 0f) {
+                bassBoost: Int = 0, virtualizer: Int = 0, loudness: Int = 0, preamp: Float = 0f,
+                instant: Boolean = false) {
         val adj = if (preamp != 0f) FloatArray(bands.size) { (bands[it] + preamp).coerceIn(-12f, 12f) } else bands
-        audioSessionManager.applyBands(adj)
-        audioSessionManager.applyEffects(bassBoost, virtualizer, loudness)
+        val useSmooth = !instant && runBlocking { preferences.smoothTransitionsFlow.first() }
+
+        if (useSmooth) {
+            val currentState = _eqState.value
+            val oldBands = paddedBands(currentState.bands, adj.size)
+            transitionJob?.cancel()
+            transitionJob = appScope.launch {
+                smoothTransitionEngine.transitionFull(
+                    fromBands = oldBands,
+                    toBands = adj,
+                    fromBass = currentState.bassBoost,
+                    toBass = bassBoost,
+                    fromVirt = currentState.virtualizer,
+                    toVirt = virtualizer,
+                    fromLoud = currentState.loudness,
+                    toLoud = loudness,
+                    onBandStep = { audioSessionManager.applyBands(it) },
+                    onEffectStep = { b, v, l -> audioSessionManager.applyEffects(b, v, l) }
+                )
+            }
+        } else {
+            transitionJob?.cancel()
+            audioSessionManager.applyBands(adj)
+            audioSessionManager.applyEffects(bassBoost, virtualizer, loudness)
+        }
         _eqState.update {
             it.copy(bands = bands, preamp = preamp, presetName = presetName, isManualPreset = manual,
                 bassBoost = bassBoost, virtualizer = virtualizer, loudness = loudness)
         }
+    }
+
+    private fun paddedBands(src: FloatArray, targetSize: Int): FloatArray {
+        if (src.size == targetSize) return src.copyOf()
+        return FloatArray(targetSize) { src.getOrElse(it) { 0f } }
     }
 
     fun setEqEnabled(enabled: Boolean) {
