@@ -80,7 +80,9 @@ class InsightProviderManager {
                 request.title, request.artist, request.genre, request.subGenre,
                 request.tags, request.lyricalTone, request.energy,
                 request.confidence, request.currentEqBands,
-                request.userRequest
+                request.userRequest,
+                request.currentPreamp, request.currentBassBoost,
+                request.currentVirtualizer, request.currentLoudness
             )
             return InsightResult(
                 summary = r.summary, whyThisEq = r.whyThisEq,

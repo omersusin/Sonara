@@ -83,15 +83,22 @@ class SonaraAi private constructor(
                     val text = type.removePrefix("custom:").trim()
                     Log.d(TAG, "Direct feedback (no analysis): '$text'")
                     val app = com.sonara.app.SonaraApp.instance
+                    val eq = app.eqState.value
                     try {
                         val request = com.sonara.app.intelligence.provider.InsightRequest(
                             title = _state.value.title, artist = _state.value.artist,
                             genre = "unknown", subGenre = null, tags = emptyList(),
-                            lyricalTone = text, energy = 0.5f, confidence = 0f,
-                            currentEqBands = com.sonara.app.SonaraApp.instance.eqState.value.bands)
-                        val result = com.sonara.app.SonaraApp.instance.insightManager.getInsight(request)
+                            lyricalTone = null, energy = 0.5f, confidence = 0f,
+                            currentEqBands = eq.bands, userRequest = text,
+                            currentPreamp = eq.preamp, currentBassBoost = eq.bassBoost,
+                            currentVirtualizer = eq.virtualizer, currentLoudness = eq.loudness)
+                        val result = app.insightManager.getInsight(request)
                         if (result.success && result.eqAdjustment != null && result.eqAdjustment.size == 10) {
-                            com.sonara.app.SonaraApp.instance.applyEq(result.eqAdjustment, com.sonara.app.SonaraApp.instance.eqState.value.presetName, manual = false, bassBoost = result.bassBoost, virtualizer = result.virtualizer, loudness = result.loudness, preamp = result.preamp)
+                            app.applyEq(result.eqAdjustment, eq.presetName, manual = false,
+                                bassBoost = result.bassBoost ?: eq.bassBoost,
+                                virtualizer = result.virtualizer ?: eq.virtualizer,
+                                loudness = result.loudness ?: eq.loudness,
+                                preamp = result.preamp ?: eq.preamp)
                             Log.d(TAG, "Direct AI EQ applied")
                         } else {
                             // Last resort: apply NLP-based adjustment to current EQ
@@ -122,19 +129,26 @@ class SonaraAi private constructor(
                 val text = type.removePrefix("custom:").trim()
                 SonaraLogger.ai("User feedback: $text"); Log.d(TAG, "AI feedback: '$text'")
                 val app = com.sonara.app.SonaraApp.instance
+                val eq = app.eqState.value
                 var applied = false
                 // Try AI provider first
                 try {
                     val request = com.sonara.app.intelligence.provider.InsightRequest(
                         title = _state.value.title, artist = _state.value.artist,
                         genre = current.primaryGenre, subGenre = null,
-                        tags = current.genres.keys.toList(), lyricalTone = text,
+                        tags = current.genres.keys.toList(), lyricalTone = null,
                         energy = current.energy, confidence = current.confidence,
-                        currentEqBands = current.eqBands)
-                    val result = com.sonara.app.SonaraApp.instance.insightManager.getInsight(request)
+                        currentEqBands = eq.bands, userRequest = text,
+                        currentPreamp = eq.preamp, currentBassBoost = eq.bassBoost,
+                        currentVirtualizer = eq.virtualizer, currentLoudness = eq.loudness)
+                    val result = app.insightManager.getInsight(request)
                     if (result.success && result.eqAdjustment != null && result.eqAdjustment.size == 10) {
-                        Log.d(TAG, "AI returned EQ: ${result.eqAdjustment.toList()}")
-                        com.sonara.app.SonaraApp.instance.applyEq(result.eqAdjustment, com.sonara.app.SonaraApp.instance.eqState.value.presetName, manual = false, bassBoost = result.bassBoost, virtualizer = result.virtualizer, loudness = result.loudness, preamp = result.preamp)
+                        Log.d(TAG, "AI returned EQ: ${result.eqAdjustment.toList()} bass=${result.bassBoost} virt=${result.virtualizer} loud=${result.loudness}")
+                        app.applyEq(result.eqAdjustment, eq.presetName, manual = false,
+                            bassBoost = result.bassBoost ?: eq.bassBoost,
+                            virtualizer = result.virtualizer ?: eq.virtualizer,
+                            loudness = result.loudness ?: eq.loudness,
+                            preamp = result.preamp ?: eq.preamp)
                         applied = true
                     }
                 } catch (e: Exception) { Log.w(TAG, "AI call failed: ${e.message}") }

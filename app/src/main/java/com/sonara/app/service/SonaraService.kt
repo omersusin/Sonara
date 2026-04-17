@@ -131,7 +131,7 @@ class SonaraService : Service() {
                         try {
                             val app = application as SonaraApp
                             val np = SonaraNotificationListener.nowPlaying.value
-                            val eqBands = app.eqState.value.bands
+                            val eq = app.eqState.value
                             val result = app.insightManager.getInsight(
                                 com.sonara.app.intelligence.provider.InsightRequest(
                                     title = np.title,
@@ -142,8 +142,12 @@ class SonaraService : Service() {
                                     lyricalTone = null,
                                     energy = SonaraNotificationListener._currentEnergy.value,
                                     confidence = SonaraNotificationListener._currentConfidence.value,
-                                    currentEqBands = eqBands,
-                                    userRequest = text
+                                    currentEqBands = eq.bands,
+                                    userRequest = text,
+                                    currentPreamp = eq.preamp,
+                                    currentBassBoost = eq.bassBoost,
+                                    currentVirtualizer = eq.virtualizer,
+                                    currentLoudness = eq.loudness
                                 )
                             )
                             if (result.success && result.eqAdjustment != null) {
@@ -151,12 +155,12 @@ class SonaraService : Service() {
                                     bands = result.eqAdjustment!!,
                                     presetName = "AI Request",
                                     manual = false,
-                                    bassBoost = result.bassBoost,
-                                    virtualizer = result.virtualizer,
-                                    loudness = result.loudness,
-                                    preamp = result.preamp
+                                    bassBoost = result.bassBoost ?: eq.bassBoost,
+                                    virtualizer = result.virtualizer ?: eq.virtualizer,
+                                    loudness = result.loudness ?: eq.loudness,
+                                    preamp = result.preamp ?: eq.preamp
                                 )
-                                SonaraLogger.ai("Request applied: $text")
+                                SonaraLogger.ai("Request applied: $text → bass=${result.bassBoost ?: eq.bassBoost} virt=${result.virtualizer ?: eq.virtualizer} loud=${result.loudness ?: eq.loudness}")
                             }
                         } catch (e: Exception) {
                             SonaraLogger.e("Service", "Request failed: ${e.message}")
