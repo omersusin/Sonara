@@ -108,7 +108,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.autoPresetFlow.collect { e -> _uiState.update { it.copy(autoPreset = e) } } }
         // Gemini
         viewModelScope.launch { prefs.geminiEnabledFlow.collect { e -> _uiState.update { it.copy(geminiEnabled = e) } } }
-        viewModelScope.launch { prefs.geminiModelFlow.collect { m -> _uiState.update { it.copy(geminiModel = m) } } }
+        viewModelScope.launch {
+            prefs.geminiModelFlow.collect { m ->
+                _uiState.update { it.copy(geminiModel = m) }
+                app.geminiEngine.customModelId = m.takeIf { it.contains("gemini", ignoreCase = true) }
+            }
+        }
         viewModelScope.launch { prefs.geminiApiKeyFlow.collect { k -> _uiState.update { it.copy(geminiApiKey = k) } } }
         // Theme
         viewModelScope.launch { prefs.themeModeFlow.collect { m -> _uiState.update { it.copy(themeMode = m) } } }
@@ -186,6 +191,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 prefs.setGeminiApiKey(k)
                 app.geminiEngine.updateApiKey(k)
                 _uiState.update { it.copy(geminiKeyInput = "", geminiApiKey = k) }
+                fetchModels("gemini")
             }
         }
     }
@@ -198,7 +204,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setScrobblingEnabled(e: Boolean) { viewModelScope.launch { prefs.setScrobblingEnabled(e) } }
     fun setAutoPreset(e: Boolean) { viewModelScope.launch { prefs.setAutoPreset(e) } }
     fun setGeminiEnabled(e: Boolean) { viewModelScope.launch { prefs.setGeminiEnabled(e) } }
-    fun setGeminiModel(m: String) { viewModelScope.launch { prefs.setGeminiModel(m) } }
+    fun setGeminiModel(m: String) {
+        viewModelScope.launch {
+            prefs.setGeminiModel(m)
+            app.geminiEngine.customModelId = m.takeIf { it.contains("gemini", ignoreCase = true) }
+        }
+    }
     fun setThemeMode(m: String) { viewModelScope.launch { prefs.setThemeMode(m) } }
     fun setDynamicColors(e: Boolean) { viewModelScope.launch { prefs.setDynamicColors(e) } }
     fun setHighContrast(e: Boolean) { viewModelScope.launch { prefs.setHighContrast(e) } }
@@ -224,6 +235,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             prefs.setAiProvider(v)
             app.insightManager.setPrimary(v)
+            fetchModels(v)
         }
     }
     fun updateOpenRouterKeyInput(v: String) { _uiState.update { it.copy(openRouterKeyInput = v) } }
@@ -401,6 +413,41 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun fetchModelsFromApi(provider: String): List<Pair<String, String>> {
+        if (provider == "gemini") {
+            val key = secrets.getGeminiApiKey()
+            val fallbackGemini = listOf(
+                "gemini-2.5-flash" to "Gemini 2.5 Flash",
+                "gemini-2.5-pro" to "Gemini 2.5 Pro",
+                "gemini-2.5-flash-lite" to "Gemini 2.5 Flash Lite",
+                "gemini-2.0-flash" to "Gemini 2.0 Flash",
+                "gemini-2.0-flash-lite" to "Gemini 2.0 Flash Lite",
+                "gemini-1.5-flash" to "Gemini 1.5 Flash",
+                "gemini-1.5-pro" to "Gemini 1.5 Pro"
+            )
+            if (key.isBlank()) return fallbackGemini
+            try {
+                val client = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
+                val req = Request.Builder()
+                    .url("https://generativelanguage.googleapis.com/v1beta/models?key=$key")
+                    .get().build()
+                val resp = client.newCall(req).execute()
+                val json = resp.body?.string() ?: return fallbackGemini
+                val obj = JSONObject(json)
+                val data = obj.optJSONArray("models") ?: return fallbackGemini
+                val list = mutableListOf<Pair<String, String>>()
+                for (i in 0 until data.length()) {
+                    val m = data.getJSONObject(i)
+                    val name = m.optString("name", "")
+                    val displayName = m.optString("displayName", "")
+                    val methods = m.optJSONArray("supportedGenerationMethods")
+                    val supportsGenerate = (0 until (methods?.length() ?: 0)).any { methods!!.getString(it) == "generateContent" }
+                    if (!supportsGenerate || !name.contains("gemini")) continue
+                    val modelId = name.substringAfter("models/")
+                    list.add(modelId to displayName.ifBlank { modelId })
+                }
+                return if (list.isEmpty()) fallbackGemini else list
+            } catch (_: Exception) { return fallbackGemini }
+        }
         val fallbackOpenRouter = listOf(
             "google/gemini-2.5-flash" to "Gemini 2.5 Flash",
             "google/gemini-2.5-pro" to "Gemini 2.5 Pro",

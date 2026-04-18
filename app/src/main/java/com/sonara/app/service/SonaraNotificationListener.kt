@@ -146,6 +146,17 @@ class SonaraNotificationListener : NotificationListenerService() {
         val filtered = if (allowedApps.isEmpty()) controllers
         else controllers.filter { c -> c.packageName in allowedApps }
 
+        // When specific apps are selected and none are playing, clear now playing state
+        if (allowedApps.isNotEmpty() && filtered.isEmpty()) {
+            if (_nowPlaying.value.title.isNotBlank()) {
+                _nowPlaying.value = ListenerNowPlaying()
+                _albumArt.value = null
+                activeController?.let { try { it.unregisterCallback(controllerCb) } catch (_: Exception) {} }
+                activeController = null
+            }
+            return
+        }
+
         // Prefer playing controller, but keep current if just paused
         val playing = filtered.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
         val current = if (activeController != null) filtered.firstOrNull { it.sessionToken == activeController?.sessionToken } else null

@@ -20,6 +20,7 @@ data class EqualizerUiState(
     val bassBoost: Int = 0,
     val virtualizer: Int = 0,
     val loudness: Int = 0,
+    val reverb: Int = 0,
     val isEnabled: Boolean = true,
     val currentPresetName: String = "Flat",
     val availablePresets: List<Preset> = emptyList(),
@@ -33,7 +34,7 @@ data class EqualizerUiState(
         if (other !is EqualizerUiState) return false
         return bands.contentEquals(other.bands) && preamp == other.preamp &&
             bassBoost == other.bassBoost && virtualizer == other.virtualizer &&
-            loudness == other.loudness && isEnabled == other.isEnabled &&
+            loudness == other.loudness && reverb == other.reverb && isEnabled == other.isEnabled &&
             currentPresetName == other.currentPresetName &&
             availablePresets.size == other.availablePresets.size &&
             eqStrategy == other.eqStrategy && isClipping == other.isClipping
@@ -57,7 +58,7 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
                 _uiState.update {
                     it.copy(bands = if (eq.bands.size > 10) eq.bands.take(10).toFloatArray() else eq.bands,
                         preamp = eq.preamp, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer,
-                        loudness = eq.loudness, currentPresetName = eq.presetName, isEnabled = eq.isEnabled)
+                        loudness = eq.loudness, reverb = eq.reverb, currentPresetName = eq.presetName, isEnabled = eq.isEnabled)
                 }
             }
         }
@@ -75,11 +76,11 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun c() = _uiState.value
 
-    private fun debouncedApply(bands: FloatArray, name: String, bass: Int, virt: Int, loud: Int, preamp: Float = 0f) {
+    private fun debouncedApply(bands: FloatArray, name: String, bass: Int, virt: Int, loud: Int, preamp: Float = 0f, reverb: Int = c().reverb) {
         applyJob?.cancel()
         applyJob = viewModelScope.launch {
             delay(80)
-            app.applyEq(bands, name, manual = true, bass, virt, loud, preamp, instant = true)
+            app.applyEq(bands, name, manual = true, bass, virt, loud, preamp, instant = true, reverb = reverb)
         }
     }
 
@@ -119,12 +120,18 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
         debouncedApply(c().bands, c().currentPresetName, c().bassBoost, c().virtualizer, v.coerceIn(0, 3000))
     }
 
+    fun setReverb(v: Int) {
+        val clamped = v.coerceIn(0, 6)
+        _uiState.update { it.copy(reverb = clamped) }
+        debouncedApply(c().bands, c().currentPresetName, c().bassBoost, c().virtualizer, c().loudness, c().preamp, clamped)
+    }
+
     fun setEnabled(on: Boolean) { app.setEqEnabled(on) }
 
     fun resetBands() {
         applyJob?.cancel()
-        app.applyEq(FloatArray(10), "Flat", false, 0, 0, 0)
-        _uiState.update { it.copy(preamp = 0f) }
+        app.applyEq(FloatArray(10), "Flat", false, 0, 0, 0, reverb = 0)
+        _uiState.update { it.copy(preamp = 0f, reverb = 0) }
     }
 
     /** Reset to AI and re-trigger analysis for current track */

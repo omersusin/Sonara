@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonara.app.audio.equalizer.TenBandEqualizer
+import com.sonara.app.engine.effects.EffectsChain
 import com.sonara.app.ui.components.BandSlider
 import com.sonara.app.ui.components.EqCurve
 import com.sonara.app.ui.components.FluentCard
@@ -202,10 +203,11 @@ fun EqualizerScreen() {
             Text("Effects", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Spacer(Modifier.height(12.dp))
             EffRow("Bass Boost", s.bassBoost, { vm.setBassBoost(it) }, s.isEnabled, p, 1000f) { "${(it / 10f).roundToInt()}%" }
             Spacer(Modifier.height(8.dp))
-            EffRow("Virtualizer", s.virtualizer, { vm.setVirtualizer(it) }, s.isEnabled, p, 1000f) { "${(it / 10f).roundToInt()}%" }
+            EffRow("Virtualizer (Surround)", s.virtualizer, { vm.setVirtualizer(it) }, s.isEnabled, p, 1000f) { "${(it / 10f).roundToInt()}%" }
+            Spacer(Modifier.height(8.dp))
+            EffRow("Reverb", s.reverb, { vm.setReverb(it) }, s.isEnabled, p, 6f) { EffectsChain.reverbName(it) }
             Spacer(Modifier.height(8.dp))
             EffRow("Loudness", s.loudness, { vm.setLoudness(it) }, s.isEnabled, p, 3000f) { "${"%.1f".format(it / 100f)} dB" }
-
         } }
 
         item { Spacer(Modifier.height(8.dp)) }

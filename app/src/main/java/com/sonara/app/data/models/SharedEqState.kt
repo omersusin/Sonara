@@ -6,6 +6,7 @@ data class SharedEqState(
     val bassBoost: Int = 0,
     val virtualizer: Int = 0,
     val loudness: Int = 0,
+    val reverb: Int = 0,
     val presetName: String = "Flat",
     val isManualPreset: Boolean = false,
     val isEnabled: Boolean = true
@@ -15,7 +16,7 @@ data class SharedEqState(
         if (other !is SharedEqState) return false
         return bands.contentEquals(other.bands) && preamp == other.preamp &&
             bassBoost == other.bassBoost && virtualizer == other.virtualizer &&
-            loudness == other.loudness && presetName == other.presetName &&
+            loudness == other.loudness && reverb == other.reverb && presetName == other.presetName &&
             isManualPreset == other.isManualPreset && isEnabled == other.isEnabled
     }
     override fun hashCode() = bands.contentHashCode()
