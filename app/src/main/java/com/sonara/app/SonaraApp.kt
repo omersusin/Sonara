@@ -126,15 +126,18 @@ class SonaraApp : Application() {
         insightManager = InsightProviderManager()
         insightManager.configureGemini(geminiEngine)
 
-        // Configure OpenRouter/Groq from prefs
+        // Configure OpenRouter/Groq/HuggingFace from prefs
         runBlocking {
             val orKey = secureSecrets.getOpenRouterApiKey().ifBlank { preferences.openRouterApiKeyFlow.first() }
             val orModel = preferences.openRouterModelFlow.first()
             val grKey = secureSecrets.getGroqApiKey().ifBlank { preferences.groqApiKeyFlow.first() }
             val grModel = preferences.groqModelFlow.first()
+            val hfKey = secureSecrets.getHuggingFaceApiKey().ifBlank { preferences.huggingFaceApiKeyFlow.first() }
+            val hfModel = preferences.huggingFaceModelFlow.first()
             val provider = preferences.aiProviderFlow.first()
             insightManager.configureOpenRouter(orKey, orModel)
             insightManager.configureGroq(grKey, grModel)
+            insightManager.configureHuggingFace(hfKey, hfModel)
             insightManager.setPrimary(provider)
         }
         appScope.launch {
@@ -267,7 +270,7 @@ class SonaraApp : Application() {
             )
         }
 
-        SonaraLogger.eq("Applied: ${profile.prediction.genre} smooth=$useSmooth safety=$useSafety clip=$clipping autoEQ=${autoEqEnabled && autoEqState.isActive} preamp=${"%.1f".format(finalPreamp)}")
+        SonaraLogger.eq("Applied: ${profile.prediction.genre} smooth=$useSmooth safety=$useSafety clip=$clipping autoEQ=${autoEqEnabled && autoEqState.isActive} preamp=${String.format(java.util.Locale.US, "%.1f", finalPreamp)}")
     }
 
     fun applyProfile(profile: FinalEqProfile) {

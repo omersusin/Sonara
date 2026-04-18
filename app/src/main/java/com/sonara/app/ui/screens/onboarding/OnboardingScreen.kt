@@ -155,6 +155,7 @@ private fun ApiKeysPage(p: androidx.compose.ui.graphics.Color, ctx: android.cont
     var geminiKey by remember { mutableStateOf("") }
     var openRouterKey by remember { mutableStateOf("") }
     var groqKey by remember { mutableStateOf("") }
+    var huggingFaceKey by remember { mutableStateOf("") }
     var githubToken by remember { mutableStateOf("") }
     var saved by remember { mutableStateOf(false) }
     var showGuide by remember { mutableStateOf(false) }
@@ -177,6 +178,9 @@ private fun ApiKeysPage(p: androidx.compose.ui.graphics.Color, ctx: android.cont
                     HorizontalDivider(color = SonaraDivider.copy(0.3f))
                     Text("Groq:", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
                     Text("console.groq.com/keys\nCreate key, copy it", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                    Text("Hugging Face:", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
+                    Text("huggingface.co/settings/tokens\nCreate User Access Token (read), copy hf_…", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                     HorizontalDivider(color = SonaraDivider.copy(0.3f))
                     Text("GitHub PAT:", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
                     Text("github.com/settings/tokens\nFine-grained, repo: sonara-models, contents: read/write", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)

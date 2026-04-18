@@ -12,8 +12,8 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 /**
- * OpenAI-compatible provider for OpenRouter and Groq.
- * Both use the same chat/completions endpoint format.
+ * OpenAI-compatible provider for OpenRouter, Groq, and Hugging Face
+ * (router.huggingface.co). All three speak the same chat/completions format.
  */
 class OpenAICompatibleProvider(
     override val name: String,
@@ -109,6 +109,9 @@ class OpenAICompatibleProvider(
 
         fun groq(apiKey: String, model: String = "llama-3.3-70b-versatile") =
             OpenAICompatibleProvider("Groq", "https://api.groq.com/openai/v1", apiKey, model)
+
+        fun huggingFace(apiKey: String, model: String = "meta-llama/Meta-Llama-3.1-8B-Instruct") =
+            OpenAICompatibleProvider("HuggingFace", "https://router.huggingface.co/v1", apiKey, model)
 
         private fun buildPrompt(r: InsightRequest): String {
             val userFeedback = if (!r.userRequest.isNullOrBlank()) {

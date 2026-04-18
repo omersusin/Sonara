@@ -88,6 +88,9 @@ class SecureSecrets(private val context: Context) {
     fun getGroqApiKey(): String = decrypt(prefs.getString("groq_api_key", "") ?: "")
     fun setGroqApiKey(value: String) { prefs.edit().putString("groq_api_key", encrypt(value)).apply() }
 
+    fun getHuggingFaceApiKey(): String = decrypt(prefs.getString("hf_api_key", "") ?: "")
+    fun setHuggingFaceApiKey(value: String) { prefs.edit().putString("hf_api_key", encrypt(value)).apply() }
+
     fun clearAll() { prefs.edit().clear().apply() }
 
     companion object {

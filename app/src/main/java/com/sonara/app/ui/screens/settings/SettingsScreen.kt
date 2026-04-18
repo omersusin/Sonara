@@ -821,8 +821,14 @@ private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
         Spacer(Modifier.height(4.dp))
         Text("Primary provider for AI insights (with fallback)", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
         Spacer(Modifier.height(8.dp))
+        val providers = listOf(
+            "gemini" to "Gemini",
+            "openrouter" to "OpenRouter",
+            "groq" to "Groq",
+            "huggingface" to "HuggingFace"
+        )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("gemini" to "Gemini", "openrouter" to "OpenRouter", "groq" to "Groq").forEach { (id, label) ->
+            providers.forEach { (id, label) ->
                 val sel = s.aiProvider == id
                 val p2 = MaterialTheme.colorScheme.primary
                 OutlinedButton(onClick = { vm.setAiProvider(id) },
@@ -902,6 +908,29 @@ private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
                 isLoading = s.isLoadingModels,
                 onSelect = { vm.setGroqModel(it) },
                 onRefresh = { vm.fetchModels("groq") }
+            )
+        }
+        if (s.aiProvider == "huggingface") {
+            Spacer(Modifier.height(8.dp))
+            val p2 = MaterialTheme.colorScheme.primary
+            OutlinedTextField(value = s.huggingFaceKeyInput, onValueChange = { vm.updateHuggingFaceKeyInput(it) },
+                placeholder = { Text(if (s.huggingFaceApiKey.isNotBlank()) "••••" else "Hugging Face token (hf_…)", color = SonaraTextTertiary) },
+                modifier = Modifier.fillMaxWidth(), singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
+            Spacer(Modifier.height(4.dp))
+            OutlinedButton(onClick = { vm.saveHuggingFaceKey() }, enabled = s.huggingFaceKeyInput.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, if (s.huggingFaceKeyInput.isNotBlank()) p2 else SonaraDivider)
+            ) { Text("Save Key") }
+            Spacer(Modifier.height(8.dp))
+            Text("Model", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
+            Spacer(Modifier.height(4.dp))
+            ModelDropdown(
+                models = s.availableModels,
+                selectedId = s.huggingFaceModel,
+                isLoading = s.isLoadingModels,
+                onSelect = { vm.setHuggingFaceModel(it) },
+                onRefresh = { vm.fetchModels("huggingface") }
             )
         }
     }
