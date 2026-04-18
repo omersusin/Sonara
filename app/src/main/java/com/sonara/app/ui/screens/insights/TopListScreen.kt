@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sonara.app.SonaraApp
+import com.sonara.app.intelligence.deezer.DeezerImageResolver
 import com.sonara.app.intelligence.lastfm.LastFmClient
 import com.sonara.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
@@ -139,9 +140,16 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
             } else if (viewMode == ViewMode.LIST) {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
                     itemsIndexed(artists) { i, a ->
+                        var imgUrl by remember(a.first) { mutableStateOf(a.third) }
+                        LaunchedEffect(a.first) {
+                            if (imgUrl.isBlank()) {
+                                val r = withContext(Dispatchers.IO) { DeezerImageResolver.getArtistImageWithFallback(a.first) ?: "" }
+                                if (r.isNotBlank()) imgUrl = r
+                            }
+                        }
                         Row(Modifier.fillMaxWidth().clickable { onArtistClick(a.first) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("${i+1}", style = MaterialTheme.typography.labelLarge, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(28.dp))
-                            if (a.third.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(a.third).crossfade(true).build(), contentDescription = a.first, modifier = Modifier.size(50.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+                            if (imgUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(imgUrl).crossfade(true).build(), contentDescription = a.first, modifier = Modifier.size(50.dp).clip(CircleShape), contentScale = ContentScale.Crop)
                             else Box(Modifier.size(50.dp).background(SonaraCardElevated, CircleShape), contentAlignment = Alignment.Center) { Text(a.first.take(1), style = MaterialTheme.typography.titleSmall, color = p) }
                             Column(Modifier.weight(1f)) {
                                 Text(a.first, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
@@ -159,9 +167,16 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     itemsIndexed(artists) { i, a ->
+                        var imgUrl by remember(a.first) { mutableStateOf(a.third) }
+                        LaunchedEffect(a.first) {
+                            if (imgUrl.isBlank()) {
+                                val r = withContext(Dispatchers.IO) { DeezerImageResolver.getArtistImageWithFallback(a.first) ?: "" }
+                                if (r.isNotBlank()) imgUrl = r
+                            }
+                        }
                         Column(Modifier.clickable { onArtistClick(a.first) }.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Box {
-                                if (a.third.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(a.third).crossfade(true).build(), contentDescription = a.first, modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(CircleShape), contentScale = ContentScale.Crop)
+                                if (imgUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(imgUrl).crossfade(true).build(), contentDescription = a.first, modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(CircleShape), contentScale = ContentScale.Crop)
                                 else Box(Modifier.fillMaxWidth().aspectRatio(1f).background(SonaraCardElevated, CircleShape), contentAlignment = Alignment.Center) { Text(a.first.take(1), style = if (viewMode.cols <= 2) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium, color = p) }
                                 Box(Modifier.align(Alignment.TopEnd).size(18.dp).background(p, CircleShape), contentAlignment = Alignment.Center) {
                                     Text("${i+1}", style = MaterialTheme.typography.labelSmall.copy(fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.8f), color = Color.White, fontWeight = FontWeight.Bold)
@@ -238,9 +253,16 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
             } else if (viewMode == ViewMode.LIST) {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                     itemsIndexed(tracks) { i, track ->
+                        var imgUrl by remember(track.title, track.artist) { mutableStateOf(track.imageUrl) }
+                        LaunchedEffect(track.title, track.artist) {
+                            if (imgUrl.isBlank()) {
+                                val r = withContext(Dispatchers.IO) { DeezerImageResolver.getTrackImageWithFallback(track.title, track.artist) ?: "" }
+                                if (r.isNotBlank()) imgUrl = r
+                            }
+                        }
                         Row(Modifier.fillMaxWidth().clickable { onTrackClick(track.title, track.artist) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text("${i+1}", style = MaterialTheme.typography.labelLarge, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(28.dp))
-                            if (track.imageUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(track.imageUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.size(46.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+                            if (imgUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(imgUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.size(46.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
                             else Box(Modifier.size(46.dp).background(SonaraCardElevated, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MusicNote, null, tint = p.copy(0.4f), modifier = Modifier.size(18.dp)) }
                             Column(Modifier.weight(1f)) {
                                 Text(track.title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
@@ -259,9 +281,16 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     itemsIndexed(tracks) { i, track ->
+                        var imgUrl by remember(track.title, track.artist) { mutableStateOf(track.imageUrl) }
+                        LaunchedEffect(track.title, track.artist) {
+                            if (imgUrl.isBlank()) {
+                                val r = withContext(Dispatchers.IO) { DeezerImageResolver.getTrackImageWithFallback(track.title, track.artist) ?: "" }
+                                if (r.isNotBlank()) imgUrl = r
+                            }
+                        }
                         Column(Modifier.clickable { onTrackClick(track.title, track.artist) }.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Box {
-                                if (track.imageUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(track.imageUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(if (viewMode.cols <= 2) 12.dp else 8.dp)), contentScale = ContentScale.Crop)
+                                if (imgUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(imgUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(if (viewMode.cols <= 2) 12.dp else 8.dp)), contentScale = ContentScale.Crop)
                                 else Box(Modifier.fillMaxWidth().aspectRatio(1f).background(SonaraCardElevated, RoundedCornerShape(if (viewMode.cols <= 2) 12.dp else 8.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MusicNote, null, tint = p.copy(0.3f)) }
                                 Box(Modifier.align(Alignment.TopStart).padding(4.dp).size(18.dp).background(p.copy(0.85f), RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
                                     Text("${i+1}", style = MaterialTheme.typography.labelSmall.copy(fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.75f), color = Color.White, fontWeight = FontWeight.Bold)
@@ -344,15 +373,22 @@ fun TopAlbumsListScreen(
             } else if (viewMode == ViewMode.LIST) {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                     itemsIndexed(albums) { i, album ->
+                        var imgUrl by remember(album.name, album.artist) { mutableStateOf(album.imageUrl) }
+                        LaunchedEffect(album.name, album.artist) {
+                            if (imgUrl.isBlank()) {
+                                val r = withContext(Dispatchers.IO) { DeezerImageResolver.getTrackImageWithFallback(album.name, album.artist) ?: "" }
+                                if (r.isNotBlank()) imgUrl = r
+                            }
+                        }
                         Row(
                             Modifier.fillMaxWidth()
-                                .clickable { onAlbumClick(album.name, album.artist, album.plays, album.imageUrl) }
+                                .clickable { onAlbumClick(album.name, album.artist, album.plays, imgUrl) }
                                 .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text("${i+1}", style = MaterialTheme.typography.labelLarge, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(28.dp))
-                            if (album.imageUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(album.imageUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+                            if (imgUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(imgUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
                             else Box(Modifier.size(50.dp).background(SonaraCardElevated, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Album, null, tint = p.copy(0.4f), modifier = Modifier.size(20.dp)) }
                             Column(Modifier.weight(1f)) {
                                 Text(album.name, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
@@ -371,12 +407,19 @@ fun TopAlbumsListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     itemsIndexed(albums) { i, album ->
+                        var imgUrl by remember(album.name, album.artist) { mutableStateOf(album.imageUrl) }
+                        LaunchedEffect(album.name, album.artist) {
+                            if (imgUrl.isBlank()) {
+                                val r = withContext(Dispatchers.IO) { DeezerImageResolver.getTrackImageWithFallback(album.name, album.artist) ?: "" }
+                                if (r.isNotBlank()) imgUrl = r
+                            }
+                        }
                         Column(
-                            Modifier.clickable { onAlbumClick(album.name, album.artist, album.plays, album.imageUrl) }.padding(4.dp),
+                            Modifier.clickable { onAlbumClick(album.name, album.artist, album.plays, imgUrl) }.padding(4.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Box {
-                                if (album.imageUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(album.imageUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(if (viewMode.cols <= 2) 12.dp else 8.dp)), contentScale = ContentScale.Crop)
+                                if (imgUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(imgUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(if (viewMode.cols <= 2) 12.dp else 8.dp)), contentScale = ContentScale.Crop)
                                 else Box(Modifier.fillMaxWidth().aspectRatio(1f).background(SonaraCardElevated, RoundedCornerShape(if (viewMode.cols <= 2) 12.dp else 8.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Album, null, tint = p.copy(0.3f)) }
                                 Box(Modifier.align(Alignment.TopStart).padding(4.dp).size(18.dp).background(p.copy(0.85f), RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
                                     Text("${i+1}", style = MaterialTheme.typography.labelSmall.copy(fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.75f), color = Color.White, fontWeight = FontWeight.Bold)

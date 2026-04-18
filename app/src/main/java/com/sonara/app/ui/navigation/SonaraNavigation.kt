@@ -133,7 +133,8 @@ fun SonaraNavigation() {
                 AlbumDetailScreen(
                     albumName = name, artistName = artist, albumPlays = plays, albumImageUrl = imageUrl,
                     onBack = { navController.popBackStack() },
-                    onTrackClick = { title, art -> navController.navigate(Screen.TrackDetail.createRoute(title, art)) }
+                    onTrackClick = { title, art -> navController.navigate(Screen.TrackDetail.createRoute(title, art)) },
+                    onArtistClick = { navController.navigate(Screen.ArtistDetail.createRoute(it)) }
                 )
             }
             composable(Screen.ArtistDetail.route) { entry ->

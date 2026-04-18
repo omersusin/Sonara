@@ -72,7 +72,8 @@ fun AlbumDetailScreen(
     albumPlays: String,
     albumImageUrl: String,
     onBack: () -> Unit,
-    onTrackClick: (String, String) -> Unit = { _, _ -> }
+    onTrackClick: (String, String) -> Unit = { _, _ -> },
+    onArtistClick: (String) -> Unit = { _ -> }
 ) {
     val ctx = LocalContext.current
     val app = SonaraApp.instance
@@ -113,7 +114,7 @@ fun AlbumDetailScreen(
                             } catch (_: Exception) {}
                         }
 
-                        tracks = album.tracks?.track?.mapIndexed { idx, t ->
+                        val parsed = album.tracks?.track?.mapIndexed { idx, t ->
                             AlbumTrackItem(
                                 rank = t.attr?.rank?.toIntOrNull() ?: (idx + 1),
                                 title = t.name,
@@ -121,6 +122,10 @@ fun AlbumDetailScreen(
                                 userPlays = userPlayMap[t.name.lowercase()] ?: ""
                             )
                         }?.sortedBy { it.rank } ?: emptyList()
+                        // Singles have no track list — show the release itself as one track
+                        tracks = if (parsed.isEmpty()) listOf(
+                            AlbumTrackItem(1, albumName, 0, userPlayMap[albumName.lowercase()] ?: albumPlays)
+                        ) else parsed
                     }
                 } catch (_: Exception) {}
             }
@@ -169,7 +174,8 @@ fun AlbumDetailScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(albumName, style = MaterialTheme.typography.titleLarge, color = SonaraTextPrimary, maxLines = 2)
                                 Spacer(Modifier.height(2.dp))
-                                Text(artistName, style = MaterialTheme.typography.bodyMedium, color = p, maxLines = 1)
+                                Text(artistName, style = MaterialTheme.typography.bodyMedium, color = p, maxLines = 1,
+                                    modifier = Modifier.clickable { onArtistClick(artistName) })
                                 Spacer(Modifier.height(8.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                     if (totalPlays.isNotBlank()) {
@@ -199,6 +205,15 @@ fun AlbumDetailScreen(
                             Text("Tracks", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
                             Spacer(Modifier.height(10.dp))
                             tracks.forEachIndexed { i, track ->
+                                var trackImgUrl by remember(track.title) { mutableStateOf(imageUrl) }
+                                LaunchedEffect(track.title) {
+                                    if (trackImgUrl.isBlank() || trackImgUrl.contains("2a96cbd8b46e")) {
+                                        val resolved = withContext(Dispatchers.IO) {
+                                            DeezerImageResolver.getTrackImageWithFallback(track.title, artistName) ?: imageUrl
+                                        }
+                                        if (resolved.isNotBlank()) trackImgUrl = resolved
+                                    }
+                                }
                                 Row(
                                     Modifier.fillMaxWidth()
                                         .clickable { onTrackClick(track.title, artistName) }
@@ -212,11 +227,20 @@ fun AlbumDetailScreen(
                                         color = if (i < 3) p else SonaraTextTertiary,
                                         modifier = Modifier.width(26.dp)
                                     )
-                                    Box(
-                                        Modifier.size(36.dp).background(SonaraCardElevated, RoundedCornerShape(6.dp)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(Icons.Rounded.MusicNote, null, Modifier.size(16.dp), tint = p.copy(0.4f))
+                                    if (trackImgUrl.isNotBlank() && !trackImgUrl.contains("2a96cbd8b46e")) {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(ctx).data(trackImgUrl).crossfade(true).build(),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(36.dp).clip(RoundedCornerShape(6.dp)),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    } else {
+                                        Box(
+                                            Modifier.size(36.dp).background(SonaraCardElevated, RoundedCornerShape(6.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Rounded.MusicNote, null, Modifier.size(16.dp), tint = p.copy(0.4f))
+                                        }
                                     }
                                     Column(Modifier.weight(1f)) {
                                         Text(track.title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
