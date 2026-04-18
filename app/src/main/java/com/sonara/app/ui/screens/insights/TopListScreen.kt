@@ -136,7 +136,7 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
         containerColor = MaterialTheme.colorScheme.background
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad)) {
-            TabPeriodRow(period, p) { period = it }
+            TabPeriodRow(period, p, { period = it })
             if (loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p) }
             } else if (viewMode == ViewMode.LIST) {
@@ -237,7 +237,7 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
         containerColor = MaterialTheme.colorScheme.background
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad)) {
-            TabPeriodRow(period, p) { period = it }
+            TabPeriodRow(period, p, { period = it })
             if (loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p) }
             } else if (viewMode == ViewMode.LIST) {
@@ -345,7 +345,7 @@ fun TopAlbumsListScreen(
         containerColor = MaterialTheme.colorScheme.background
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad)) {
-            TabPeriodRow(period, p) { period = it }
+            TabPeriodRow(period, p, { period = it })
             if (loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p) }
             } else if (viewMode == ViewMode.LIST) {
