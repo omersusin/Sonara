@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.ComponentActivity
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
@@ -39,7 +41,8 @@ import com.sonara.app.ui.theme.SonaraTextTertiary
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AllGenresScreen(onBack: () -> Unit) {
-    val vm: InsightsViewModel = viewModel()
+    val activity = LocalContext.current as ComponentActivity
+    val vm: InsightsViewModel = viewModel(viewModelStoreOwner = activity)
     val s by vm.uiState.collectAsState()
     val p = MaterialTheme.colorScheme.primary
 

@@ -106,3 +106,13 @@ data class LastFmAlbumTrack(
 )
 data class LastFmAlbumTrackAttr(val rank: String = "0")
 data class LastFmWiki(val summary: String = "")
+
+data class LastFmArtistInfoResponse(val artist: LastFmArtistInfo? = null)
+data class LastFmArtistInfo(
+    val name: String = "",
+    val bio: LastFmBio? = null,
+    val stats: LastFmArtistStats? = null,
+    val tags: LastFmTopTags? = null
+)
+data class LastFmBio(val summary: String = "", val content: String = "")
+data class LastFmArtistStats(val listeners: String = "", val playcount: String = "")

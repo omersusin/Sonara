@@ -74,14 +74,25 @@ fun ArtistDetailScreen(artistName: String, onBack: () -> Unit, onTrackClick: (St
     var userPlayCount by remember { mutableStateOf("") }
     var platformLinks by remember { mutableStateOf<List<OdesliHelper.PlatformLink>>(emptyList()) }
     var userTopTracks by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var artistBio by remember { mutableStateOf("") }
+    var artistListeners by remember { mutableStateOf("") }
 
     LaunchedEffect(artistName) {
         withContext(Dispatchers.IO) {
             detail = DeezerImageResolver.getArtistDetail(artistName)
             val apiKey = app.lastFmAuth.getActiveApiKey()
+            val username = app.lastFmAuth.getConnectionInfo().username
             if (apiKey.isNotBlank()) {
+                try {
+                    val info = LastFmClient.api.getArtistInfo(artistName, apiKey, username)
+                    info.artist?.let { a ->
+                        artistListeners = a.stats?.listeners ?: ""
+                        val raw = a.bio?.summary ?: ""
+                        // Strip Last.fm footer link
+                        artistBio = raw.substringBefore("<a href=\"https://www.last.fm").trim()
+                    }
+                } catch (_: Exception) {}
                 try { artistTags = LastFmClient.api.getArtistTags(artistName, apiKey).toptags?.tag?.take(10)?.map { it.name }?.filter { it.isNotBlank() } ?: emptyList() } catch (_: Exception) {}
-                val username = app.lastFmAuth.getConnectionInfo().username
                 if (username.isNotBlank()) {
                     try {
                         val top = LastFmClient.api.getUserTopArtists(username, apiKey, "overall", 50)
@@ -132,6 +143,21 @@ fun ArtistDetailScreen(artistName: String, onBack: () -> Unit, onTrackClick: (St
                                     Text("${fmt.format(d.fans.toLong())} fans", style = MaterialTheme.typography.bodyMedium, color = SonaraTextSecondary)
                                     Text("${d.albums} albums", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
                                 }
+                            }
+                        }
+                    }
+                }
+                // Bio card (before Your Plays)
+                if (artistBio.isNotBlank()) {
+                    item {
+                        FluentCard {
+                            Text("About", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                            Spacer(Modifier.height(8.dp))
+                            Text(artistBio, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                            if (artistListeners.isNotBlank()) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(try { "${fmt.format(artistListeners.toLong())} listeners on Last.fm" } catch (_: Exception) { "$artistListeners listeners" },
+                                    style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                             }
                         }
                     }
@@ -204,7 +230,7 @@ fun ArtistDetailScreen(artistName: String, onBack: () -> Unit, onTrackClick: (St
                                     horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     val iconRes = platformIconRes(link.key)
                                     if (iconRes != null) {
-                                        Icon(painterResource(iconRes), null, Modifier.size(20.dp), tint = androidx.compose.ui.graphics.Color.Unspecified)
+                                        Icon(painterResource(iconRes), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface)
                                     } else {
                                         Icon(Icons.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
                                     }

@@ -230,6 +230,24 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun refreshAllRecentTracks() {
+        val u = _uiState.value.lastFmUsername
+        val k = app.lastFmAuth.getActiveApiKey()
+        if (u.isBlank() || k.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val resp = LastFmClient.api.getRecentTracks(u, k, 200, 1)
+                val list = resp.recenttracks?.track?.map { t ->
+                    RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "",
+                        t.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") } ?: "",
+                        t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L)
+                } ?: emptyList()
+                val enriched = list.map { t -> if (t.imageUrl.isBlank()) t.copy(imageUrl = DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") else t }
+                _uiState.update { it.copy(recentTracks = enriched) }
+            } catch (_: Exception) {}
+        }
+    }
+
     private fun refreshRecentTracks(username: String) {
         val apiKey = app.lastFmAuth.getActiveApiKey()
         if (apiKey.isBlank()) return

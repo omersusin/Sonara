@@ -233,7 +233,7 @@ fun TrackDetailScreen(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     val iconRes = platformIconRes(link.key)
                                     if (iconRes != null) {
-                                        Icon(painterResource(iconRes), null, Modifier.size(20.dp), tint = androidx.compose.ui.graphics.Color.Unspecified)
+                                        Icon(painterResource(iconRes), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface)
                                     } else {
                                         Icon(Icons.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
                                     }

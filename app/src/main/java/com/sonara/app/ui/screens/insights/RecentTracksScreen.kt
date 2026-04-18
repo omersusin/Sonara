@@ -1,5 +1,6 @@
 package com.sonara.app.ui.screens.insights
 
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -65,17 +67,26 @@ fun RecentTracksScreen(
     onBack: () -> Unit,
     onTrackClick: (String, String) -> Unit = { _, _ -> }
 ) {
-    val vm: InsightsViewModel = viewModel()
+    val activity = LocalContext.current as ComponentActivity
+    val vm: InsightsViewModel = viewModel(viewModelStoreOwner = activity)
     val s by vm.uiState.collectAsState()
     val app = SonaraApp.instance
     val p = MaterialTheme.colorScheme.primary
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var allTracks by remember { mutableStateOf(s.recentTracks) }
+    // Tracks shown in this screen — may grow with load-more
+    var extraTracks by remember { mutableStateOf<List<RecentTrackItem>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var currentPage by remember { mutableIntStateOf(1) }
     var hasMore by remember { mutableStateOf(true) }
+
+    // On open: refresh to get freshest data
+    LaunchedEffect(Unit) {
+        vm.refreshAllRecentTracks()
+    }
+
+    val allTracks = s.recentTracks + extraTracks
 
     fun loadNextPage() {
         loading = true
@@ -91,8 +102,7 @@ fun RecentTracksScreen(
                         ?.filter { it.date != null }
                         ?.map { t ->
                             RecentTrackItem(
-                                title = t.name,
-                                artist = t.artist?.text ?: "",
+                                title = t.name, artist = t.artist?.text ?: "",
                                 album = t.album?.text ?: "",
                                 imageUrl = t.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") }
                                     ?: DeezerImageResolver.getTrackImageWithFallback(t.name, t.artist?.text ?: "") ?: "",
@@ -104,7 +114,7 @@ fun RecentTracksScreen(
                 } catch (_: Exception) { emptyList() }
             }
             if (newTracks.isEmpty()) hasMore = false
-            else { allTracks = allTracks + newTracks; currentPage = nextPage }
+            else { extraTracks = extraTracks + newTracks; currentPage = nextPage }
             loading = false
         }
     }

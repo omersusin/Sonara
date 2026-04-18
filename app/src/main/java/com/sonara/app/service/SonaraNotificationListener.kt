@@ -39,7 +39,8 @@ import com.sonara.app.intelligence.pipeline.MediaType
 
 data class ListenerNowPlaying(
     val title: String = "", val artist: String = "", val album: String = "",
-    val packageName: String = "", val isPlaying: Boolean = false, val duration: Long = 0
+    val packageName: String = "", val isPlaying: Boolean = false, val duration: Long = 0,
+    val position: Long = 0, val positionTimestamp: Long = 0
 )
 
 class SonaraNotificationListener : NotificationListenerService() {
@@ -60,7 +61,11 @@ class SonaraNotificationListener : NotificationListenerService() {
         override fun onPlaybackStateChanged(s: PlaybackState?) {
             val playing = s?.state == PlaybackState.STATE_PLAYING
             val wasPlaying = _nowPlaying.value.isPlaying
-            _nowPlaying.value = _nowPlaying.value.copy(isPlaying = playing)
+            _nowPlaying.value = _nowPlaying.value.copy(
+                isPlaying = playing,
+                position = s?.position ?: _nowPlaying.value.position,
+                positionTimestamp = System.currentTimeMillis()
+            )
 
             if (playing && !wasPlaying) {
                 playStartTime = System.currentTimeMillis()

@@ -27,6 +27,14 @@ interface LastFmApi {
         @Query("autocorrect") autocorrect: Int = 1
     ): LastFmArtistTagsResponse
 
+    @GET("?method=artist.getInfo&format=json")
+    suspend fun getArtistInfo(
+        @Query("artist") artist: String,
+        @Query("api_key") apiKey: String,
+        @Query("username") username: String = "",
+        @Query("autocorrect") autocorrect: Int = 1
+    ): LastFmArtistInfoResponse
+
     @GET("?method=user.getInfo&format=json")
     suspend fun getUserInfo(
         @Query("user") user: String,
