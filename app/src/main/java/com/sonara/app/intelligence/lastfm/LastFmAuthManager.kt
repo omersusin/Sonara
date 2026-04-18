@@ -60,6 +60,9 @@ class LastFmAuthManager(private val context: Context) {
         if (sessionKey.isNotBlank()) {
             _authState.value = AuthState.CONNECTED
             Log.d(TAG, "Auth state → CONNECTED")
+            // Restore cached username immediately so screens load without waiting for network
+            val cached = authPrefs.getString("cached_username", "") ?: ""
+            if (cached.isNotBlank()) _username.value = cached
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     Log.d(TAG, "Init — session key found, loading username...")
@@ -188,6 +191,7 @@ class LastFmAuthManager(private val context: Context) {
                 if (secrets.getLastFmSharedSecret().isBlank()) secrets.setLastFmSharedSecret(sharedSecret)
 
                 _username.value = name
+                authPrefs.edit().putString("cached_username", name).apply()
                 _authState.value = AuthState.CONNECTED
                 _errorMessage.value = ""
                 pendingToken = null
@@ -247,6 +251,7 @@ class LastFmAuthManager(private val context: Context) {
 
                 secrets.setLastFmSessionKey(sessionKey)
                 _username.value = name
+                authPrefs.edit().putString("cached_username", name).apply()
                 _authState.value = AuthState.CONNECTED
                 _errorMessage.value = ""
                 pendingToken = null
@@ -264,6 +269,7 @@ class LastFmAuthManager(private val context: Context) {
 
     fun disconnect() {
         secrets.setLastFmSessionKey("")
+        authPrefs.edit().putString("cached_username", "").apply()
         _authState.value = AuthState.DISCONNECTED
         _username.value = ""; _errorMessage.value = ""
         pendingToken = null
@@ -309,7 +315,10 @@ class LastFmAuthManager(private val context: Context) {
             val obj = JSONObject(json)
             if (!obj.has("error")) {
                 val name = obj.optJSONObject("user")?.optString("name", "") ?: ""
-                if (name.isNotBlank()) _username.value = name
+                if (name.isNotBlank()) {
+                    _username.value = name
+                    authPrefs.edit().putString("cached_username", name).apply()
+                }
             }
         } catch (_: Exception) {}
     }

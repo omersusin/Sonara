@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,21 +20,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,7 +48,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.theme.*
-import androidx.compose.foundation.BorderStroke
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -61,7 +57,8 @@ fun InsightsScreen(
     onTrackClick: (String, String) -> Unit = { _, _ -> },
     onSeeAllArtists: () -> Unit = {},
     onSeeAllTracks: () -> Unit = {},
-    onSeeAllAlbums: () -> Unit = {}
+    onSeeAllAlbums: () -> Unit = {},
+    onAlbumClick: (name: String, artist: String, plays: String, imageUrl: String) -> Unit = { _, _, _, _ -> }
 ) {
     val vm: InsightsViewModel = viewModel()
     val s by vm.uiState.collectAsState()
@@ -86,6 +83,18 @@ fun InsightsScreen(
                             StatColumn(try { fmt.format(s.trackCount.toLong()) } catch (_: Exception) { s.trackCount }, "tracks", p)
                             StatColumn("~${s.avgDailyScrobbles}", "per day", p)
                         }
+                        if (s.streakDays > 0 || s.peakHour >= 0) {
+                            Spacer(Modifier.height(10.dp))
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(SonaraDivider.copy(0.2f)))
+                            Spacer(Modifier.height(10.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                if (s.streakDays > 0) StatColumn("${s.streakDays}d", "streak", p)
+                                if (s.peakHour >= 0) {
+                                    val h = s.peakHour
+                                    StatColumn("${if (h % 12 == 0) 12 else h % 12}${if (h < 12) "am" else "pm"}", "peak hour", p)
+                                }
+                            }
+                        }
                     }
                 }
             } else {
@@ -94,19 +103,10 @@ fun InsightsScreen(
             }
         }
 
-        // ═══ PERIOD SELECTOR ═══
+        // ═══ PERIOD SELECTOR — tab bar style ═══
         if (s.lastFmConnected) {
             item {
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("7day" to "1W", "1month" to "1M", "3month" to "3M", "6month" to "6M", "12month" to "1Y", "overall" to "All").forEach { (id, label) ->
-                        val sel = s.selectedPeriod == id
-                        OutlinedButton(onClick = { vm.setPeriod(id) }, shape = RoundedCornerShape(20.dp),
-                            border = BorderStroke(1.dp, if (sel) p else SonaraDivider.copy(0.4f)),
-                            colors = ButtonDefaults.outlinedButtonColors(containerColor = if (sel) p.copy(0.15f) else Color.Transparent, contentColor = if (sel) p else SonaraTextTertiary),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)
-                        ) { Text(label, style = MaterialTheme.typography.labelLarge) }
-                    }
-                }
+                TabPeriodRow(s.selectedPeriod, p, { vm.setPeriod(it) }, { from, to -> vm.setCustomPeriod(from, to) })
             }
         }
 
@@ -229,7 +229,7 @@ fun InsightsScreen(
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(s.topAlbums) { album ->
                         val ctx = LocalContext.current
-                        Column(Modifier.width(120.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(Modifier.width(120.dp).clickable { onAlbumClick(album.name, album.artist, album.plays, album.imageUrl) }, horizontalAlignment = Alignment.CenterHorizontally) {
                             if (album.imageUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(album.imageUrl).crossfade(true).build(), contentDescription = album.name,
                                 modifier = Modifier.size(110.dp).clip(RoundedCornerShape(14.dp)), contentScale = ContentScale.Crop)
                             else Box(Modifier.size(110.dp).background(SonaraCardElevated, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Album, null, tint = p.copy(0.3f), modifier = Modifier.size(32.dp)) }
@@ -263,6 +263,11 @@ fun InsightsScreen(
                     }
                 }
             }
+        }
+
+        // ═══ LISTENING HEATMAP ═══
+        if (s.heatmap.isNotEmpty()) {
+            item { ListeningHeatmap(s.heatmap, p) }
         }
 
         // ═══ LISTENING ACTIVITY (weekly bar chart) ═══
@@ -371,5 +376,54 @@ private fun StatColumn(value: String, label: String, p: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, style = MaterialTheme.typography.titleMedium, color = p, maxLines = 1)
         Text(label, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+    }
+}
+
+@Composable
+private fun ListeningHeatmap(heatmap: Map<String, Int>, p: Color) {
+    val weeksCount = 10
+    val maxCount = remember(heatmap) { heatmap.values.maxOrNull() ?: 1 }
+    val sdf = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US) }
+    val grid = remember(heatmap) {
+        val start = java.util.Calendar.getInstance().apply {
+            add(java.util.Calendar.DAY_OF_YEAR, -(weeksCount * 7 - 1))
+            set(java.util.Calendar.DAY_OF_WEEK, java.util.Calendar.SUNDAY)
+            set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+        }
+        Array(7) { dayOfWeek ->
+            IntArray(weeksCount) { week ->
+                val c = start.clone() as java.util.Calendar
+                c.add(java.util.Calendar.DAY_OF_YEAR, week * 7 + dayOfWeek)
+                heatmap[sdf.format(c.time)] ?: 0
+            }
+        }
+    }
+    FluentCard {
+        Text("Listening Heatmap", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+        Spacer(Modifier.height(8.dp))
+        val dayLabels = listOf("S", "M", "T", "W", "T", "F", "S")
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            (0..6).forEach { dayOfWeek ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(dayLabels[dayOfWeek], style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, modifier = Modifier.width(12.dp))
+                    (0 until weeksCount).forEach { week ->
+                        val count = grid[dayOfWeek][week]
+                        val alpha = if (count == 0) 0.07f else (count.toFloat() / maxCount).coerceIn(0.2f, 1f)
+                        Box(Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(2.dp)).background(p.copy(alpha = alpha)))
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+            Text("Less", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+            Spacer(Modifier.width(4.dp))
+            listOf(0.07f, 0.3f, 0.55f, 0.78f, 1f).forEach { alpha ->
+                Box(Modifier.padding(horizontal = 1.dp).size(10.dp).clip(RoundedCornerShape(2.dp)).background(p.copy(alpha = alpha)))
+            }
+            Spacer(Modifier.width(4.dp))
+            Text("More", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+        }
     }
 }
