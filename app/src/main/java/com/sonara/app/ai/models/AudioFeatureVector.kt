@@ -53,12 +53,12 @@ data class AudioFeatureVector(
         }
 
         fun vectorToString(arr: FloatArray): String =
-            arr.joinToString(",", "[", "]") { "%.5f".format(it) }
+            arr.joinToString(",", "[", "]") { String.format(java.util.Locale.US, "%.5f", it) }
 
         fun stringToVector(s: String): FloatArray =
             s.removeSurrounding("[", "]")
                 .split(",")
-                .map { it.trim().toFloat() }
+                .map { it.trim().replace(",", ".").toFloatOrNull() ?: 0f }
                 .toFloatArray()
     }
 }
