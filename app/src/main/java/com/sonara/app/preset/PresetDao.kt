@@ -51,6 +51,10 @@ interface PresetDao {
 
     @Query("SELECT COUNT(*) FROM presets WHERE isBuiltIn = 1")
     suspend fun builtInCount(): Int
+
+    @Query("SELECT * FROM presets WHERE isBuiltIn = 1")
+    suspend fun getBuiltInsOnce(): List<Preset>
+
     @androidx.room.Query("DELETE FROM presets WHERE isBuiltIn = 0")
     suspend fun deleteAllCustom()
 }

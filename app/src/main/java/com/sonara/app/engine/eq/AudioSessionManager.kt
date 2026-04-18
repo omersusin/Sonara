@@ -98,7 +98,7 @@ class AudioSessionManager(private val context: Context) {
         val bandsMb = IntArray(bandsDb.size) { (bandsDb[it] * 100).toInt() }
         sessionEqualizers.values.forEach { it.setBands(bandsMb) }
         fallbackEqualizer?.setBands(bandsMb)
-        SonaraLogger.eq("Bands applied (${_activeStrategy.value}): ${bandsDb.take(5).map { "%.1f".format(it) }}")
+        SonaraLogger.eq("Bands applied (${_activeStrategy.value}): ${bandsDb.take(5).map { String.format(java.util.Locale.US, "%.1f", it) }}")
     }
 
     /**

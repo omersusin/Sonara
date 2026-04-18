@@ -60,6 +60,8 @@ data class SettingsUiState(
     val openRouterModel: String = "google/gemini-2.5-flash",
     val groqApiKey: String = "", val groqKeyInput: String = "",
     val groqModel: String = "llama-3.3-70b-versatile",
+    val huggingFaceApiKey: String = "", val huggingFaceKeyInput: String = "",
+    val huggingFaceModel: String = "meta-llama/Meta-Llama-3.1-8B-Instruct",
     val communityDownloadEnabled: Boolean = false,
     val communityUploadEnabled: Boolean = false,
     val communityPending: Int = 0,
@@ -124,6 +126,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.openRouterModelFlow.collect { v -> _uiState.update { it.copy(openRouterModel = v) } } }
         viewModelScope.launch { prefs.groqApiKeyFlow.collect { v -> _uiState.update { it.copy(groqApiKey = v) } } }
         viewModelScope.launch { prefs.groqModelFlow.collect { v -> _uiState.update { it.copy(groqModel = v) } } }
+        viewModelScope.launch { prefs.huggingFaceApiKeyFlow.collect { v -> _uiState.update { it.copy(huggingFaceApiKey = v) } } }
+        viewModelScope.launch { prefs.huggingFaceModelFlow.collect { v -> _uiState.update { it.copy(huggingFaceModel = v) } } }
         // Notification
         viewModelScope.launch { prefs.keepNotificationPausedFlow.collect { e -> _uiState.update { it.copy(keepNotificationPaused = e) } } }
         // Last.fm connection status
@@ -247,6 +251,21 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 app.insightManager.configureGroq(k, _uiState.value.groqModel)
                 _uiState.update { it.copy(groqKeyInput = "", groqApiKey = k) }
                 fetchModels("groq")
+            }
+        }
+    }
+
+    fun updateHuggingFaceKeyInput(v: String) { _uiState.update { it.copy(huggingFaceKeyInput = v) } }
+    fun setHuggingFaceModel(v: String) { viewModelScope.launch { prefs.setHuggingFaceModel(v) } }
+    fun saveHuggingFaceKey() {
+        viewModelScope.launch {
+            val k = _uiState.value.huggingFaceKeyInput
+            if (k.isNotBlank()) {
+                secrets.setHuggingFaceApiKey(k)
+                prefs.setHuggingFaceApiKey(k)
+                app.insightManager.configureHuggingFace(k, _uiState.value.huggingFaceModel)
+                _uiState.update { it.copy(huggingFaceKeyInput = "", huggingFaceApiKey = k) }
+                fetchModels("huggingface")
             }
         }
     }
@@ -444,6 +463,37 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
                 return if (list.isEmpty()) fallbackOpenRouter else list.take(30)
             } catch (_: Exception) { return fallbackOpenRouter }
+        }
+        val fallbackHuggingFace = listOf(
+            "meta-llama/Meta-Llama-3.1-8B-Instruct" to "Llama 3.1 8B Instruct",
+            "meta-llama/Llama-3.3-70B-Instruct" to "Llama 3.3 70B Instruct",
+            "mistralai/Mistral-7B-Instruct-v0.3" to "Mistral 7B Instruct v0.3",
+            "mistralai/Mixtral-8x7B-Instruct-v0.1" to "Mixtral 8x7B Instruct",
+            "Qwen/Qwen2.5-7B-Instruct" to "Qwen 2.5 7B Instruct",
+            "Qwen/Qwen2.5-72B-Instruct" to "Qwen 2.5 72B Instruct",
+            "google/gemma-2-9b-it" to "Gemma 2 9B IT",
+            "HuggingFaceH4/zephyr-7b-beta" to "Zephyr 7B Beta"
+        )
+        if (provider == "huggingface") {
+            val key = secrets.getHuggingFaceApiKey()
+            if (key.isBlank()) return fallbackHuggingFace
+            try {
+                val client = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
+                val req = Request.Builder().url("https://router.huggingface.co/v1/models")
+                    .addHeader("Authorization", "Bearer $key").get().build()
+                val resp = client.newCall(req).execute()
+                val json = resp.body?.string() ?: return fallbackHuggingFace
+                val obj = JSONObject(json)
+                val data = obj.optJSONArray("data") ?: return fallbackHuggingFace
+                val list = mutableListOf<Pair<String, String>>()
+                for (i in 0 until data.length()) {
+                    val m = data.getJSONObject(i)
+                    val id = m.getString("id")
+                    val name = m.optString("name", id)
+                    list.add(id to name)
+                }
+                return if (list.isEmpty()) fallbackHuggingFace else list.take(40)
+            } catch (_: Exception) { return fallbackHuggingFace }
         }
         return emptyList()
     }

@@ -77,7 +77,7 @@ object SonaraLogger {
     fun trackChange(title: String, artist: String, source: String) =
         log(LogLevel.MEDIA, "Track", "Now playing: $title - $artist [source=$source]")
     fun eqApplied(genre: String, bands: FloatArray, source: String) =
-        log(LogLevel.EQ, "EqApply", "Genre=$genre Source=$source Bands=${bands.take(5).joinToString(",") { "%.1f".format(it) }}...")
+        log(LogLevel.EQ, "EqApply", "Genre=$genre Source=$source Bands=${bands.take(5).joinToString(",") { String.format(java.util.Locale.US, "%.1f", it) }}...")
     fun scrobble(title: String, artist: String, success: Boolean) =
         log(LogLevel.NET, "Scrobble", "${if (success) "OK" else "FAIL"}: $title - $artist")
     fun aiRequest(provider: String, model: String) =

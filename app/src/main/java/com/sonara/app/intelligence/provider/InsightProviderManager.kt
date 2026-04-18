@@ -12,6 +12,7 @@ class InsightProviderManager {
     private var geminiProvider: GeminiAdapter? = null
     private var openRouterProvider: OpenAICompatibleProvider? = null
     private var groqProvider: OpenAICompatibleProvider? = null
+    private var huggingFaceProvider: OpenAICompatibleProvider? = null
 
     var primaryProviderName: String = "gemini"
         private set
@@ -28,6 +29,10 @@ class InsightProviderManager {
         groqProvider = if (apiKey.isNotBlank()) OpenAICompatibleProvider.groq(apiKey, model) else null
     }
 
+    fun configureHuggingFace(apiKey: String, model: String) {
+        huggingFaceProvider = if (apiKey.isNotBlank()) OpenAICompatibleProvider.huggingFace(apiKey, model) else null
+    }
+
     fun setPrimary(name: String) { primaryProviderName = name }
 
     fun getConfiguredProviders(): List<String> {
@@ -35,6 +40,7 @@ class InsightProviderManager {
         if (geminiProvider?.isConfigured == true) list.add("gemini")
         if (openRouterProvider?.isConfigured == true) list.add("openrouter")
         if (groqProvider?.isConfigured == true) list.add("groq")
+        if (huggingFaceProvider?.isConfigured == true) list.add("huggingface")
         return list
     }
 
@@ -48,7 +54,7 @@ class InsightProviderManager {
         }
 
         // Fallback: try others
-        val fallbacks = listOf(geminiProvider, openRouterProvider, groqProvider)
+        val fallbacks = listOf(geminiProvider, openRouterProvider, groqProvider, huggingFaceProvider)
             .filterNotNull()
             .filter { it.isConfigured && it.name.lowercase() != primaryProviderName }
 
@@ -67,6 +73,7 @@ class InsightProviderManager {
         "gemini" -> geminiProvider
         "openrouter" -> openRouterProvider
         "groq" -> groqProvider
+        "huggingface" -> huggingFaceProvider
         else -> null
     }
 
@@ -80,7 +87,9 @@ class InsightProviderManager {
                 request.title, request.artist, request.genre, request.subGenre,
                 request.tags, request.lyricalTone, request.energy,
                 request.confidence, request.currentEqBands,
-                request.userRequest
+                request.userRequest,
+                request.currentPreamp, request.currentBassBoost,
+                request.currentVirtualizer, request.currentLoudness
             )
             return InsightResult(
                 summary = r.summary, whyThisEq = r.whyThisEq,

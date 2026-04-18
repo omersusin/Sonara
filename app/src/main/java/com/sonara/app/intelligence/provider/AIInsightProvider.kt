@@ -16,7 +16,11 @@ data class InsightRequest(
     val subGenre: String?, val tags: List<String>,
     val lyricalTone: String?, val energy: Float,
     val confidence: Float, val currentEqBands: FloatArray?,
-    val userRequest: String? = null
+    val userRequest: String? = null,
+    val currentPreamp: Float = 0f,
+    val currentBassBoost: Int = 0,
+    val currentVirtualizer: Int = 0,
+    val currentLoudness: Int = 0
 )
 
 data class InsightResult(
@@ -28,8 +32,8 @@ data class InsightResult(
     val success: Boolean = false,
     val provider: String = "",
     val eqAdjustment: FloatArray? = null,
-    val preamp: Float = 0f,
-    val bassBoost: Int = 0,
-    val virtualizer: Int = 0,
-    val loudness: Int = 0
+    val preamp: Float? = null,
+    val bassBoost: Int? = null,
+    val virtualizer: Int? = null,
+    val loudness: Int? = null
 )

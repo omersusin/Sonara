@@ -35,10 +35,10 @@ class GeminiInsightEngine(private var apiKey: String = "") {
         val confidenceNote: String,
         val success: Boolean = true,
         val eqAdjustment: FloatArray? = null,
-        val preamp: Float = 0f,
-        val bassBoost: Int = 0,
-        val virtualizer: Int = 0,
-        val loudness: Int = 0
+        val preamp: Float? = null,
+        val bassBoost: Int? = null,
+        val virtualizer: Int? = null,
+        val loudness: Int? = null
     )
 
     private val client = OkHttpClient.Builder()
@@ -62,43 +62,57 @@ class GeminiInsightEngine(private var apiKey: String = "") {
         title: String, artist: String, genre: String, subGenre: String?,
         tags: List<String>, lyricalTone: String?, energy: Float,
         confidence: Float, currentEqBands: FloatArray?,
-        userRequest: String? = null
+        userRequest: String? = null,
+        currentPreamp: Float = 0f,
+        currentBassBoost: Int = 0,
+        currentVirtualizer: Int = 0,
+        currentLoudness: Int = 0
     ): GeminiInsight {
         if (apiKey.isBlank()) return GeminiInsight("", "", "", "", "", false)
         if (System.currentTimeMillis() < quotaPausedUntil) return GeminiInsight("", "", "", "", "", false)
 
         return withContext(Dispatchers.IO) {
             try {
-                val trackJson = JSONObject().apply {
-                    put("title", title)
-                    put("artist", artist)
-                    put("genre", genre)
-                    put("subgenre", subGenre ?: "")
-                    put("tags", JSONArray(tags))
-                    put("lyrics_tone", lyricalTone ?: "unknown")
-                    put("energy", energy)
-                    put("confidence", confidence)
-                    put("current_eq", currentEqBands?.joinToString(",") ?: "")
-                }
+                val currentBandsStr = currentEqBands?.joinToString(",") { "%.1f".format(java.util.Locale.US, it) } ?: "0,0,0,0,0,0,0,0,0,0"
+                val userMsg = if (!userRequest.isNullOrBlank()) {
+                    "\nUSER REQUEST: \"$userRequest\" — modify the CURRENT state below to satisfy this request."
+                } else ""
+                val prompt = """You are Sonara, an AI-powered music EQ engine. Respond ONLY with valid JSON, no markdown backticks.
 
-                val userMsg = if (!userRequest.isNullOrBlank()) "\nUser request: \"$userRequest\" — adjust EQ bands to fulfill this request." else ""
-                val prompt = """You are Sonara, an AI-powered music EQ engine.
-Given this track analysis, provide a JSON response with these exact fields:
-- "summary": 1-2 sentence description of what you're doing
-- "why_this_eq": Why these EQ settings suit this track
-- "listening_focus": What to listen for with these settings
+Track: $title by $artist
+Genre: $genre, Subgenre: ${subGenre ?: ""}, Tags: ${tags.joinToString(", ")}
+Lyrics tone: ${lyricalTone ?: "unknown"}
+Energy: $energy, Confidence: $confidence
+
+CURRENT STATE (values currently applied to the audio output):
+- eq_bands: [$currentBandsStr]   (10 values in dB for 31Hz,62Hz,125Hz,250Hz,500Hz,1kHz,2kHz,4kHz,8kHz,16kHz)
+- preamp: ${"%.1f".format(java.util.Locale.US, currentPreamp)} dB
+- bass_boost: $currentBassBoost   (0-1000, currently applied)
+- virtualizer: $currentVirtualizer   (0-1000, currently applied)
+- loudness: $currentLoudness   (0-3000 centibels, currently applied)$userMsg
+
+RULES — VERY IMPORTANT:
+1. Return ABSOLUTE target values, not deltas. "more X" means start from CURRENT X and increase.
+2. Preserve any field you don't intend to change by echoing its CURRENT value — NEVER default to 0.
+3. "more loudness"/"louder"/"yüksek"/"daha yüksek" → raise loudness significantly above current (e.g. current+800, cap 3000) and nudge 31-250Hz bands +1 to +2 dB.
+4. "more bass"/"bas fazla"/"daha bas" → raise bass_boost above current (e.g. current+300, cap 1000) AND raise 31-250Hz bands +2 to +4 dB.
+5. "more treble"/"tiz"/"daha parlak" → raise 4-16kHz bands +2 to +4 dB.
+6. "wider"/"more space"/"genişlet" → raise virtualizer above current (e.g. current+400, cap 1000).
+7. "clearer"/"temiz"/"daha net" → boost 2-8kHz +2 to +4 dB, reduce 125-500Hz by -1 to -2 dB.
+8. "less X"/"reduce X" → the inverse: reduce below current.
+9. No user request → pick settings tuned for the genre/tags, keep changes smooth.
+
+Return JSON with exactly these keys:
+- "summary": 1-2 sentence description of what you changed
+- "why_this_eq": Why these settings suit this track
+- "listening_focus": What to listen for
 - "lyrical_tone": Brief note on lyrical mood/theme
 - "confidence_note": How confident the analysis is
-- "eq_adjustment": array of 10 floats (31Hz,62Hz,125Hz,250Hz,500Hz,1kHz,2kHz,4kHz,8kHz,16kHz) each -12 to +12 dB
-- "preamp": float -6 to +6
-- "bass_boost": int 0-1000 (0=off, 500=medium, 1000=max)
-- "virtualizer": int 0-1000
-- "loudness": int 0-3000 (centibels, 1000=10dB boost)
-If user says louder, increase loudness AND low bands. If clearer, boost 2-8kHz. If more bass, boost 31-250Hz and bass_boost.$userMsg
-
-Track data: $trackJson
-
-Respond ONLY with valid JSON, no markdown backticks."""
+- "eq_adjustment": array of 10 floats, each -12 to +12 dB (ABSOLUTE targets)
+- "preamp": float -6 to +6 (absolute target)
+- "bass_boost": int 0-1000 (absolute target — MUST echo current if not changing)
+- "virtualizer": int 0-1000 (absolute target — MUST echo current if not changing)
+- "loudness": int 0-3000 (absolute target — MUST echo current if not changing)"""
 
                 val requestBody = JSONObject().apply {
                     put("contents", JSONArray().put(
@@ -155,10 +169,10 @@ Respond ONLY with valid JSON, no markdown backticks."""
                     lyricalTone = result.optString("lyrical_tone", ""),
                     confidenceNote = result.optString("confidence_note", ""),
                     eqAdjustment = eqArr,
-                    preamp = result.optDouble("preamp", 0.0).toFloat().coerceIn(-6f, 6f),
-                    bassBoost = result.optInt("bass_boost", 0).coerceIn(0, 1000),
-                    virtualizer = result.optInt("virtualizer", 0).coerceIn(0, 1000),
-                    loudness = result.optInt("loudness", 0).coerceIn(0, 3000)
+                    preamp = if (result.has("preamp")) result.optDouble("preamp", 0.0).toFloat().coerceIn(-6f, 6f) else null,
+                    bassBoost = if (result.has("bass_boost")) result.optInt("bass_boost", 0).coerceIn(0, 1000) else null,
+                    virtualizer = if (result.has("virtualizer")) result.optInt("virtualizer", 0).coerceIn(0, 1000) else null,
+                    loudness = if (result.has("loudness")) result.optInt("loudness", 0).coerceIn(0, 3000) else null
                 )
             } catch (e: Exception) {
                 SonaraLogger.w("Gemini", "Insight error: ${e.message}")
