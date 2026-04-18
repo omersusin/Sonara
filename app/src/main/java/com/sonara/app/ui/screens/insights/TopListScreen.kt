@@ -25,7 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.ViewList
@@ -439,7 +439,7 @@ fun TabPeriodRow(
         }
         if (onCustomRange != null) {
             IconButton(onClick = { showDatePicker = true }, modifier = Modifier.size(40.dp).align(Alignment.CenterVertically)) {
-                Icon(Icons.Rounded.CalendarMonth, "Custom date range", tint = if (current == "custom") p else SonaraTextTertiary, modifier = Modifier.size(18.dp))
+                Icon(Icons.Rounded.DateRange, "Custom date range", tint = if (current == "custom") p else SonaraTextTertiary, modifier = Modifier.size(18.dp))
             }
         }
     }

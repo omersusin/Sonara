@@ -50,7 +50,6 @@ import coil.request.ImageRequest
 import com.sonara.app.SonaraApp
 import com.sonara.app.intelligence.deezer.DeezerImageResolver
 import com.sonara.app.intelligence.lastfm.LastFmClient
-import com.sonara.app.intelligence.lastfm.LastFmAlbumTrack
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
