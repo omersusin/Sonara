@@ -300,7 +300,7 @@ class SonaraApp : Application() {
 
     fun applyEq(bands: FloatArray, presetName: String = "Custom", manual: Boolean = true,
                 bassBoost: Int = 0, virtualizer: Int = 0, loudness: Int = 0, preamp: Float = 0f,
-                instant: Boolean = false) {
+                instant: Boolean = false, reverb: Int = 0) {
         val adj = if (preamp != 0f) FloatArray(bands.size) { (bands[it] + preamp).coerceIn(-12f, 12f) } else bands
         val useSmooth = !instant && runBlocking { preferences.smoothTransitionsFlow.first() }
 
@@ -319,17 +319,17 @@ class SonaraApp : Application() {
                     fromLoud = currentState.loudness,
                     toLoud = loudness,
                     onBandStep = { audioSessionManager.applyBands(it) },
-                    onEffectStep = { b, v, l -> audioSessionManager.applyEffects(b, v, l) }
+                    onEffectStep = { b, v, l -> audioSessionManager.applyEffects(b, v, l, reverb) }
                 )
             }
         } else {
             transitionJob?.cancel()
             audioSessionManager.applyBands(adj)
-            audioSessionManager.applyEffects(bassBoost, virtualizer, loudness)
+            audioSessionManager.applyEffects(bassBoost, virtualizer, loudness, reverb)
         }
         _eqState.update {
             it.copy(bands = bands, preamp = preamp, presetName = presetName, isManualPreset = manual,
-                bassBoost = bassBoost, virtualizer = virtualizer, loudness = loudness)
+                bassBoost = bassBoost, virtualizer = virtualizer, loudness = loudness, reverb = reverb)
         }
     }
 

@@ -47,6 +47,9 @@ class GeminiInsightEngine(private var apiKey: String = "") {
         .build()
 
     var model: GeminiModel = GeminiModel.FAST
+    var customModelId: String? = null
+
+    private fun resolvedModelId(): String = customModelId?.takeIf { it.isNotBlank() } ?: model.id
 
     @Volatile private var quotaPausedUntil: Long = 0L
     private val QUOTA_BACKOFF_MS = 5 * 60 * 1000L // 5 minutes
@@ -126,7 +129,7 @@ Return JSON with exactly these keys:
                     })
                 }.toString()
 
-                val url = "$BASE_URL/${model.id}:generateContent"
+                val url = "$BASE_URL/${resolvedModelId()}:generateContent"
                 val request = Request.Builder()
                     .url(url)
                     .addHeader("X-Goog-Api-Key", apiKey)

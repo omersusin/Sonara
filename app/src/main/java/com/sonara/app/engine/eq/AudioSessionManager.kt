@@ -104,14 +104,14 @@ class AudioSessionManager(private val context: Context) {
     /**
      * Apply BassBoost + Virtualizer + Loudness from FinalEqProfile
      */
-    fun applyEffects(bassBoost: Int, virtualizer: Int, loudness: Int) {
+    fun applyEffects(bassBoost: Int, virtualizer: Int, loudness: Int, reverb: Int = 0) {
         if (!effectsChain.isAttached && sessionEqualizers.keys.isNotEmpty()) {
             val realSession = sessionEqualizers.keys.first()
             effectsChain.forceReattach(realSession)
             effectsAttachedSession = realSession
         }
-        effectsChain.applyProfile(bassBoost, virtualizer, loudness)
-        SonaraLogger.eq("Effects applied: bass=$bassBoost virt=$virtualizer loud=$loudness sid=${effectsChain.attachedSession}")
+        effectsChain.applyProfile(bassBoost, virtualizer, loudness, reverb)
+        SonaraLogger.eq("Effects applied: bass=$bassBoost virt=$virtualizer loud=$loudness reverb=$reverb sid=${effectsChain.attachedSession}")
     }
 
     fun setEnabled(enabled: Boolean) {

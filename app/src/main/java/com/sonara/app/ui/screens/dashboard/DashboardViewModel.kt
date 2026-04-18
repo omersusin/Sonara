@@ -21,6 +21,9 @@ data class DashboardUiState(
     val artist: String = "",
     val isPlaying: Boolean = false,
     val hasTrack: Boolean = false,
+    val duration: Long = 0,
+    val position: Long = 0,
+    val positionTimestamp: Long = 0,
     val genre: String = "Unknown",
     val mood: String = "Unknown",
     val energy: Float = 0.5f,
@@ -117,7 +120,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch { app.eqState.collect { eq -> _uiState.update { it.copy(bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer, loudness = eq.loudness, currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset, eqActive = eq.isEnabled) } } }
         viewModelScope.launch { SonaraNotificationListener.nowPlaying.collect { np ->
-            _uiState.update { it.copy(title = np.title, artist = np.artist, isPlaying = np.isPlaying, hasTrack = np.title.isNotBlank()) }
+            _uiState.update { it.copy(title = np.title, artist = np.artist, isPlaying = np.isPlaying, hasTrack = np.title.isNotBlank(), duration = np.duration, position = np.position, positionTimestamp = np.positionTimestamp) }
             if (np.title.isNotBlank()) {
                 val cached = LoveStateCache.isLoved(np.title, np.artist)
                 if (cached != null) _uiState.update { it.copy(isLoved = cached) }

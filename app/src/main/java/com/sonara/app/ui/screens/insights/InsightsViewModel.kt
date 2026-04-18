@@ -47,7 +47,11 @@ data class InsightsUiState(
     val registeredUnix: Long = 0,
     // Derived stats
     val listeningHours: Int = 0,
-    val weeklyActivity: List<Pair<String, Int>> = emptyList()
+    val weeklyActivity: List<Pair<String, Int>> = emptyList(),
+    val streakDays: Int = 0,
+    val peakHour: Int = -1,
+    val heatmap: Map<String, Int> = emptyMap(),
+    val selectedPeriodLabel: String = "All Time"
 )
 
 data class TopTrackItem(val title: String, val artist: String, val plays: String, val imageUrl: String = "")
@@ -179,22 +183,40 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 val enriched = list.map { a -> a.copy(imageUrl = if (a.imageUrl.isNotBlank() && !a.imageUrl.contains("2a96cbd8b46e")) a.imageUrl else DeezerImageResolver.getTrackImageWithFallback(a.name, a.artist) ?: "") }
                 _uiState.update { it.copy(topAlbums = enriched) }
             } catch (_: Exception) {}
-            // Recent tracks + weekly activity
+            // Recent tracks + weekly activity + streak + peak hour + heatmap
             try {
-                val recent = LastFmClient.api.getRecentTracks(username, apiKey, 50)
+                val recent = LastFmClient.api.getRecentTracks(username, apiKey, 200)
                 val list = recent.recenttracks?.track?.map { t -> RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "", t.imageUrl ?: "", t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L) } ?: emptyList()
                 _uiState.update { it.copy(recentTracks = list) }
-                // Derive weekly activity from timestamps
+                // Derive weekly activity + heatmap + streak + peak hour from timestamps
                 val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
                 val dayCounts = IntArray(7)
-                recent.recenttracks?.track?.forEach { t ->
+                val hourBuckets = IntArray(24)
+                val heatmap = mutableMapOf<String, Int>()
+                val daySet = mutableSetOf<String>()
+                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                recent.recenttracks?.track?.filter { it.date != null }?.forEach { t ->
                     val uts = t.date?.uts?.toLongOrNull() ?: return@forEach
                     val cal = java.util.Calendar.getInstance().apply { timeInMillis = uts * 1000 }
                     val dow = (cal.get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7
                     dayCounts[dow]++
+                    hourBuckets[cal.get(java.util.Calendar.HOUR_OF_DAY)]++
+                    val dayKey = sdf.format(cal.time)
+                    daySet.add(dayKey)
+                    heatmap[dayKey] = (heatmap[dayKey] ?: 0) + 1
                 }
                 val activity = days.mapIndexed { i, d -> d to dayCounts[i] }
-                _uiState.update { it.copy(weeklyActivity = activity) }
+                // Streak: consecutive days ending today
+                var streak = 0
+                val check = java.util.Calendar.getInstance()
+                check.set(java.util.Calendar.HOUR_OF_DAY, 0); check.set(java.util.Calendar.MINUTE, 0)
+                check.set(java.util.Calendar.SECOND, 0); check.set(java.util.Calendar.MILLISECOND, 0)
+                while (sdf.format(check.time) in daySet) {
+                    streak++
+                    check.add(java.util.Calendar.DAY_OF_YEAR, -1)
+                }
+                val peakHour = hourBuckets.indices.maxByOrNull { hourBuckets[it] }?.takeIf { hourBuckets[it] > 0 } ?: -1
+                _uiState.update { it.copy(weeklyActivity = activity, streakDays = streak, peakHour = peakHour, heatmap = heatmap) }
                 // Enrich images
                 val enrichedRecent = list.map { t -> if (t.imageUrl.isBlank() || t.imageUrl.contains("2a96cbd8b46e")) t.copy(imageUrl = DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") else t }
                 _uiState.update { it.copy(recentTracks = enrichedRecent) }
@@ -204,6 +226,24 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 val weekly = LastFmClient.api.getWeeklyTrackChart(username, apiKey)
                 val list = weekly.weeklytrackchart?.track?.take(8)?.map { Triple(it.name, it.artist?.name ?: "", it.playcount) } ?: emptyList()
                 _uiState.update { it.copy(weeklyTracks = list) }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun refreshAllRecentTracks() {
+        val u = _uiState.value.lastFmUsername
+        val k = app.lastFmAuth.getActiveApiKey()
+        if (u.isBlank() || k.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val resp = LastFmClient.api.getRecentTracks(u, k, 200, 1)
+                val list = resp.recenttracks?.track?.map { t ->
+                    RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "",
+                        t.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") } ?: "",
+                        t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L)
+                } ?: emptyList()
+                val enriched = list.map { t -> if (t.imageUrl.isBlank()) t.copy(imageUrl = DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") else t }
+                _uiState.update { it.copy(recentTracks = enriched) }
             } catch (_: Exception) {}
         }
     }
@@ -229,8 +269,54 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setCustomPeriod(fromSec: Long, toSec: Long) {
+        val label = buildString {
+            val sdf = java.text.SimpleDateFormat("MMM d", java.util.Locale.US)
+            append(sdf.format(java.util.Date(fromSec * 1000)))
+            append(" – ")
+            append(sdf.format(java.util.Date(toSec * 1000)))
+        }
+        _uiState.update { it.copy(selectedPeriod = "custom", selectedPeriodLabel = label) }
+        val u = _uiState.value.lastFmUsername; val k = app.lastFmAuth.getActiveApiKey()
+        if (u.isBlank() || k.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val resp = LastFmClient.api.getRecentTracksRange(u, k, fromSec, toSec, 200)
+                val tracks = resp.recenttracks?.track?.filter { it.date != null } ?: emptyList()
+                // Aggregate top artists from track history
+                val artistCounts = tracks.groupBy { it.artist?.text ?: "" }
+                    .filterKeys { it.isNotBlank() }.mapValues { it.value.size }
+                    .entries.sortedByDescending { it.value }.take(10)
+                val topArtists = artistCounts.map { (name, count) ->
+                    Triple(name, count.toString(), DeezerImageResolver.getArtistImageWithFallback(name) ?: "")
+                }
+                // Aggregate top tracks
+                val trackCounts = tracks.groupBy { it.name to (it.artist?.text ?: "") }
+                    .mapValues { it.value.size }.entries.sortedByDescending { it.value }.take(10)
+                val topTracks = trackCounts.map { (titleArtist, count) ->
+                    TopTrackItem(titleArtist.first, titleArtist.second, count.toString(),
+                        DeezerImageResolver.getTrackImageWithFallback(titleArtist.first, titleArtist.second) ?: "")
+                }
+                // Aggregate top albums
+                val albumCounts = tracks.groupBy { (it.album?.text ?: "") to (it.artist?.text ?: "") }
+                    .filterKeys { it.first.isNotBlank() }.mapValues { it.value.size }
+                    .entries.sortedByDescending { it.value }.take(6)
+                val topAlbums = albumCounts.map { (nameArtist, count) ->
+                    TopAlbumItem(nameArtist.first, nameArtist.second, count.toString(),
+                        DeezerImageResolver.getTrackImageWithFallback(nameArtist.first, nameArtist.second) ?: "")
+                }
+                _uiState.update { it.copy(topArtists = topArtists, topTracks = topTracks, topAlbums = topAlbums) }
+            } catch (_: Exception) {}
+        }
+    }
+
     fun setPeriod(period: String) {
-        _uiState.update { it.copy(selectedPeriod = period) }
+        if (period == "custom") return // custom periods go through setCustomPeriod
+        val label = when (period) {
+            "7day" -> "7 Days"; "1month" -> "1 Month"; "3month" -> "3 Months"
+            "6month" -> "6 Months"; "12month" -> "1 Year"; else -> "All Time"
+        }
+        _uiState.update { it.copy(selectedPeriod = period, selectedPeriodLabel = label) }
         val u = _uiState.value.lastFmUsername; val k = app.lastFmAuth.getActiveApiKey()
         if (u.isBlank() || k.isBlank()) return
         viewModelScope.launch(Dispatchers.IO) {
@@ -248,6 +334,23 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 val al = LastFmClient.api.getUserTopAlbums(u, k, period, 6)
                 val enriched = (al.topalbums?.album?.map { TopAlbumItem(it.name, it.artist?.name ?: "", it.playcount, it.imageUrl ?: "") } ?: emptyList()).map { a -> a.copy(imageUrl = if (a.imageUrl.isNotBlank() && !a.imageUrl.contains("2a96cbd8b46e")) a.imageUrl else DeezerImageResolver.getTrackImageWithFallback(a.name, a.artist) ?: "") }
                 _uiState.update { it.copy(topAlbums = enriched) }
+            } catch (_: Exception) {}
+            // Refresh genres from updated top artists
+            try {
+                val topArtistNames = _uiState.value.topArtists.take(5).map { it.first }
+                val genreMap = mutableMapOf<String, Int>()
+                for (name in topArtistNames) {
+                    try {
+                        val tagsResp = LastFmClient.api.getArtistTags(name, k)
+                        tagsResp.toptags?.tag?.take(3)?.forEach { tag ->
+                            val tagName = tag.name.lowercase().replaceFirstChar { it.uppercase() }
+                            if (tagName.isNotBlank() && tagName.lowercase() != "seen live" && tagName.lowercase() != "favorites") {
+                                genreMap[tagName] = (genreMap[tagName] ?: 0) + (tag.count.coerceAtLeast(1))
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+                if (genreMap.isNotEmpty()) _uiState.update { it.copy(genreDistribution = genreMap) }
             } catch (_: Exception) {}
         }
     }

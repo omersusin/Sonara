@@ -126,7 +126,8 @@ fun DashboardScreen() {
 
         item {
             NowPlayingBar(title = if (s.hasTrack) s.title else "No music playing",
-                artist = s.artist, isPlaying = s.isPlaying, albumArt = art)
+                artist = s.artist, isPlaying = s.isPlaying, albumArt = art,
+                duration = s.duration, position = s.position, positionTimestamp = s.positionTimestamp)
         }
 
         // AI Audio Analysis

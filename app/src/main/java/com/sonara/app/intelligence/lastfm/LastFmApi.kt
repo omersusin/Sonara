@@ -27,6 +27,14 @@ interface LastFmApi {
         @Query("autocorrect") autocorrect: Int = 1
     ): LastFmArtistTagsResponse
 
+    @GET("?method=artist.getInfo&format=json")
+    suspend fun getArtistInfo(
+        @Query("artist") artist: String,
+        @Query("api_key") apiKey: String,
+        @Query("username") username: String = "",
+        @Query("autocorrect") autocorrect: Int = 1
+    ): LastFmArtistInfoResponse
+
     @GET("?method=user.getInfo&format=json")
     suspend fun getUserInfo(
         @Query("user") user: String,
@@ -64,7 +72,25 @@ interface LastFmApi {
     ): LastFmTopAlbumsResponse
 
     @GET("?method=user.getRecentTracks&format=json")
-    suspend fun getRecentTracks(@Query("user") user: String, @Query("api_key") apiKey: String, @Query("limit") limit: Int = 10): LastFmRecentTracksResponse
+    suspend fun getRecentTracks(@Query("user") user: String, @Query("api_key") apiKey: String, @Query("limit") limit: Int = 10, @Query("page") page: Int = 1): LastFmRecentTracksResponse
+
+    @GET("?method=user.getRecentTracks&format=json")
+    suspend fun getRecentTracksRange(
+        @Query("user") user: String,
+        @Query("api_key") apiKey: String,
+        @Query("from") from: Long,
+        @Query("to") to: Long,
+        @Query("limit") limit: Int = 200,
+        @Query("page") page: Int = 1
+    ): LastFmRecentTracksResponse
+
+    @GET("?method=album.getInfo&format=json")
+    suspend fun getAlbumInfo(
+        @Query("artist") artist: String,
+        @Query("album") album: String,
+        @Query("api_key") apiKey: String,
+        @Query("autocorrect") autocorrect: Int = 1
+    ): LastFmAlbumInfoResponse
 
     companion object {
         const val BASE_URL = "https://ws.audioscrobbler.com/2.0/"

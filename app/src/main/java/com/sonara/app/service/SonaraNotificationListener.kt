@@ -39,7 +39,8 @@ import com.sonara.app.intelligence.pipeline.MediaType
 
 data class ListenerNowPlaying(
     val title: String = "", val artist: String = "", val album: String = "",
-    val packageName: String = "", val isPlaying: Boolean = false, val duration: Long = 0
+    val packageName: String = "", val isPlaying: Boolean = false, val duration: Long = 0,
+    val position: Long = 0, val positionTimestamp: Long = 0
 )
 
 class SonaraNotificationListener : NotificationListenerService() {
@@ -60,7 +61,11 @@ class SonaraNotificationListener : NotificationListenerService() {
         override fun onPlaybackStateChanged(s: PlaybackState?) {
             val playing = s?.state == PlaybackState.STATE_PLAYING
             val wasPlaying = _nowPlaying.value.isPlaying
-            _nowPlaying.value = _nowPlaying.value.copy(isPlaying = playing)
+            _nowPlaying.value = _nowPlaying.value.copy(
+                isPlaying = playing,
+                position = s?.position ?: _nowPlaying.value.position,
+                positionTimestamp = System.currentTimeMillis()
+            )
 
             if (playing && !wasPlaying) {
                 playStartTime = System.currentTimeMillis()
@@ -140,6 +145,17 @@ class SonaraNotificationListener : NotificationListenerService() {
 
         val filtered = if (allowedApps.isEmpty()) controllers
         else controllers.filter { c -> c.packageName in allowedApps }
+
+        // When specific apps are selected and none are playing, clear now playing state
+        if (allowedApps.isNotEmpty() && filtered.isEmpty()) {
+            if (_nowPlaying.value.title.isNotBlank()) {
+                _nowPlaying.value = ListenerNowPlaying()
+                _albumArt.value = null
+                activeController?.let { try { it.unregisterCallback(controllerCb) } catch (_: Exception) {} }
+                activeController = null
+            }
+            return
+        }
 
         // Prefer playing controller, but keep current if just paused
         val playing = filtered.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }

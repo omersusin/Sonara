@@ -850,19 +850,16 @@ private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
                 modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
                 border = BorderStroke(1.dp, if (s.geminiKeyInput.isNotBlank()) p2 else SonaraDivider)
             ) { Text("Save Key") }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(8.dp))
             Text("Model", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
             Spacer(Modifier.height(4.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("fast" to "Fast", "balanced" to "Balanced", "strong" to "Strong").forEach { (id, label) ->
-                    val sel = s.geminiModel == id
-                    OutlinedButton(onClick = { vm.setGeminiModel(id) },
-                        modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge,
-                        border = BorderStroke(1.dp, if (sel) p2 else SonaraDivider),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = if (sel) p2 else SonaraTextSecondary)
-                    ) { Text(label, style = MaterialTheme.typography.labelSmall) }
-                }
-            }
+            ModelDropdown(
+                models = s.availableModels,
+                selectedId = s.geminiModel,
+                isLoading = s.isLoadingModels,
+                onSelect = { vm.setGeminiModel(it) },
+                onRefresh = { vm.fetchModels("gemini") }
+            )
         }
         if (s.aiProvider == "openrouter") {
             Spacer(Modifier.height(8.dp))
@@ -995,11 +992,11 @@ private fun ScrobbleFilterCard(state: SettingsUiState, vm: SettingsViewModel, on
                 Spacer(Modifier.height(4.dp))
                 val allowed = state.allowedScrobbleApps
                 if (allowed.isEmpty()) {
-                    Text("All apps allowed", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    Text("Monitoring all apps", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
                 } else {
                     Text("${allowed.size} app${if (allowed.size > 1) "s" else ""} selected", style = MaterialTheme.typography.bodySmall, color = p)
                 }
-                Text("Tap to choose which apps to scrobble from", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                Text("Select specific apps to restrict scrobbling", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
             }
             Icon(Icons.Rounded.ChevronRight, null, tint = SonaraTextTertiary)
         }
