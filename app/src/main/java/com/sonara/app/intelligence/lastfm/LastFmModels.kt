@@ -83,3 +83,26 @@ data class LastFmRecentArtist(@SerializedName("#text") val text: String = "")
 data class LastFmRecentAlbum(@SerializedName("#text") val text: String = "")
 data class LastFmDate(@SerializedName("#text") val text: String = "", val uts: String = "0")
 data class LastFmNowPlaying(val nowplaying: String = "")
+
+data class LastFmAlbumInfoResponse(val album: LastFmAlbumInfo? = null)
+data class LastFmAlbumInfo(
+    val name: String = "",
+    val artist: String = "",
+    val playcount: String = "0",
+    val listeners: String = "0",
+    val image: List<LastFmImage> = emptyList(),
+    val tracks: LastFmAlbumTracks? = null,
+    val wiki: LastFmWiki? = null
+) {
+    val imageUrl: String? get() = image.lastOrNull { it.text.isNotBlank() && !it.text.contains("2a96cbd8b46e") }?.text
+}
+data class LastFmAlbumTracks(val track: List<LastFmAlbumTrack> = emptyList())
+data class LastFmAlbumTrack(
+    val name: String = "",
+    val duration: String = "0",
+    @SerializedName("@attr") val attr: LastFmAlbumTrackAttr? = null,
+    val artist: LastFmArtist? = null,
+    val url: String = ""
+)
+data class LastFmAlbumTrackAttr(val rank: String = "0")
+data class LastFmWiki(val summary: String = "")

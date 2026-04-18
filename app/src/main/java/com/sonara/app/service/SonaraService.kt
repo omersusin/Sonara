@@ -214,9 +214,9 @@ class SonaraService : Service() {
             Intent(this, SonaraService::class.java).apply { action = ACTION_REQUEST },
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val remoteInput = android.app.RemoteInput.Builder(EXTRA_REQUEST_TEXT)
-            .setLabel("Ask AI (e.g. more bass)")
+            .setLabel("e.g. more bass, cleaner vocals")
             .build()
-        val requestAction = Notification.Action.Builder(null, "🧠 Ask AI", requestIntent)
+        val requestAction = Notification.Action.Builder(null, "Ask AI", requestIntent)
             .addRemoteInput(remoteInput)
             .build()
 

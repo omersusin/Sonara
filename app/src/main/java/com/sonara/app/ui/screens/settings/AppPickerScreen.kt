@@ -75,12 +75,8 @@ fun AppPickerScreen(onBack: () -> Unit) {
             if (musicApps.isNotEmpty()) {
                 item { SectionLabel("Music Players") }
                 items(musicApps, key = { it.pkg }) { appItem ->
-                    AppRow(appItem, allowedApps.isEmpty() || appItem.pkg in allowedApps) { checked ->
-                        allowedApps = if (checked) {
-                            if (allowedApps.isEmpty()) setOf(appItem.pkg) else allowedApps + appItem.pkg
-                        } else {
-                            val r = allowedApps - appItem.pkg; if (r.isEmpty()) emptySet() else r
-                        }
+                    AppRow(appItem, appItem.pkg in allowedApps) { checked ->
+                        allowedApps = if (checked) allowedApps + appItem.pkg else allowedApps - appItem.pkg
                         scope.launch { app.preferences.setAllowedScrobbleApps(allowedApps) }
                     }
                 }
@@ -89,9 +85,7 @@ fun AppPickerScreen(onBack: () -> Unit) {
                 item { SectionLabel("Other Apps") }
                 items(otherApps, key = { it.pkg }) { appItem ->
                     AppRow(appItem, appItem.pkg in allowedApps) { checked ->
-                        allowedApps = if (checked) allowedApps + appItem.pkg else {
-                            val r = allowedApps - appItem.pkg; if (r.isEmpty()) emptySet() else r
-                        }
+                        allowedApps = if (checked) allowedApps + appItem.pkg else allowedApps - appItem.pkg
                         scope.launch { app.preferences.setAllowedScrobbleApps(allowedApps) }
                     }
                 }

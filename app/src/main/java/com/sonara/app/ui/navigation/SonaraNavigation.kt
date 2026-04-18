@@ -17,6 +17,7 @@ import com.sonara.app.ui.screens.dashboard.DashboardScreen
 import com.sonara.app.ui.screens.debug.DebugLogScreen
 import com.sonara.app.ui.screens.debug.DebugPipelineScreen
 import com.sonara.app.ui.screens.equalizer.EqualizerScreen
+import com.sonara.app.ui.screens.insights.AlbumDetailScreen
 import com.sonara.app.ui.screens.insights.ArtistDetailScreen
 import com.sonara.app.ui.screens.insights.TrackDetailScreen
 import com.sonara.app.ui.screens.insights.InsightsScreen
@@ -43,6 +44,10 @@ sealed class Screen(val route: String, val label: String) {
     data object TopArtistsList : Screen("top_artists_list", "Top Artists")
     data object TopTracksList : Screen("top_tracks_list", "Top Tracks")
     data object TopAlbumsList : Screen("top_albums_list", "Top Albums")
+    data object AlbumDetail : Screen("album_detail/{name}/{artist}/{plays}/{imageUrl}", "Album") {
+        fun createRoute(name: String, artist: String, plays: String, imageUrl: String) =
+            "album_detail/${java.net.URLEncoder.encode(name, "UTF-8")}/${java.net.URLEncoder.encode(artist, "UTF-8")}/${java.net.URLEncoder.encode(plays, "UTF-8")}/${java.net.URLEncoder.encode(imageUrl.ifBlank { "-" }, "UTF-8")}"
+    }
     data object ArtistDetail : Screen("artist_detail/{name}", "Artist") {
         fun createRoute(name: String) = "artist_detail/${java.net.URLEncoder.encode(name, "UTF-8")}"
     }
@@ -104,7 +109,23 @@ fun SonaraNavigation() {
                 )
             }
             composable(Screen.TopAlbumsList.route) {
-                TopAlbumsListScreen(onBack = { navController.popBackStack() })
+                TopAlbumsListScreen(
+                    onBack = { navController.popBackStack() },
+                    onAlbumClick = { name, artist, plays, imageUrl ->
+                        navController.navigate(Screen.AlbumDetail.createRoute(name, artist, plays, imageUrl))
+                    }
+                )
+            }
+            composable(Screen.AlbumDetail.route) { entry ->
+                val name = java.net.URLDecoder.decode(entry.arguments?.getString("name") ?: "", "UTF-8")
+                val artist = java.net.URLDecoder.decode(entry.arguments?.getString("artist") ?: "", "UTF-8")
+                val plays = java.net.URLDecoder.decode(entry.arguments?.getString("plays") ?: "", "UTF-8")
+                val imageUrl = java.net.URLDecoder.decode(entry.arguments?.getString("imageUrl") ?: "", "UTF-8").let { if (it == "-") "" else it }
+                AlbumDetailScreen(
+                    albumName = name, artistName = artist, albumPlays = plays, albumImageUrl = imageUrl,
+                    onBack = { navController.popBackStack() },
+                    onTrackClick = { title, art -> navController.navigate(Screen.TrackDetail.createRoute(title, art)) }
+                )
             }
             composable(Screen.ArtistDetail.route) { entry ->
                 val name = java.net.URLDecoder.decode(entry.arguments?.getString("name") ?: "", "UTF-8")

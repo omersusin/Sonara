@@ -21,6 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Launch
 import androidx.compose.material3.AssistChip
+import androidx.compose.ui.res.painterResource
+import com.sonara.app.R
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -200,7 +202,12 @@ fun ArtistDetailScreen(artistName: String, onBack: () -> Unit, onTrackClick: (St
                             platformLinks.forEach { link ->
                                 Row(Modifier.fillMaxWidth().clickable { OdesliHelper.openLink(ctx, link) }.padding(vertical = 8.dp),
                                     horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
+                                    val iconRes = platformIconRes(link.key)
+                                    if (iconRes != null) {
+                                        Icon(painterResource(iconRes), null, Modifier.size(20.dp), tint = androidx.compose.ui.graphics.Color.Unspecified)
+                                    } else {
+                                        Icon(Icons.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
+                                    }
                                     Text(link.name, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
                                 }
                             }
@@ -211,4 +218,22 @@ fun ArtistDetailScreen(artistName: String, onBack: () -> Unit, onTrackClick: (St
             }
         }
     }
+}
+
+fun platformIconRes(key: String): Int? = when (key) {
+    "spotify" -> R.drawable.ic_spotify_24
+    "appleMusic" -> R.drawable.ic_apple_24
+    "youtubeMusic" -> R.drawable.ic_youtube_music_24
+    "youtube" -> R.drawable.ic_youtube_24
+    "deezer" -> R.drawable.ic_deezer_24
+    "amazonMusic" -> R.drawable.ic_amazon_24
+    "soundcloud" -> R.drawable.ic_soundcloud_24
+    "tidal" -> R.drawable.ic_tidal_24
+    "pandora" -> R.drawable.ic_pandora_24
+    "napster" -> R.drawable.ic_napster_24
+    "audiomack" -> R.drawable.ic_audiomack_24
+    "anghami" -> R.drawable.ic_anghami_24
+    "boomplay" -> R.drawable.ic_boomplay_24
+    "yandex" -> R.drawable.ic_yandex_music_24
+    else -> null
 }

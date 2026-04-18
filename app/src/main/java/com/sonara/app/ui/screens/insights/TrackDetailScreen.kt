@@ -22,6 +22,8 @@ import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Launch
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.ui.res.painterResource
+import com.sonara.app.R
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -229,7 +231,12 @@ fun TrackDetailScreen(
                             platformLinks.forEach { link ->
                                 Row(Modifier.fillMaxWidth().clickable { OdesliHelper.openLink(ctx, link) }.padding(vertical = 8.dp),
                                     horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
+                                    val iconRes = platformIconRes(link.key)
+                                    if (iconRes != null) {
+                                        Icon(painterResource(iconRes), null, Modifier.size(20.dp), tint = androidx.compose.ui.graphics.Color.Unspecified)
+                                    } else {
+                                        Icon(Icons.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
+                                    }
                                     Text(link.name, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
                                 }
                             }

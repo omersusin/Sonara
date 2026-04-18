@@ -966,11 +966,11 @@ private fun ScrobbleFilterCard(state: SettingsUiState, vm: SettingsViewModel, on
                 Spacer(Modifier.height(4.dp))
                 val allowed = state.allowedScrobbleApps
                 if (allowed.isEmpty()) {
-                    Text("All apps allowed", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    Text("No apps selected — scrobbling disabled", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
                 } else {
                     Text("${allowed.size} app${if (allowed.size > 1) "s" else ""} selected", style = MaterialTheme.typography.bodySmall, color = p)
                 }
-                Text("Tap to choose which apps to scrobble from", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                Text("Choose which apps to scrobble from", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
             }
             Icon(Icons.Rounded.ChevronRight, null, tint = SonaraTextTertiary)
         }
