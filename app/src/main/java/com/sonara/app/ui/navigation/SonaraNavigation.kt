@@ -18,7 +18,10 @@ import com.sonara.app.ui.screens.debug.DebugLogScreen
 import com.sonara.app.ui.screens.debug.DebugPipelineScreen
 import com.sonara.app.ui.screens.equalizer.EqualizerScreen
 import com.sonara.app.ui.screens.insights.AlbumDetailScreen
+import com.sonara.app.ui.screens.insights.AllGenresScreen
 import com.sonara.app.ui.screens.insights.ArtistDetailScreen
+import com.sonara.app.ui.screens.insights.ListeningActivityScreen
+import com.sonara.app.ui.screens.insights.RecentTracksScreen
 import com.sonara.app.ui.screens.insights.TrackDetailScreen
 import com.sonara.app.ui.screens.insights.InsightsScreen
 import com.sonara.app.ui.screens.insights.TopArtistsListScreen
@@ -44,6 +47,9 @@ sealed class Screen(val route: String, val label: String) {
     data object TopArtistsList : Screen("top_artists_list", "Top Artists")
     data object TopTracksList : Screen("top_tracks_list", "Top Tracks")
     data object TopAlbumsList : Screen("top_albums_list", "Top Albums")
+    data object RecentTracks : Screen("recent_tracks", "Recently Played")
+    data object AllGenres : Screen("all_genres", "Your Genres")
+    data object ListeningActivity : Screen("listening_activity", "Listening Activity")
     data object AlbumDetail : Screen("album_detail/{name}/{artist}/{plays}/{imageUrl}", "Album") {
         fun createRoute(name: String, artist: String, plays: String, imageUrl: String) =
             "album_detail/${java.net.URLEncoder.encode(name, "UTF-8")}/${java.net.URLEncoder.encode(artist, "UTF-8")}/${java.net.URLEncoder.encode(plays, "UTF-8")}/${java.net.URLEncoder.encode(imageUrl.ifBlank { "-" }, "UTF-8")}"
@@ -85,7 +91,10 @@ fun SonaraNavigation() {
                     onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) },
                     onSeeAllArtists = { navController.navigate(Screen.TopArtistsList.route) },
                     onSeeAllTracks = { navController.navigate(Screen.TopTracksList.route) },
-                    onSeeAllAlbums = { navController.navigate(Screen.TopAlbumsList.route) }
+                    onSeeAllAlbums = { navController.navigate(Screen.TopAlbumsList.route) },
+                    onSeeAllRecentTracks = { navController.navigate(Screen.RecentTracks.route) },
+                    onSeeAllGenres = { navController.navigate(Screen.AllGenres.route) },
+                    onSeeAllListeningActivity = { navController.navigate(Screen.ListeningActivity.route) }
                 )
             }
             composable(Screen.Settings.route) {
@@ -138,6 +147,14 @@ fun SonaraNavigation() {
                 TrackDetailScreen(trackTitle = title, trackArtist = artist, onBack = { navController.popBackStack() },
                     onArtistClick = { name -> navController.navigate(Screen.ArtistDetail.createRoute(name)) })
             }
+            composable(Screen.RecentTracks.route) {
+                RecentTracksScreen(
+                    onBack = { navController.popBackStack() },
+                    onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) }
+                )
+            }
+            composable(Screen.AllGenres.route) { AllGenresScreen(onBack = { navController.popBackStack() }) }
+            composable(Screen.ListeningActivity.route) { ListeningActivityScreen(onBack = { navController.popBackStack() }) }
             composable(Screen.DebugLog.route) { DebugLogScreen(onBack = { navController.popBackStack() }) }
             composable(Screen.DebugPipeline.route) { DebugPipelineScreen() }
         }

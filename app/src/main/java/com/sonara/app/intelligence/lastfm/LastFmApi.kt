@@ -64,7 +64,7 @@ interface LastFmApi {
     ): LastFmTopAlbumsResponse
 
     @GET("?method=user.getRecentTracks&format=json")
-    suspend fun getRecentTracks(@Query("user") user: String, @Query("api_key") apiKey: String, @Query("limit") limit: Int = 10): LastFmRecentTracksResponse
+    suspend fun getRecentTracks(@Query("user") user: String, @Query("api_key") apiKey: String, @Query("limit") limit: Int = 10, @Query("page") page: Int = 1): LastFmRecentTracksResponse
 
     @GET("?method=user.getRecentTracks&format=json")
     suspend fun getRecentTracksRange(

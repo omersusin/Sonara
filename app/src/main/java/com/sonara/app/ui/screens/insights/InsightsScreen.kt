@@ -58,6 +58,9 @@ fun InsightsScreen(
     onSeeAllArtists: () -> Unit = {},
     onSeeAllTracks: () -> Unit = {},
     onSeeAllAlbums: () -> Unit = {},
+    onSeeAllRecentTracks: () -> Unit = {},
+    onSeeAllGenres: () -> Unit = {},
+    onSeeAllListeningActivity: () -> Unit = {},
     onAlbumClick: (name: String, artist: String, plays: String, imageUrl: String) -> Unit = { _, _, _, _ -> }
 ) {
     val vm: InsightsViewModel = viewModel()
@@ -245,9 +248,9 @@ fun InsightsScreen(
 
         // ═══ GENRE DISTRIBUTION ═══
         if (s.genreDistribution.isNotEmpty()) {
+            item { SectionHeader("Your Genres") { onSeeAllGenres() } }
             item {
                 FluentCard {
-                    Text("Your Genres", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary); Spacer(Modifier.height(10.dp))
                     val sorted = s.genreDistribution.entries.sortedByDescending { it.value }.take(7)
                     val total = sorted.sumOf { it.value }.toFloat().coerceAtLeast(1f)
                     val maxVal = sorted.firstOrNull()?.value?.toFloat() ?: 1f
@@ -272,9 +275,10 @@ fun InsightsScreen(
 
         // ═══ LISTENING ACTIVITY (weekly bar chart) ═══
         if (s.weeklyActivity.isNotEmpty() && s.weeklyActivity.any { it.second > 0 }) {
+            item { SectionHeader("Listening Activity") { onSeeAllListeningActivity() } }
             item {
                 FluentCard {
-                    Text("Listening Activity", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary); Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(2.dp))
                     val maxCount = s.weeklyActivity.maxOfOrNull { it.second }?.toFloat()?.coerceAtLeast(1f) ?: 1f
                     Row(Modifier.fillMaxWidth().height(100.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Bottom) {
                         s.weeklyActivity.forEach { (day, count) ->
@@ -294,11 +298,11 @@ fun InsightsScreen(
 
         // ═══ RECENTLY PLAYED ═══
         if (s.recentTracks.isNotEmpty()) {
+            item { SectionHeader("Recently Played") { onSeeAllRecentTracks() } }
             item {
                 FluentCard {
-                    Text("Recently Played", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary); Spacer(Modifier.height(8.dp))
                     val ctx = LocalContext.current
-                    s.recentTracks.take(8).forEach { t ->
+                    s.recentTracks.take(5).forEach { t ->
                         Row(Modifier.fillMaxWidth().clickable { onTrackClick(t.title, t.artist) }.padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             if (t.imageUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(t.imageUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.size(36.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop)
@@ -357,7 +361,7 @@ private fun SectionHeader(title: String, onSeeAll: () -> Unit) {
     }
 }
 
-private fun relativeTime(uts: Long): String {
+internal fun relativeTime(uts: Long): String {
     if (uts <= 0) return ""
     val now = System.currentTimeMillis() / 1000
     val diff = now - uts

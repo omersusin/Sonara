@@ -100,7 +100,7 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
             val username = app.lastFmAuth.getConnectionInfo().username
             if (apiKey.isNotBlank() && username.isNotBlank()) {
                 try {
-                    val resp = LastFmClient.api.getUserTopArtists(username, apiKey, period, 50)
+                    val resp = LastFmClient.api.getUserTopArtists(username, apiKey, period, 1000)
                     val list = resp.topartists?.artist?.map { Triple(it.name, it.playcount, it.imageUrl ?: "") } ?: emptyList()
                     val enriched = list.map { (n, pl, img) -> Triple(n, pl, if (img.isNotBlank() && !img.contains("2a96cbd8b46e")) img else DeezerImageResolver.getArtistImageWithFallback(n) ?: "") }
                     artists = enriched
@@ -201,7 +201,7 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
             val username = app.lastFmAuth.getConnectionInfo().username
             if (apiKey.isNotBlank() && username.isNotBlank()) {
                 try {
-                    val resp = LastFmClient.api.getUserTopTracks(username, apiKey, period, 50)
+                    val resp = LastFmClient.api.getUserTopTracks(username, apiKey, period, 1000)
                     val list = resp.toptracks?.track?.map { TopTrackItem(it.name, it.artist?.name ?: "", it.playcount, it.imageUrl ?: "") } ?: emptyList()
                     val enriched = list.map { t -> t.copy(imageUrl = if (t.imageUrl.isNotBlank()) t.imageUrl else DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") }
                     tracks = enriched
@@ -309,7 +309,7 @@ fun TopAlbumsListScreen(
             val username = app.lastFmAuth.getConnectionInfo().username
             if (apiKey.isNotBlank() && username.isNotBlank()) {
                 try {
-                    val resp = LastFmClient.api.getUserTopAlbums(username, apiKey, period, 50)
+                    val resp = LastFmClient.api.getUserTopAlbums(username, apiKey, period, 1000)
                     val list = resp.topalbums?.album?.map { TopAlbumItem(it.name, it.artist?.name ?: "", it.playcount, it.imageUrl ?: "") } ?: emptyList()
                     val enriched = list.map { a -> a.copy(imageUrl = if (a.imageUrl.isNotBlank() && !a.imageUrl.contains("2a96cbd8b46e")) a.imageUrl else DeezerImageResolver.getTrackImageWithFallback(a.name, a.artist) ?: "") }
                     albums = enriched
