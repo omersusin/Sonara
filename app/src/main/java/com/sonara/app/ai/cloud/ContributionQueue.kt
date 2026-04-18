@@ -23,8 +23,8 @@ class ContributionQueue(context: Context) {
         if (!isEnabled) return
         val c = JSONObject().apply {
             put("features", JSONArray().apply { features.toFloatArray().forEach { put(it.toDouble()) } })
-            put("genre", genre.lowercase().trim()); put("valence", "%.3f".format(mood.valence).toDouble())
-            put("arousal", "%.3f".format(mood.arousal).toDouble()); put("energy", "%.3f".format(energy).toDouble())
+            put("genre", genre.lowercase().trim()); put("valence", round3(mood.valence))
+            put("arousal", round3(mood.arousal)); put("energy", round3(energy))
             put("source", sourceType); put("timestamp", (System.currentTimeMillis() / 3600000) * 3600000) // rounded to hour
         }
         val q = getQueue(); while (q.length() >= MAX_QUEUE_SIZE) q.remove(0)
@@ -54,4 +54,5 @@ class ContributionQueue(context: Context) {
     fun reset() { prefs.edit().clear().apply() }
     private fun getQueue(): JSONArray { val j = prefs.getString(KEY_QUEUE, "[]") ?: "[]"; return try { JSONArray(j) } catch (_: Exception) { JSONArray() } }
     private fun saveQueue(q: JSONArray) { prefs.edit().putString(KEY_QUEUE, q.toString()).apply() }
+    private fun round3(v: Float): Double = kotlin.math.round(v.toDouble() * 1000.0) / 1000.0
 }

@@ -11,9 +11,17 @@ class PresetRepository(private val dao: PresetDao) {
     fun byCategory(cat: String): Flow<List<Preset>> = dao.getByCategory(cat)
 
     suspend fun initBuiltIns() {
-        if (dao.builtInCount() == 0) {
-            dao.insertAll(BuiltInPresets.ALL)
+        val existing = dao.getBuiltInsOnce().associateBy { it.name }
+        val toWrite = BuiltInPresets.ALL.map { builtIn ->
+            val old = existing[builtIn.name]
+            if (old == null) builtIn
+            else builtIn.copy(
+                id = old.id,
+                isFavorite = old.isFavorite,
+                lastUsed = old.lastUsed
+            )
         }
+        dao.insertAll(toWrite)
     }
 
     suspend fun save(preset: Preset): Long = dao.insert(preset)

@@ -42,6 +42,8 @@ class SonaraPreferences(private val context: Context) {
     private val OPENROUTER_MODEL = stringPreferencesKey("openrouter_model")
     private val GROQ_API_KEY = stringPreferencesKey("groq_api_key")
     private val GROQ_MODEL = stringPreferencesKey("groq_model")
+    private val HF_API_KEY = stringPreferencesKey("hf_api_key")
+    private val HF_MODEL = stringPreferencesKey("hf_model")
     private val THEME_MODE = stringPreferencesKey("theme_mode")
     private val DYNAMIC_COLORS_ENABLED = booleanPreferencesKey("dynamic_colors_enabled")
     private val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
@@ -171,6 +173,11 @@ class SonaraPreferences(private val context: Context) {
     suspend fun setGroqApiKey(v: String) { context.dataStore.edit { it[GROQ_API_KEY] = v } }
     val groqModelFlow: Flow<String> = context.dataStore.data.map { it[GROQ_MODEL] ?: "llama-3.3-70b-versatile" }
     suspend fun setGroqModel(v: String) { context.dataStore.edit { it[GROQ_MODEL] = v } }
+
+    val huggingFaceApiKeyFlow: Flow<String> = context.dataStore.data.map { it[HF_API_KEY] ?: "" }
+    suspend fun setHuggingFaceApiKey(v: String) { context.dataStore.edit { it[HF_API_KEY] = v } }
+    val huggingFaceModelFlow: Flow<String> = context.dataStore.data.map { it[HF_MODEL] ?: "meta-llama/Meta-Llama-3.1-8B-Instruct" }
+    suspend fun setHuggingFaceModel(v: String) { context.dataStore.edit { it[HF_MODEL] = v } }
 
     val communitySyncIntervalFlow: Flow<Int> = context.dataStore.data.map { it[COMMUNITY_SYNC_INTERVAL] ?: 50 }
     suspend fun setCommunitySyncInterval(value: Int) { context.dataStore.edit { it[COMMUNITY_SYNC_INTERVAL] = value } }

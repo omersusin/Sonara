@@ -79,7 +79,7 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
         applyJob?.cancel()
         applyJob = viewModelScope.launch {
             delay(80)
-            app.applyEq(bands, name, manual = true, bass, virt, loud, preamp)
+            app.applyEq(bands, name, manual = true, bass, virt, loud, preamp, instant = true)
         }
     }
 
