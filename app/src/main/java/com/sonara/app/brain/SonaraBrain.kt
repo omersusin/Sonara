@@ -6,13 +6,10 @@ import com.sonara.app.engine.eq.EqComposer
 import com.sonara.app.intelligence.pipeline.*
 import com.sonara.app.intelligence.provider.InsightProviderManager
 import com.sonara.app.intelligence.provider.InsightRequest
-import com.sonara.app.preset.Preset
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.json.JSONArray
-import org.json.JSONObject
 
 /**
  * SonaraBrain — Hibrit Zeka Merkezi
@@ -92,49 +89,49 @@ class SonaraBrain(
         current: FinalEqProfile,
         track: SonaraTrackInfo?
     ): ParsedIntent? {
-        val currentEqJson = buildString {
-            append("{\"bands\":[")
-            append(current.bands.joinToString(",") { "%.1f".format(it) })
-            append("],\"bassBoost\":${current.bassBoost},\"virtualizer\":${current.virtualizer},\"loudness\":${current.loudness},\"reverb\":${current.reverb}}")
-        }
+        val request = InsightRequest(
+            title = track?.title ?: "",
+            artist = track?.artist ?: "",
+            genre = current.prediction.genre.name.lowercase(),
+            subGenre = current.prediction.subGenre,
+            tags = current.prediction.tags,
+            lyricalTone = null,
+            energy = current.prediction.energy,
+            confidence = current.prediction.confidence,
+            currentEqBands = current.bands,
+            userRequest = rawCommand,
+            currentPreamp = current.preamp,
+            currentBassBoost = current.bassBoost,
+            currentVirtualizer = current.virtualizer,
+            currentLoudness = current.loudness
+        )
 
-        val trackInfo = track?.let { "\"${it.title}\" by \"${it.artist}\"" } ?: "unknown"
+        val result = insightManager.getInsight(request)
+        if (!result.success) return null
 
-        val prompt = """
-You are Sonara, an audio engineering AI. Translate the user's EQ command into a JSON intent.
-Track: $trackInfo
-Current EQ: $currentEqJson
+        // Convert InsightResult adjustments into band deltas relative to current profile
+        val targetBands = result.eqAdjustment
+        val bandDeltas = if (targetBands != null) {
+            FloatArray(10) { i -> (targetBands.getOrElse(i) { 0f } - current.bands.getOrElse(i) { 0f }).coerceIn(-12f, 12f) }
+        } else FloatArray(10)
 
-Return ONLY valid JSON (no markdown):
-{"intent":"INCREASE_BASS|DECREASE_BASS|INCREASE_TREBLE|DECREASE_TREBLE|CLARITY_MODE|VOCAL_BOOST|GENRE_OVERRIDE|RESET_EQ|UNDO","bandDeltas":[0,0,0,0,0,0,0,0,0,0],"bassBoostDelta":0,"virtualizerDelta":0,"loudnessDelta":0,"reverbPreset":-1,"confidence":0.9,"message":""}
+        val bassBoostDelta = (result.bassBoost ?: current.bassBoost) - current.bassBoost
+        val virtualizerDelta = (result.virtualizer ?: current.virtualizer) - current.virtualizer
+        val loudnessDelta = (result.loudness ?: current.loudness) - current.loudness
 
-User command: "$rawCommand"
-""".trimIndent()
+        val hasChanges = bandDeltas.any { it != 0f } || bassBoostDelta != 0 || virtualizerDelta != 0 || loudnessDelta != 0
+        if (!hasChanges) return null
 
-        val result = insightManager.getInsight(InsightRequest(prompt = prompt, maxTokens = 300))
-        val json = result?.text?.let { extractJson(it) } ?: return null
-
-        return try {
-            val obj = JSONObject(json)
-            val deltas = obj.optJSONArray("bandDeltas")?.let { arr ->
-                FloatArray(10) { i -> arr.optDouble(i, 0.0).toFloat() }
-            } ?: FloatArray(10)
-            ParsedIntent(
-                intent = CommandIntent.valueOf(obj.optString("intent", "UNKNOWN").uppercase().let {
-                    if (it in CommandIntent.entries.map { e -> e.name }) it else "UNKNOWN"
-                }),
-                bandDeltas = deltas,
-                bassBoostDelta = obj.optInt("bassBoostDelta", 0),
-                virtualizerDelta = obj.optInt("virtualizerDelta", 0),
-                loudnessDelta = obj.optInt("loudnessDelta", 0),
-                reverbPreset = obj.optInt("reverbPreset", -1),
-                confidence = obj.optDouble("confidence", 0.7).toFloat(),
-                message = obj.optString("message", "")
-            )
-        } catch (e: Exception) {
-            SonaraLogger.w(TAG, "AI JSON parse failed: ${e.message}")
-            null
-        }
+        return ParsedIntent(
+            intent = CommandIntent.GENRE_OVERRIDE,
+            bandDeltas = bandDeltas,
+            bassBoostDelta = bassBoostDelta,
+            virtualizerDelta = virtualizerDelta,
+            loudnessDelta = loudnessDelta,
+            reverbPreset = -1,
+            confidence = 0.75f,
+            message = result.summary.ifBlank { result.whyThisEq }.ifBlank { "Uygulandı." }
+        )
     }
 
     private fun applyIntent(intent: ParsedIntent, current: FinalEqProfile): CommandResult {
@@ -161,12 +158,6 @@ User command: "$rawCommand"
                 CommandResult.Apply(newProfile, intent.message.ifBlank { "Uygulandı." })
             }
         }
-    }
-
-    private fun extractJson(text: String): String? {
-        val start = text.indexOf('{')
-        val end = text.lastIndexOf('}')
-        return if (start >= 0 && end > start) text.substring(start, end + 1) else null
     }
 
     fun destroy() { scope.cancel() }
