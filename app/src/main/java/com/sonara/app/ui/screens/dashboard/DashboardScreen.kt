@@ -48,6 +48,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonara.app.ai.models.FeedbackType
+import com.sonara.app.ui.screens.settings.SettingsViewModel
 import com.sonara.app.ui.components.ChipStatus
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.components.MoodRing
@@ -83,7 +84,9 @@ import androidx.compose.runtime.setValue
 fun DashboardScreen() {
     val vm: DashboardViewModel = viewModel()
     val lyricsVm: LyricsViewModel = viewModel()
+    val settingsVm: SettingsViewModel = viewModel()
     val s by vm.uiState.collectAsState()
+    val settingsState by settingsVm.uiState.collectAsState()
     val art by vm.albumArt.collectAsState()
     val aiState by vm.aiState.collectAsState()
     val vizData by vm.visualizerData.collectAsState()
@@ -141,6 +144,7 @@ fun DashboardScreen() {
                 position = s.position,
                 positionTimestamp = s.positionTimestamp,
                 lyricsState = lyricsState,
+                lyricsAnimationStyle = settingsState.lyricsAnimationStyle,
                 onClick = if (s.playerPackage.isNotBlank()) ({
                     ctx.packageManager.getLaunchIntentForPackage(s.playerPackage)
                         ?.let { ctx.startActivity(it) }

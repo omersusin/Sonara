@@ -95,7 +95,7 @@ fun ArtistDetailScreen(artistName: String, onBack: () -> Unit, onTrackClick: (St
                     val info = LastFmClient.api.getArtistInfo(artistName, apiKey, username)
                     info.artist?.let { a ->
                         artistListeners = a.stats?.listeners ?: ""
-                        val raw = a.bio?.summary ?: ""
+                        val raw = (a.bio?.content?.takeIf { it.isNotBlank() } ?: a.bio?.summary ?: "")
                         // Strip Last.fm footer link
                         artistBio = raw.substringBefore("<a href=\"https://www.last.fm").trim()
                     }
@@ -177,9 +177,16 @@ fun ArtistDetailScreen(artistName: String, onBack: () -> Unit, onTrackClick: (St
                                     socialLinks.forEach { (name, url) ->
                                         val fullUrl = if (url.startsWith("http")) url else "https://$url"
                                         AssistChip(
-                                            onClick = { OdesliHelper.openLink(ctx, OdesliHelper.PlatformLink(name.lowercase(), name, fullUrl)) },
+                                            onClick = { OdesliHelper.openLink(ctx, OdesliHelper.PlatformLink(name = name, url = fullUrl, key = name.lowercase())) },
                                             label = { Text(name, style = MaterialTheme.typography.labelSmall) },
-                                            leadingIcon = { Icon(Icons.Rounded.Launch, null, Modifier.size(14.dp)) },
+                                            leadingIcon = {
+                                                val iconRes = platformIconRes(name.lowercase())
+                                                if (iconRes != null) {
+                                                    Icon(painterResource(iconRes), null, Modifier.size(14.dp), tint = p)
+                                                } else {
+                                                    Icon(Icons.Rounded.Launch, null, Modifier.size(14.dp))
+                                                }
+                                            },
                                             colors = AssistChipDefaults.assistChipColors(containerColor = p.copy(0.1f), labelColor = p),
                                             border = null
                                         )
@@ -344,5 +351,9 @@ fun platformIconRes(key: String): Int? = when (key) {
     "anghami" -> R.drawable.ic_anghami_24
     "boomplay" -> R.drawable.ic_boomplay_24
     "yandex" -> R.drawable.ic_yandex_music_24
+    "twitter" -> R.drawable.ic_twitter_24
+    "facebook" -> R.drawable.ic_facebook_24
+    "instagram" -> R.drawable.ic_instagram_24
+    "website" -> R.drawable.ic_website_24
     else -> null
 }

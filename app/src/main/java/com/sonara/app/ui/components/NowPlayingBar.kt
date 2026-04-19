@@ -54,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sonara.app.intelligence.artist.ArtistNameParser
 import com.sonara.app.intelligence.lyrics.LrcParser
+import com.sonara.app.intelligence.lyrics.LyricsAnimationStyle
 import com.sonara.app.intelligence.lyrics.LyricsState
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.theme.*
@@ -69,6 +70,7 @@ fun NowPlayingBar(
     position: Long = 0,
     positionTimestamp: Long = 0,
     lyricsState: LyricsState = LyricsState.Idle,
+    lyricsAnimationStyle: LyricsAnimationStyle = LyricsAnimationStyle.KARAOKE,
     onClick: (() -> Unit)? = null
 ) {
     val p = MaterialTheme.colorScheme.primary
@@ -92,7 +94,7 @@ fun NowPlayingBar(
 
     // Multi-artist display
     val displayArtist = remember(artist) { ArtistNameParser.formatForDisplay(artist) }
-    val artistCount = remember(artist) { ArtistNameParser.resolve(artist).size }
+    val artists = remember(artist) { ArtistNameParser.resolve(artist) }
 
     // Synced lyrics active line
     val readyState = lyricsState as? LyricsState.Ready
@@ -113,22 +115,22 @@ fun NowPlayingBar(
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Album art
             if (albumArt != null) {
                 Image(
                     bitmap = albumArt.asImageBitmap(),
                     contentDescription = "Album Art",
-                    modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)),
+                    modifier = Modifier.size(72.dp).clip(RoundedCornerShape(14.dp)),
                     contentScale = ContentScale.Crop
                 )
             } else {
                 Box(
-                    modifier = Modifier.size(56.dp).background(SonaraCardElevated, RoundedCornerShape(12.dp)),
+                    modifier = Modifier.size(72.dp).background(SonaraCardElevated, RoundedCornerShape(14.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.MusicNote, null, tint = p, modifier = Modifier.size(26.dp))
+                    Icon(Icons.Rounded.MusicNote, null, tint = p, modifier = Modifier.size(32.dp))
                 }
             }
 
@@ -146,11 +148,11 @@ fun NowPlayingBar(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
-                        if (artistCount > 1) {
+                        if (artists.size > 1) {
                             MultiArtistAvatarRow(
-                                artistCount = artistCount,
-                                avatarSize = 16.dp,
-                                overlap = 6.dp,
+                                artists = artists,
+                                avatarSize = 20.dp,
+                                overlap = 8.dp,
                                 maxVisible = 3
                             )
                         }
@@ -242,7 +244,7 @@ fun NowPlayingBar(
                                 val activeWord = if (isActive && lyrics.hasWordTimestamps) {
                                     LrcParser.activeWordIndex(line, estimatedPosition)
                                 } else -1
-                                SyncedLyricLine(line = line, isActive = isActive, activeWordIndex = activeWord)
+                                SyncedLyricLine(line = line, isActive = isActive, activeWordIndex = activeWord, animationStyle = lyricsAnimationStyle)
                             }
                         }
                     } else if (lyricsState.plain != null) {
