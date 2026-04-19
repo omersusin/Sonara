@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -32,19 +33,39 @@ fun SyncedLyricLine(
     line: LyricLine,
     isActive: Boolean,
     activeWordIndex: Int = -1,
+    estimatedPositionMs: Long = 0L,
     animationStyle: LyricsAnimationStyle = LyricsAnimationStyle.KARAOKE,
     modifier: Modifier = Modifier
 ) {
     val primary = MaterialTheme.colorScheme.primary
 
+    // Multi-singer alignment: v1 = left, v2 = right, v1000/null = center
+    val textAlign = when {
+        line.isBackground -> TextAlign.Center
+        line.agent == "v1" -> TextAlign.Start
+        line.agent == "v2" -> TextAlign.End
+        else -> TextAlign.Center
+    }
+
+    // Background vocals get inset padding and italic style
+    val isBackground = line.isBackground
+    val basePaddingH  = if (isBackground) 32.dp else 16.dp
+    val basePaddingV  = if (isBackground) 2.dp  else 3.dp
+    val baseTypography = if (isBackground)
+        MaterialTheme.typography.bodySmall
+    else
+        MaterialTheme.typography.bodyLarge
+
     when (animationStyle) {
+
         LyricsAnimationStyle.NONE -> {
             Text(
                 text = line.text,
-                modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp),
-                textAlign = TextAlign.Center,
-                style = if (isActive) MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
-                        else MaterialTheme.typography.bodyLarge,
+                modifier = modifier.fillMaxWidth()
+                    .padding(horizontal = basePaddingH, vertical = basePaddingV),
+                textAlign = textAlign,
+                style = if (isActive) baseTypography.copy(fontWeight = FontWeight.Bold)
+                        else baseTypography,
                 color = if (isActive) SonaraTextPrimary else SonaraTextSecondary.copy(alpha = 0.5f)
             )
         }
@@ -52,20 +73,19 @@ fun SyncedLyricLine(
         LyricsAnimationStyle.FADE -> {
             val color by animateColorAsState(
                 targetValue = if (isActive) SonaraTextPrimary else SonaraTextSecondary.copy(alpha = 0.4f),
-                animationSpec = tween(400),
-                label = "fade_color"
+                animationSpec = tween(400), label = "fade_color"
             )
             val alpha by animateFloatAsState(
                 targetValue = if (isActive) 1f else 0.5f,
-                animationSpec = tween(400),
-                label = "fade_alpha"
+                animationSpec = tween(400), label = "fade_alpha"
             )
             Text(
                 text = line.text,
-                modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp).alpha(alpha),
-                textAlign = TextAlign.Center,
-                style = if (isActive) MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
-                        else MaterialTheme.typography.bodyLarge,
+                modifier = modifier.fillMaxWidth()
+                    .padding(horizontal = basePaddingH, vertical = basePaddingV).alpha(alpha),
+                textAlign = textAlign,
+                style = if (isActive) baseTypography.copy(fontWeight = FontWeight.Bold)
+                        else baseTypography,
                 color = color
             )
         }
@@ -78,16 +98,16 @@ fun SyncedLyricLine(
             )
             val alpha by animateFloatAsState(
                 targetValue = if (isActive) 1f else 0.45f,
-                animationSpec = tween(350),
-                label = "glow_alpha"
+                animationSpec = tween(350), label = "glow_alpha"
             )
             Text(
                 text = line.text,
-                modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp)
+                modifier = modifier.fillMaxWidth()
+                    .padding(horizontal = basePaddingH, vertical = basePaddingV)
                     .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
-                textAlign = TextAlign.Center,
-                style = if (isActive) MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
-                        else MaterialTheme.typography.bodyLarge,
+                textAlign = textAlign,
+                style = if (isActive) baseTypography.copy(fontWeight = FontWeight.Bold)
+                        else baseTypography,
                 color = if (isActive) primary else SonaraTextSecondary.copy(alpha = 0.5f)
             )
         }
@@ -100,16 +120,16 @@ fun SyncedLyricLine(
             )
             val alpha by animateFloatAsState(
                 targetValue = if (isActive) 1f else 0.45f,
-                animationSpec = tween(300),
-                label = "slide_alpha"
+                animationSpec = tween(300), label = "slide_alpha"
             )
             Text(
                 text = line.text,
-                modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp)
+                modifier = modifier.fillMaxWidth()
+                    .padding(horizontal = basePaddingH, vertical = basePaddingV)
                     .graphicsLayer { translationY = offsetY; this.alpha = alpha },
-                textAlign = TextAlign.Center,
-                style = if (isActive) MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
-                        else MaterialTheme.typography.bodyLarge,
+                textAlign = textAlign,
+                style = if (isActive) baseTypography.copy(fontWeight = FontWeight.Bold)
+                        else baseTypography,
                 color = if (isActive) SonaraTextPrimary else SonaraTextSecondary.copy(alpha = 0.5f)
             )
         }
@@ -118,29 +138,32 @@ fun SyncedLyricLine(
             if (line.words.isNotEmpty() && isActive) {
                 val annotated = buildAnnotatedString {
                     line.words.forEachIndexed { idx, word ->
-                        val color = if (idx <= activeWordIndex) primary else SonaraTextSecondary.copy(alpha = 0.5f)
-                        val weight = if (idx <= activeWordIndex) FontWeight.Bold else FontWeight.Normal
-                        withStyle(SpanStyle(color = color, fontWeight = weight)) { append(word.text) }
+                        val filled = idx <= activeWordIndex
+                        withStyle(SpanStyle(
+                            color = if (filled) primary else SonaraTextSecondary.copy(alpha = 0.5f),
+                            fontWeight = if (filled) FontWeight.Bold else FontWeight.Normal
+                        )) { append(word.text) }
                     }
                 }
                 Text(
                     text = annotated,
-                    modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyLarge
+                    modifier = modifier.fillMaxWidth()
+                        .padding(horizontal = basePaddingH, vertical = basePaddingV),
+                    textAlign = textAlign,
+                    style = baseTypography
                 )
             } else {
                 val color by animateColorAsState(
                     targetValue = if (isActive) SonaraTextPrimary else SonaraTextSecondary.copy(alpha = 0.5f),
-                    animationSpec = tween(300),
-                    label = "karaoke_color"
+                    animationSpec = tween(300), label = "karaoke_color"
                 )
                 Text(
                     text = line.text,
-                    modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp),
-                    textAlign = TextAlign.Center,
-                    style = if (isActive) MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
-                            else MaterialTheme.typography.bodyLarge,
+                    modifier = modifier.fillMaxWidth()
+                        .padding(horizontal = basePaddingH, vertical = basePaddingV),
+                    textAlign = textAlign,
+                    style = if (isActive) baseTypography.copy(fontWeight = FontWeight.Bold)
+                            else baseTypography,
                     color = color
                 )
             }
@@ -152,20 +175,19 @@ fun SyncedLyricLine(
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
                     stiffness = Spring.StiffnessMediumLow
-                ),
-                label = "apple_scale"
+                ), label = "apple_scale"
             )
             val alpha by animateFloatAsState(
                 targetValue = if (isActive) 1f else 0.4f,
-                animationSpec = tween(400),
-                label = "apple_alpha"
+                animationSpec = tween(400), label = "apple_alpha"
             )
             Text(
                 text = line.text,
-                modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                modifier = modifier.fillMaxWidth()
+                    .padding(horizontal = basePaddingH, vertical = 4.dp)
                     .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodyLarge.copy(
+                textAlign = textAlign,
+                style = baseTypography.copy(
                     fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.Medium
                 ),
                 color = if (isActive) SonaraTextPrimary else SonaraTextSecondary.copy(alpha = 0.5f)
@@ -178,19 +200,18 @@ fun SyncedLyricLine(
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioLowBouncy,
                     stiffness = Spring.StiffnessMediumLow
-                ),
-                label = "apple_v2_scale"
+                ), label = "apple_v2_scale"
             )
             val alpha by animateFloatAsState(
                 targetValue = if (isActive) 1f else 0.35f,
-                animationSpec = tween(500),
-                label = "apple_v2_alpha"
+                animationSpec = tween(500), label = "apple_v2_alpha"
             )
             Text(
                 text = line.text,
-                modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                modifier = modifier.fillMaxWidth()
+                    .padding(horizontal = basePaddingH, vertical = 4.dp)
                     .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
-                textAlign = TextAlign.Center,
+                textAlign = textAlign,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = if (isActive) FontWeight.Black else FontWeight.Light
                 ),
@@ -199,33 +220,65 @@ fun SyncedLyricLine(
         }
 
         LyricsAnimationStyle.VIVIMUSIC -> {
-            val alpha by animateFloatAsState(
-                targetValue = if (isActive) 1f else 0.4f,
-                animationSpec = tween(600, easing = FastOutSlowInEasing),
-                label = "vivi_alpha"
-            )
-            val scale by animateFloatAsState(
-                targetValue = if (isActive) 1.05f else 0.95f,
-                animationSpec = tween(600, easing = FastOutSlowInEasing),
-                label = "vivi_scale"
-            )
-            Text(
-                text = line.text,
-                modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-                    .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal
-                ),
-                color = if (isActive) SonaraTextPrimary else SonaraTextSecondary.copy(alpha = 0.45f)
-            )
+            // Word-by-word fill using startMs/endMs timing when available (vivi-music style).
+            // Falls back to scale + alpha when no word timestamps are present.
+            if (line.words.isNotEmpty() && isActive && estimatedPositionMs > 0L) {
+                val annotated = buildAnnotatedString {
+                    line.words.forEach { word ->
+                        val fillProgress = if (word.endMs > word.startMs) {
+                            ((estimatedPositionMs - word.startMs).toFloat() /
+                                    (word.endMs - word.startMs).toFloat()).coerceIn(0f, 1f)
+                        } else {
+                            if (word.startMs <= estimatedPositionMs) 1f else 0f
+                        }
+                        val wordColor = lerp(
+                            SonaraTextSecondary.copy(alpha = 0.3f),
+                            primary,
+                            fillProgress
+                        )
+                        withStyle(SpanStyle(
+                            color = wordColor,
+                            fontWeight = if (fillProgress > 0.5f) FontWeight.SemiBold else FontWeight.Normal
+                        )) { append(word.text) }
+                    }
+                }
+                Text(
+                    text = annotated,
+                    modifier = modifier.fillMaxWidth()
+                        .padding(horizontal = basePaddingH, vertical = 4.dp)
+                        .graphicsLayer { scaleX = 1.05f; scaleY = 1.05f },
+                    textAlign = textAlign,
+                    style = baseTypography
+                )
+            } else {
+                val alpha by animateFloatAsState(
+                    targetValue = if (isActive) 1f else 0.4f,
+                    animationSpec = tween(600, easing = FastOutSlowInEasing),
+                    label = "vivi_alpha"
+                )
+                val scale by animateFloatAsState(
+                    targetValue = if (isActive) 1.05f else 0.95f,
+                    animationSpec = tween(600, easing = FastOutSlowInEasing),
+                    label = "vivi_scale"
+                )
+                Text(
+                    text = line.text,
+                    modifier = modifier.fillMaxWidth()
+                        .padding(horizontal = basePaddingH, vertical = 4.dp)
+                        .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
+                    textAlign = textAlign,
+                    style = baseTypography.copy(
+                        fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal
+                    ),
+                    color = if (isActive) SonaraTextPrimary else SonaraTextSecondary.copy(alpha = 0.45f)
+                )
+            }
         }
 
         LyricsAnimationStyle.LYRICS_V2 -> {
             val alpha by animateFloatAsState(
                 targetValue = if (isActive) 1f else 0.45f,
-                animationSpec = tween(500),
-                label = "v2_alpha"
+                animationSpec = tween(500), label = "v2_alpha"
             )
             val offsetY by animateFloatAsState(
                 targetValue = if (isActive) 0f else 12f,
@@ -234,11 +287,12 @@ fun SyncedLyricLine(
             )
             Text(
                 text = line.text,
-                modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp)
+                modifier = modifier.fillMaxWidth()
+                    .padding(horizontal = basePaddingH, vertical = basePaddingV)
                     .graphicsLayer { translationY = offsetY; this.alpha = alpha },
-                textAlign = TextAlign.Center,
-                style = if (isActive) MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
-                        else MaterialTheme.typography.bodyLarge,
+                textAlign = textAlign,
+                style = if (isActive) baseTypography.copy(fontWeight = FontWeight.SemiBold)
+                        else baseTypography,
                 color = if (isActive) SonaraTextPrimary else SonaraTextSecondary.copy(alpha = 0.5f)
             )
         }
@@ -246,13 +300,13 @@ fun SyncedLyricLine(
         LyricsAnimationStyle.METRO -> {
             val alpha by animateFloatAsState(
                 targetValue = if (isActive) 1f else 0.5f,
-                animationSpec = tween(200),
-                label = "metro_alpha"
+                animationSpec = tween(200), label = "metro_alpha"
             )
             Text(
                 text = line.text,
-                modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp).alpha(alpha),
-                textAlign = TextAlign.Center,
+                modifier = modifier.fillMaxWidth()
+                    .padding(horizontal = basePaddingH, vertical = 5.dp).alpha(alpha),
+                textAlign = textAlign,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = if (isActive) FontWeight.Black else FontWeight.Normal,
                     letterSpacing = if (isActive) 0.sp else 0.5.sp

@@ -31,7 +31,7 @@ import com.sonara.app.intelligence.lyrics.LyricsCacheEntity
         TrainingExample::class,
         LyricsCacheEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class SonaraDatabase : RoomDatabase() {
@@ -45,6 +45,14 @@ abstract class SonaraDatabase : RoomDatabase() {
 
     companion object {
         @Volatile private var INSTANCE: SonaraDatabase? = null
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE lyrics_cache ADD COLUMN translatedLyrics TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE lyrics_cache ADD COLUMN translationLanguage TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE lyrics_cache ADD COLUMN translationMode TEXT NOT NULL DEFAULT ''")
+            }
+        }
 
         val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -103,7 +111,7 @@ abstract class SonaraDatabase : RoomDatabase() {
         fun get(context: Context): SonaraDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(context.applicationContext, SonaraDatabase::class.java, "sonara.db")
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .fallbackToDestructiveMigration()
                     .build().also { INSTANCE = it }
             }

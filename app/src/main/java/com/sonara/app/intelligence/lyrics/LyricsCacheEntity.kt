@@ -10,9 +10,12 @@ import androidx.room.PrimaryKey
 )
 data class LyricsCacheEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val cacheKey: String,          // "title|artist" normalized
-    val syncedLyrics: String?,     // LRC text, null = unavailable
+    val cacheKey: String,
+    val syncedLyrics: String?,          // Raw LRC or TTML; re-parsed via LyricsHelper.parseRaw
     val plainLyrics: String?,
     val source: String = "lrclib",
-    val cachedAt: Long = System.currentTimeMillis()
+    val cachedAt: Long = System.currentTimeMillis(),
+    val translatedLyrics: String = "",
+    val translationLanguage: String = "",
+    val translationMode: String = ""
 )

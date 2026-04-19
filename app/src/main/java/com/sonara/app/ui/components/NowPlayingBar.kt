@@ -244,7 +244,13 @@ fun NowPlayingBar(
                                 val activeWord = if (isActive && lyrics.hasWordTimestamps) {
                                     LrcParser.activeWordIndex(line, estimatedPosition)
                                 } else -1
-                                SyncedLyricLine(line = line, isActive = isActive, activeWordIndex = activeWord, animationStyle = lyricsAnimationStyle)
+                                SyncedLyricLine(
+                                    line = line,
+                                    isActive = isActive,
+                                    activeWordIndex = activeWord,
+                                    estimatedPositionMs = estimatedPosition,
+                                    animationStyle = lyricsAnimationStyle
+                                )
                             }
                         }
                     } else if (lyricsState.plain != null) {
