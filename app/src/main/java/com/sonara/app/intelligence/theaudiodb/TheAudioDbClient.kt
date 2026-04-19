@@ -51,7 +51,13 @@ object TheAudioDbClient {
             strBiographyEN = obj.optString("strBiographyEN").takeIf { it.isNotBlank() },
             strBiographyTR = obj.optString("strBiographyTR").takeIf { it.isNotBlank() },
             strGenre = obj.optString("strGenre").takeIf { it.isNotBlank() },
-            strCountry = obj.optString("strCountry").takeIf { it.isNotBlank() }
+            strCountry = obj.optString("strCountry").takeIf { it.isNotBlank() },
+            strTwitter = obj.optString("strTwitter").takeIf { it.isNotBlank() },
+            strFacebook = obj.optString("strFacebook").takeIf { it.isNotBlank() },
+            strInstagram = obj.optString("strInstagram").takeIf { it.isNotBlank() },
+            strWebsite = obj.optString("strWebsite").takeIf { it.isNotBlank() },
+            intFormedYear = obj.optString("intFormedYear").takeIf { it.isNotBlank() },
+            intMembersNo = obj.optString("intMembersNo").toIntOrNull()
         )
     }
 

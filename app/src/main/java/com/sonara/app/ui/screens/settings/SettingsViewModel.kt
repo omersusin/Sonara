@@ -25,11 +25,23 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
-enum class LyricsAnimationStyle(val label: String) {
-    KARAOKE("Karaoke"),
-    FADE("Fade"),
-    SCROLL("Scroll"),
-    NONE("None")
+enum class LyricsAnimationStyle(val id: String, val displayName: String) {
+    NONE("NONE", "None"),
+    FADE("FADE", "Fade"),
+    GLOW("GLOW", "Glow"),
+    SLIDE("SLIDE", "Slide"),
+    KARAOKE("KARAOKE", "Karaoke"),
+    APPLE("APPLE", "Apple Music"),
+    APPLE_V2("APPLE_V2", "Apple Music V2"),
+    VIVIMUSIC("VIVIMUSIC", "Vivimusic (Fluid)"),
+    LYRICS_V2("LYRICS_V2", "Lyrics V2 (Flowing)"),
+    METRO("METRO", "MetroLyrics");
+
+    val label: String get() = displayName
+
+    companion object {
+        fun fromId(id: String) = entries.firstOrNull { it.id == id } ?: KARAOKE
+    }
 }
 
 data class SettingsUiState(
@@ -168,8 +180,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.communitySyncIntervalFlow.collect { v -> _uiState.update { it.copy(syncInterval = v) } } }
         // Lyrics settings
         viewModelScope.launch { prefs.lyricsAnimationFlow.collect { v ->
-            val style = LyricsAnimationStyle.entries.find { it.name.lowercase() == v } ?: LyricsAnimationStyle.KARAOKE
-            _uiState.update { it.copy(lyricsAnimationStyle = style) }
+            _uiState.update { it.copy(lyricsAnimationStyle = LyricsAnimationStyle.fromId(v)) }
         } }
         viewModelScope.launch { prefs.lyricsTextSizeFlow.collect { v -> _uiState.update { it.copy(lyricsTextSize = v) } } }
         viewModelScope.launch { prefs.lyricsSyncOffsetFlow.collect { v -> _uiState.update { it.copy(lyricsSyncOffsetMs = v) } } }
@@ -582,7 +593,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setLyricsAnimationStyle(style: LyricsAnimationStyle) {
-        viewModelScope.launch { prefs.setLyricsAnimation(style.name.lowercase()) }
+        viewModelScope.launch { prefs.setLyricsAnimation(style.id) }
     }
     fun setLyricsTextSize(size: Float) {
         viewModelScope.launch { prefs.setLyricsTextSize(size.coerceIn(10f, 24f)) }

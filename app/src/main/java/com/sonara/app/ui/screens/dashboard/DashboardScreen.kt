@@ -140,7 +140,11 @@ fun DashboardScreen() {
                 duration = s.duration,
                 position = s.position,
                 positionTimestamp = s.positionTimestamp,
-                lyricsState = lyricsState
+                lyricsState = lyricsState,
+                onClick = if (s.playerPackage.isNotBlank()) ({
+                    ctx.packageManager.getLaunchIntentForPackage(s.playerPackage)
+                        ?.let { ctx.startActivity(it) }
+                }) else null
             )
         }
 

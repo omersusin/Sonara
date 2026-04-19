@@ -68,7 +68,8 @@ fun NowPlayingBar(
     duration: Long = 0,
     position: Long = 0,
     positionTimestamp: Long = 0,
-    lyricsState: LyricsState = LyricsState.Idle
+    lyricsState: LyricsState = LyricsState.Idle,
+    onClick: (() -> Unit)? = null
 ) {
     val p = MaterialTheme.colorScheme.primary
     val hasTrack = title != "No music playing" && title.isNotBlank()
@@ -107,7 +108,7 @@ fun NowPlayingBar(
 
     val hasLyrics = lyricsState is LyricsState.Ready || lyricsState is LyricsState.Loading
 
-    FluentCard {
+    FluentCard(onClick = if (hasTrack) onClick else null) {
         // ── Main row ─────────────────────────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
