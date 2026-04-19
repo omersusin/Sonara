@@ -25,6 +25,13 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
+enum class LyricsAnimationStyle(val label: String) {
+    KARAOKE("Karaoke"),
+    FADE("Fade"),
+    SCROLL("Scroll"),
+    NONE("None")
+}
+
 data class SettingsUiState(
     val lastFmApiKey: String = "", val lastFmSharedSecret: String = "",
     val isApiKeySet: Boolean = false, val isSharedSecretSet: Boolean = false,
@@ -79,7 +86,11 @@ data class SettingsUiState(
     val allowedScrobbleApps: Set<String> = emptySet(),
     // Last.fm direct login
     val lastFmUsernameInput: String = "",
-    val lastFmPasswordInput: String = "")
+    val lastFmPasswordInput: String = "",
+    val lyricsAnimationStyle: LyricsAnimationStyle = LyricsAnimationStyle.KARAOKE,
+    val lyricsTextSize: Float = 14f,
+    val lyricsSyncOffsetMs: Int = 0,
+    val lyricsShowTranslated: Boolean = false)
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
@@ -155,6 +166,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
         }
         viewModelScope.launch { prefs.communitySyncIntervalFlow.collect { v -> _uiState.update { it.copy(syncInterval = v) } } }
+        // Lyrics settings
+        viewModelScope.launch { prefs.lyricsAnimationFlow.collect { v ->
+            val style = LyricsAnimationStyle.entries.find { it.name.lowercase() == v } ?: LyricsAnimationStyle.KARAOKE
+            _uiState.update { it.copy(lyricsAnimationStyle = style) }
+        } }
+        viewModelScope.launch { prefs.lyricsTextSizeFlow.collect { v -> _uiState.update { it.copy(lyricsTextSize = v) } } }
+        viewModelScope.launch { prefs.lyricsSyncOffsetFlow.collect { v -> _uiState.update { it.copy(lyricsSyncOffsetMs = v) } } }
+        viewModelScope.launch { prefs.lyricsShowTranslatedFlow.collect { v -> _uiState.update { it.copy(lyricsShowTranslated = v) } } }
+
         refreshCacheSize(); checkNotificationListener(); refreshPendingScrobbles()
         _uiState.update { it.copy(personalSamples = app.personalization.getTotalSamples()) }
     }
@@ -559,6 +579,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             prefs.setAllowedScrobbleApps(apps)
             _uiState.update { it.copy(allowedScrobbleApps = apps) }
         }
+    }
+
+    fun setLyricsAnimationStyle(style: LyricsAnimationStyle) {
+        viewModelScope.launch { prefs.setLyricsAnimation(style.name.lowercase()) }
+    }
+    fun setLyricsTextSize(size: Float) {
+        viewModelScope.launch { prefs.setLyricsTextSize(size.coerceIn(10f, 24f)) }
+    }
+    fun setLyricsSyncOffset(ms: Int) {
+        viewModelScope.launch { prefs.setLyricsSyncOffset(ms.coerceIn(-2000, 2000)) }
+    }
+    fun setLyricsShowTranslated(v: Boolean) {
+        viewModelScope.launch { prefs.setLyricsShowTranslated(v) }
     }
 
     fun setSyncInterval(value: Int) {

@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -56,6 +57,10 @@ class SonaraPreferences(private val context: Context) {
     private val HEAR_THE_DIFF_ENABLED = booleanPreferencesKey("hear_the_difference_enabled")
     private val KEY_HAS_SEEN_HEAR_DIFF = booleanPreferencesKey("has_seen_hear_the_difference")
     private val COMMUNITY_SYNC_INTERVAL = intPreferencesKey("community_sync_interval")
+    private val KEY_LYRICS_ANIMATION = stringPreferencesKey("lyrics_animation_style")
+    private val KEY_LYRICS_TEXT_SIZE = floatPreferencesKey("lyrics_text_size")
+    private val KEY_LYRICS_SYNC_OFFSET = intPreferencesKey("lyrics_sync_offset_ms")
+    private val KEY_LYRICS_SHOW_TRANSLATED = booleanPreferencesKey("lyrics_show_translated")
 
     val accentColorFlow: Flow<AccentColor> = context.dataStore.data.map { p ->
         val name = p[ACCENT_COLOR] ?: AccentColor.Amber.name
@@ -181,6 +186,18 @@ class SonaraPreferences(private val context: Context) {
 
     val communitySyncIntervalFlow: Flow<Int> = context.dataStore.data.map { it[COMMUNITY_SYNC_INTERVAL] ?: 50 }
     suspend fun setCommunitySyncInterval(value: Int) { context.dataStore.edit { it[COMMUNITY_SYNC_INTERVAL] = value } }
+
+    val lyricsAnimationFlow: Flow<String> = context.dataStore.data.map { it[KEY_LYRICS_ANIMATION] ?: "karaoke" }
+    suspend fun setLyricsAnimation(style: String) { context.dataStore.edit { it[KEY_LYRICS_ANIMATION] = style } }
+
+    val lyricsTextSizeFlow: Flow<Float> = context.dataStore.data.map { it[KEY_LYRICS_TEXT_SIZE] ?: 14f }
+    suspend fun setLyricsTextSize(size: Float) { context.dataStore.edit { it[KEY_LYRICS_TEXT_SIZE] = size } }
+
+    val lyricsSyncOffsetFlow: Flow<Int> = context.dataStore.data.map { it[KEY_LYRICS_SYNC_OFFSET] ?: 0 }
+    suspend fun setLyricsSyncOffset(ms: Int) { context.dataStore.edit { it[KEY_LYRICS_SYNC_OFFSET] = ms } }
+
+    val lyricsShowTranslatedFlow: Flow<Boolean> = context.dataStore.data.map { it[KEY_LYRICS_SHOW_TRANSLATED] ?: false }
+    suspend fun setLyricsShowTranslated(v: Boolean) { context.dataStore.edit { it[KEY_LYRICS_SHOW_TRANSLATED] = v } }
 
     suspend fun setHasSeenHearTheDifference(value: Boolean) {
         context.dataStore.edit { it[KEY_HAS_SEEN_HEAR_DIFF] = value }

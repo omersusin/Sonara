@@ -27,7 +27,13 @@ import com.sonara.app.ui.screens.insights.InsightsScreen
 import com.sonara.app.ui.screens.insights.TopArtistsListScreen
 import com.sonara.app.ui.screens.insights.TopTracksListScreen
 import com.sonara.app.ui.screens.insights.TopAlbumsListScreen
+import com.sonara.app.ui.screens.settings.AboutSettingsScreen
 import com.sonara.app.ui.screens.settings.AppPickerScreen
+import com.sonara.app.ui.screens.settings.BackupSettingsScreen
+import com.sonara.app.ui.screens.settings.BehaviorSettingsScreen
+import com.sonara.app.ui.screens.settings.LookAndFeelSettingsScreen
+import com.sonara.app.ui.screens.settings.LyricsSettingsScreen
+import com.sonara.app.ui.screens.settings.NotificationsSettingsScreen
 import com.sonara.app.ui.screens.onboarding.OnboardingScreen
 import com.sonara.app.ui.screens.presets.PresetsScreen
 import com.sonara.app.ui.screens.settings.SettingsScreen
@@ -44,6 +50,12 @@ sealed class Screen(val route: String, val label: String) {
     data object DebugLog : Screen("debug_log", "Debug")
     data object DebugPipeline : Screen("debug_pipeline", "Pipeline Debug")
     data object AppPicker : Screen("app_picker", "Choose Apps")
+    data object SettingsLookAndFeel : Screen("settings_look_feel", "Look & Feel")
+    data object SettingsBehavior : Screen("settings_behavior", "Audio & AI")
+    data object SettingsNotifications : Screen("settings_notifications", "Notifications")
+    data object SettingsBackup : Screen("settings_backup", "Backup & Restore")
+    data object SettingsAbout : Screen("settings_about", "About")
+    data object SettingsLyrics : Screen("settings_lyrics", "Lyrics")
     data object TopArtistsList : Screen("top_artists_list", "Top Artists")
     data object TopTracksList : Screen("top_tracks_list", "Top Tracks")
     data object TopAlbumsList : Screen("top_albums_list", "Top Albums")
@@ -99,12 +111,35 @@ fun SonaraNavigation() {
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(
+                    onNavigateLookAndFeel = { navController.navigate(Screen.SettingsLookAndFeel.route) },
+                    onNavigateBehavior = { navController.navigate(Screen.SettingsBehavior.route) },
+                    onNavigateNotifications = { navController.navigate(Screen.SettingsNotifications.route) },
+                    onNavigateBackup = { navController.navigate(Screen.SettingsBackup.route) },
+                    onNavigateAbout = { navController.navigate(Screen.SettingsAbout.route) },
+                    onNavigateLyrics = { navController.navigate(Screen.SettingsLyrics.route) },
                     onOpenDebugLog = { navController.navigate(Screen.DebugLog.route) },
                     onOpenPipelineDebug = { navController.navigate(Screen.DebugPipeline.route) },
                     onOpenAppPicker = { navController.navigate(Screen.AppPicker.route) }
                 )
             }
             composable(Screen.AppPicker.route) { AppPickerScreen(onBack = { navController.popBackStack() }) }
+            composable(Screen.SettingsLookAndFeel.route) { LookAndFeelSettingsScreen(onBack = { navController.popBackStack() }) }
+            composable(Screen.SettingsBehavior.route) {
+                BehaviorSettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenAppPicker = { navController.navigate(Screen.AppPicker.route) }
+                )
+            }
+            composable(Screen.SettingsNotifications.route) { NotificationsSettingsScreen(onBack = { navController.popBackStack() }) }
+            composable(Screen.SettingsBackup.route) { BackupSettingsScreen(onBack = { navController.popBackStack() }) }
+            composable(Screen.SettingsAbout.route) {
+                AboutSettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenDebugLog = { navController.navigate(Screen.DebugLog.route) },
+                    onOpenPipelineDebug = { navController.navigate(Screen.DebugPipeline.route) }
+                )
+            }
+            composable(Screen.SettingsLyrics.route) { LyricsSettingsScreen(onBack = { navController.popBackStack() }) }
             composable(Screen.TopArtistsList.route) {
                 TopArtistsListScreen(
                     onBack = { navController.popBackStack() },
