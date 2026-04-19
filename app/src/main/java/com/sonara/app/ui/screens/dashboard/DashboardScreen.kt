@@ -82,15 +82,22 @@ import androidx.compose.runtime.setValue
 @Composable
 fun DashboardScreen() {
     val vm: DashboardViewModel = viewModel()
+    val lyricsVm: LyricsViewModel = viewModel()
     val s by vm.uiState.collectAsState()
     val art by vm.albumArt.collectAsState()
     val aiState by vm.aiState.collectAsState()
     val vizData by vm.visualizerData.collectAsState()
+    val lyricsState by lyricsVm.state.collectAsState()
     val p = MaterialTheme.colorScheme.primary
     val ctx = LocalContext.current
     val lc = LocalLifecycleOwner.current
     LaunchedEffect(lc) { lc.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { vm.checkNotificationListener() } }
     LaunchedEffect(s.savedMessage) { if (s.savedMessage.isNotBlank()) Toast.makeText(ctx, s.savedMessage, Toast.LENGTH_SHORT).show() }
+    // Trigger lyrics load when track changes
+    LaunchedEffect(s.title, s.artist) {
+        if (s.hasTrack) lyricsVm.load(s.title, s.artist, "", s.duration)
+        else lyricsVm.reset()
+    }
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -125,9 +132,16 @@ fun DashboardScreen() {
         }
 
         item {
-            NowPlayingBar(title = if (s.hasTrack) s.title else "No music playing",
-                artist = s.artist, isPlaying = s.isPlaying, albumArt = art,
-                duration = s.duration, position = s.position, positionTimestamp = s.positionTimestamp)
+            NowPlayingBar(
+                title = if (s.hasTrack) s.title else "No music playing",
+                artist = s.artist,
+                isPlaying = s.isPlaying,
+                albumArt = art,
+                duration = s.duration,
+                position = s.position,
+                positionTimestamp = s.positionTimestamp,
+                lyricsState = lyricsState
+            )
         }
 
         // AI Audio Analysis
