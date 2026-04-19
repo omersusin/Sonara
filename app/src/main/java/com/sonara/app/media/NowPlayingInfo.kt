@@ -6,7 +6,9 @@ data class NowPlayingInfo(
     val album: String = "",
     val packageName: String = "",
     val isPlaying: Boolean = false,
-    val duration: Long = 0
+    val duration: Long = 0,
+    val positionMs: Long = 0L,
+    val durationMs: Long = 0L
 ) {
     val hasTrack: Boolean get() = title.isNotBlank()
     val displayTitle: String get() = title.ifBlank { "No music playing" }

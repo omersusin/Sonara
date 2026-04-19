@@ -15,6 +15,7 @@ object PresetExporter {
         val bassBoost: Int,
         val virtualizer: Int,
         val loudness: Int,
+        val reverb: Int = 0,
         val category: String,
         val genre: String?,
         val headphoneId: String?
@@ -36,6 +37,7 @@ object PresetExporter {
                 bassBoost = preset.bassBoost,
                 virtualizer = preset.virtualizer,
                 loudness = preset.loudness,
+                reverb = preset.reverb,
                 category = preset.category,
                 genre = preset.genre,
                 headphoneId = preset.headphoneId
@@ -61,6 +63,7 @@ object PresetExporter {
                     bassBoost = ep.bassBoost,
                     virtualizer = ep.virtualizer,
                     loudness = ep.loudness,
+                    reverb = ep.reverb,
                     category = ep.category,
                     genre = ep.genre,
                     headphoneId = ep.headphoneId,
