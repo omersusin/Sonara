@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sonara.app.intelligence.lyrics.LyricsAnimationStyle
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.theme.SonaraDivider
 import com.sonara.app.ui.theme.SonaraTextPrimary
