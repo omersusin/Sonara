@@ -26,8 +26,7 @@ data class EqualizerUiState(
     val availablePresets: List<Preset> = emptyList(),
     val eqActive: Boolean = false,
     val eqStrategy: String = "none",
-    val isClipping: Boolean = false,
-    val balance: Float = 0f
+    val isClipping: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -38,6 +37,7 @@ data class EqualizerUiState(
             currentPresetName == other.currentPresetName &&
             availablePresets.size == other.availablePresets.size &&
             eqStrategy == other.eqStrategy && isClipping == other.isClipping
+
     }
     override fun hashCode() = bands.contentHashCode()
 }
@@ -108,13 +108,6 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
         debouncedApply(c().bands, c().currentPresetName, c().bassBoost, v.coerceIn(0, 1000), c().loudness)
     }
 
-    fun setBalance(v: Float) {
-        _uiState.update { it.copy(balance = v.coerceIn(-1f, 1f)) }
-        val mgr = app.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
-        // Android doesn't have a direct balance API, but we can simulate with left/right volume
-        // This is a UI-only feature for now, shows the concept
-    }
-
     fun setLoudness(v: Int) {
         _uiState.update { it.copy(loudness = v.coerceIn(0, 3000)) }
         debouncedApply(c().bands, c().currentPresetName, c().bassBoost, c().virtualizer, v.coerceIn(0, 3000))
@@ -155,7 +148,7 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun applyPreset(preset: Preset) {
         applyJob?.cancel()
-        app.applyEq(preset.bandsArray(), preset.name, true, preset.bassBoost, preset.virtualizer, preset.loudness, preset.preamp)
+        app.applyEq(preset.bandsArray(), preset.name, true, preset.bassBoost, preset.virtualizer, preset.loudness, preset.preamp, instant = false, reverb = preset.reverb)
         viewModelScope.launch { app.presetRepository.markUsed(preset.id) }
     }
 
@@ -164,7 +157,8 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
             val s = c()
             app.presetRepository.save(
                 Preset(name = name, bands = Preset.fromArray(s.bands), preamp = s.preamp,
-                    bassBoost = s.bassBoost, virtualizer = s.virtualizer, loudness = s.loudness)
+                    bassBoost = s.bassBoost, virtualizer = s.virtualizer, loudness = s.loudness,
+                    reverb = s.reverb)
             )
         }
     }

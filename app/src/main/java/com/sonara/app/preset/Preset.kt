@@ -16,6 +16,7 @@ data class Preset(
     val category: String = "custom",
     val headphoneId: String? = null,
     val genre: String? = null,
+    val reverb: Int = 0,
     val isFavorite: Boolean = false,
     val lastUsed: Long = 0
 ) {

@@ -23,6 +23,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -89,101 +95,55 @@ import com.sonara.app.ui.components.StatusChip
 import com.sonara.app.ui.theme.*
 
 @Composable
-fun SettingsScreen(onOpenDebugLog: () -> Unit = {}, onOpenPipelineDebug: () -> Unit = {}, onOpenAppPicker: () -> Unit = {}) {
-    val vm: SettingsViewModel = viewModel()
-    val state by vm.uiState.collectAsState()
-    val ctx = LocalContext.current
-
+fun SettingsScreen(
+    onNavigateLookAndFeel: () -> Unit = {},
+    onNavigateBehavior: () -> Unit = {},
+    onNavigateNotifications: () -> Unit = {},
+    onNavigateBackup: () -> Unit = {},
+    onNavigateAbout: () -> Unit = {},
+    onNavigateLyrics: () -> Unit = {},
+    // Legacy params kept for backward compat (unused)
+    onOpenDebugLog: () -> Unit = {},
+    onOpenPipelineDebug: () -> Unit = {},
+    onOpenAppPicker: () -> Unit = {}
+) {
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Text("Settings", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(vertical = 8.dp)) }
-
-        if (!state.notificationListenerEnabled) {
-            item { NotificationCard(ctx) }
-        }
-
-        item { SectionHeader("Last.fm Integration") }
-        item { LastFmCard(state, vm, ctx) }
-
-
-        item { SectionHeader("Appearance") }
-        item { AppearanceCard(state, vm) }
-
-        item { SectionHeader("Playback & EQ") }
-        item { FluentCard {
-            // Legacy Analysis Layout
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text("Legacy Analysis", style = MaterialTheme.typography.bodyMedium); Text("Show feedback chips in AI card", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary) }
-                Switch(checked = state.legacyAnalysis, onCheckedChange = { vm.setLegacyAnalysis(it) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary, checkedTrackColor = MaterialTheme.colorScheme.primary.copy(0.3f)))
-            }
-            Spacer(Modifier.height(8.dp))
-            // Hear the Difference
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text("Hear the Difference", style = MaterialTheme.typography.bodyMedium); Text("Show A/B comparison banner", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary) }
-                Switch(checked = state.hearTheDiffEnabled, onCheckedChange = { vm.setHearTheDiffEnabled(it) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary, checkedTrackColor = MaterialTheme.colorScheme.primary.copy(0.3f)))
-            }
-        } }
-        item { SoundEngineCard(state, vm) }
-
-        item { SectionHeader("AI Sources") }
-        item { AiSourcesCard(state, vm) }
-
-        item { AdvancedCard(state, vm) }
-
-        item { SectionHeader("Scrobble Filter") }
-        item { ScrobbleFilterCard(state, vm, onOpenAppPicker) }
-
-        // Gemini merged into AI Sources
-
-        // Theme merged into Appearance above
-
-        item { PresetExportImportCard(vm) }
-
-        item { SectionHeader("Community") }
-        item { CommunityCard(state, vm) }
-
-        item { SectionHeader("Data & Developer") }
-        item { DataCard(state, vm) }
         item {
-            FluentCard {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text("Debug Log", style = MaterialTheme.typography.titleMedium)
-                        Text("View real-time app logs", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                    }
-                    OutlinedButton(onClick = onOpenDebugLog, shape = MaterialTheme.shapes.extraLarge,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                    ) { Text("Open") }
-                }
-            }
+            Spacer(Modifier.height(24.dp))
+            Text("Settings", style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(bottom = 4.dp))
+            Text("Tweak your experience", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(16.dp))
         }
-        item {
-            FluentCard {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text("Pipeline Debug", style = MaterialTheme.typography.titleMedium)
-                        Text("Track detection, source, EQ state", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                    }
-                    OutlinedButton(onClick = onOpenPipelineDebug, shape = MaterialTheme.shapes.extraLarge,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                    ) { Text("Open") }
-                }
-            }
-        }
-        item { SectionHeader("About") }
-        item { AboutCard(state, vm) }
-
+        item { SettingsCategoryCard(Icons.Rounded.Palette, "Look & Feel", "Dynamic color, dark theme, accent", onNavigateLookAndFeel) }
+        item { SettingsCategoryCard(Icons.Rounded.Tune, "Audio & AI", "EQ, AI sources, scrobbling, Last.fm", onNavigateBehavior) }
+        item { SettingsCategoryCard(Icons.Rounded.MusicNote, "Lyrics", "Animation style, text size, sync offset", onNavigateLyrics) }
+        item { SettingsCategoryCard(Icons.Rounded.Notifications, "Notifications", "Persistent notification settings", onNavigateNotifications) }
+        item { SettingsCategoryCard(Icons.Rounded.History, "Backup & Restore", "Export presets, clear cache", onNavigateBackup) }
+        item { SettingsCategoryCard(Icons.Rounded.Info, "About", "Version, developer tools", onNavigateAbout) }
         item { Spacer(Modifier.height(16.dp)) }
     }
 }
 
 @Composable
-private fun CommunityCard(state: SettingsUiState, vm: SettingsViewModel) {
+private fun SettingsCategoryCard(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+    FluentCard(onClick = onClick) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+            }
+            Icon(Icons.Rounded.ChevronRight, null, tint = SonaraTextTertiary)
+        }
+    }
+}
+
+@Composable
+internal fun CommunityCard(state: SettingsUiState, vm: SettingsViewModel) {
     val p = MaterialTheme.colorScheme.primary
     FluentCard {
         var showCommunityHelp by remember { mutableStateOf(false) }
@@ -281,13 +241,13 @@ private fun CommunityCard(state: SettingsUiState, vm: SettingsViewModel) {
 }
 
 @Composable
-private fun SectionHeader(t: String) {
+internal fun SectionHeader(t: String) {
     Text(t.uppercase(), style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary,
         modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp))
 }
 
 @Composable
-private fun NotificationCard(ctx: Context) {
+internal fun NotificationCard(ctx: Context) {
     FluentCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Icon(Icons.Rounded.Notifications, null, tint = SonaraWarning, modifier = Modifier.size(24.dp))
@@ -306,7 +266,7 @@ private fun NotificationCard(ctx: Context) {
 }
 
 @Composable
-private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Context) {
+internal fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Context) {
     val p = MaterialTheme.colorScheme.primary
     FluentCard {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -464,7 +424,7 @@ private fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Conte
 
 
 @Composable
-private fun AutoEqImportCard() {
+internal fun AutoEqImportCard() {
     var input by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<AutoEqImporter.ImportResult?>(null) }
     val clipboard = LocalClipboardManager.current
@@ -540,7 +500,7 @@ private fun AutoEqImportCard() {
 
 
 @Composable
-private fun SoundEngineCard(s: SettingsUiState, vm: SettingsViewModel) {
+internal fun SoundEngineCard(s: SettingsUiState, vm: SettingsViewModel) {
     FluentCard {
         SwitchRow("AI Auto-adjust", "Automatically adjust EQ based on genre and mood", s.aiEnabled) { vm.setAiEnabled(it) }
         SettingsDivider()
@@ -551,7 +511,7 @@ private fun SoundEngineCard(s: SettingsUiState, vm: SettingsViewModel) {
 }
 
 @Composable
-private fun AdvancedCard(s: SettingsUiState, vm: SettingsViewModel) {
+internal fun AdvancedCard(s: SettingsUiState, vm: SettingsViewModel) {
     FluentCard {
         SwitchRow("Smooth Transitions", "Gradual EQ changes between tracks", s.smoothTransitions) { vm.setSmoothTransitions(it) }
         SettingsDivider()
@@ -562,13 +522,11 @@ private fun AdvancedCard(s: SettingsUiState, vm: SettingsViewModel) {
             Spacer(Modifier.height(4.dp))
             Text("Pending: ${s.pendingScrobbles} scrobbles queued", style = MaterialTheme.typography.bodySmall, color = SonaraWarning)
         }
-        SettingsDivider()
-        SwitchRow("Keep Notification", "Show notification when paused", s.keepNotificationPaused) { vm.setKeepNotificationPaused(it) }
     }
 }
 
 @Composable
-private fun ModelDropdown(
+internal fun ModelDropdown(
     models: List<Pair<String, String>>,
     selectedId: String,
     isLoading: Boolean,
@@ -617,7 +575,7 @@ private fun ModelDropdown(
 }
 
 @Composable
-private fun PresetExportImportCard(vm: SettingsViewModel) {
+internal fun PresetExportImportCard(vm: SettingsViewModel) {
     val ctx = LocalContext.current
     val clipboard = LocalClipboardManager.current
     var showImportDialog by remember { mutableStateOf(false) }
@@ -702,7 +660,7 @@ private fun PresetExportImportCard(vm: SettingsViewModel) {
 }
 
 @Composable
-private fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
+internal fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
     FluentCard {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
@@ -733,7 +691,7 @@ private fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
 
 
 @Composable
-private fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
+internal fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
     val p = MaterialTheme.colorScheme.primary
     FluentCard {
         Text("Accent Color", style = MaterialTheme.typography.titleMedium)
@@ -778,7 +736,7 @@ private fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
 }
 
 @Composable
-private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
+internal fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
     FluentCard {
         var showAiSourcesHelp by remember { mutableStateOf(false) }
         if (showAiSourcesHelp) {
@@ -934,7 +892,7 @@ private fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
 }
 
 @Composable
-private fun AboutCard(state: SettingsUiState, vm: SettingsViewModel) {
+internal fun AboutCard(state: SettingsUiState, vm: SettingsViewModel) {
     var tapCount by remember { mutableStateOf(0) }
     var devMode by remember { mutableStateOf(false) }
     val ctx = LocalContext.current
@@ -983,7 +941,7 @@ private fun AboutCard(state: SettingsUiState, vm: SettingsViewModel) {
 }
 
 @Composable
-private fun ScrobbleFilterCard(state: SettingsUiState, vm: SettingsViewModel, onOpenAppPicker: () -> Unit = {}) {
+internal fun ScrobbleFilterCard(state: SettingsUiState, vm: SettingsViewModel, onOpenAppPicker: () -> Unit = {}) {
     val p = MaterialTheme.colorScheme.primary
     FluentCard(modifier = Modifier.clickable { onOpenAppPicker() }) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -1004,7 +962,7 @@ private fun ScrobbleFilterCard(state: SettingsUiState, vm: SettingsViewModel, on
 }
 
 @Composable
-private fun SwitchRow(title: String, desc: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun SwitchRow(title: String, desc: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     val p = MaterialTheme.colorScheme.primary
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
@@ -1018,12 +976,12 @@ private fun SwitchRow(title: String, desc: String, checked: Boolean, onChange: (
 }
 
 @Composable
-private fun SettingsDivider() {
+internal fun SettingsDivider() {
     HorizontalDivider(Modifier.padding(vertical = 14.dp), 0.5.dp, SonaraDivider.copy(0.5f))
 }
 
 @Composable
-private fun tfColors() = OutlinedTextFieldDefaults.colors(
+internal fun tfColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = SonaraDivider,
     focusedContainerColor = SonaraCardElevated, unfocusedContainerColor = SonaraCardElevated,
     cursorColor = MaterialTheme.colorScheme.primary, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary

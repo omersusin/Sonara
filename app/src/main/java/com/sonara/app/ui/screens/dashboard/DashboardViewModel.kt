@@ -47,7 +47,8 @@ data class DashboardUiState(
     val headphoneName: String = "",
     val savedMessage: String = "",
     val isLoved: Boolean = false,
-    val geminiSummary: String = "") {
+    val geminiSummary: String = "",
+    val playerPackage: String = "") {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is DashboardUiState) return false
@@ -120,7 +121,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch { app.eqState.collect { eq -> _uiState.update { it.copy(bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer, loudness = eq.loudness, currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset, eqActive = eq.isEnabled) } } }
         viewModelScope.launch { SonaraNotificationListener.nowPlaying.collect { np ->
-            _uiState.update { it.copy(title = np.title, artist = np.artist, isPlaying = np.isPlaying, hasTrack = np.title.isNotBlank(), duration = np.duration, position = np.position, positionTimestamp = np.positionTimestamp) }
+            _uiState.update { it.copy(title = np.title, artist = np.artist, isPlaying = np.isPlaying, hasTrack = np.title.isNotBlank(), duration = np.duration, position = np.position, positionTimestamp = np.positionTimestamp, playerPackage = np.packageName) }
             if (np.title.isNotBlank()) {
                 val cached = LoveStateCache.isLoved(np.title, np.artist)
                 if (cached != null) _uiState.update { it.copy(isLoved = cached) }

@@ -35,7 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -78,26 +78,45 @@ fun RecentTracksScreen(
     // Tracks shown in this screen — may grow with load-more
     var extraTracks by remember { mutableStateOf<List<RecentTrackItem>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
-    var currentPage by remember { mutableIntStateOf(1) }
     var hasMore by remember { mutableStateOf(true) }
+
+    // Timestamp anchor for pagination: oldest uts seen so far.
+    // Each load-more fetches 200 tracks strictly BEFORE this timestamp,
+    // eliminating the page-drift bug caused by page-number-only pagination.
+    var oldestUts by remember { mutableLongStateOf(0L) }
 
     // On open: refresh to get freshest data
     LaunchedEffect(Unit) {
         vm.refreshAllRecentTracks()
     }
 
+    // Keep oldestUts in sync with the initial (ViewModel-provided) batch
+    LaunchedEffect(s.recentTracks) {
+        val min = s.recentTracks.filter { it.uts > 0 }.minOfOrNull { it.uts }
+        if (min != null && (oldestUts == 0L || min < oldestUts)) oldestUts = min
+    }
+
     val allTracks = s.recentTracks + extraTracks
 
     fun loadNextPage() {
+        if (oldestUts <= 0L) return
         loading = true
-        val nextPage = currentPage + 1
         scope.launch {
             val newTracks = withContext(Dispatchers.IO) {
                 try {
                     val apiKey = app.lastFmAuth.getActiveApiKey()
                     val username = app.lastFmAuth.getConnectionInfo().username
                     if (apiKey.isBlank() || username.isBlank()) return@withContext emptyList()
-                    val resp = LastFmClient.api.getRecentTracks(username, apiKey, 200, nextPage)
+                    // Fetch page 1 of tracks that ended before our oldest known timestamp.
+                    // This guarantees continuity regardless of how many new scrobbles
+                    // the user adds between requests.
+                    val resp = LastFmClient.api.getRecentTracksRange(
+                        username, apiKey,
+                        from = 0L,
+                        to = oldestUts - 1,
+                        limit = 200,
+                        page = 1
+                    )
                     resp.recenttracks?.track
                         ?.filter { it.date != null }
                         ?.map { t ->
@@ -113,8 +132,14 @@ fun RecentTracksScreen(
                         } ?: emptyList<RecentTrackItem>()
                 } catch (_: Exception) { emptyList() }
             }
-            if (newTracks.isEmpty()) hasMore = false
-            else { extraTracks = extraTracks + newTracks; currentPage = nextPage }
+            if (newTracks.isEmpty()) {
+                hasMore = false
+            } else {
+                extraTracks = extraTracks + newTracks
+                // Advance the anchor to the oldest track in this new batch
+                val newMin = newTracks.filter { it.uts > 0 }.minOfOrNull { it.uts }
+                if (newMin != null) oldestUts = newMin
+            }
             loading = false
         }
     }

@@ -48,6 +48,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonara.app.ai.models.FeedbackType
+import com.sonara.app.ui.screens.settings.SettingsViewModel
 import com.sonara.app.ui.components.ChipStatus
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.components.MoodRing
@@ -82,15 +83,24 @@ import androidx.compose.runtime.setValue
 @Composable
 fun DashboardScreen() {
     val vm: DashboardViewModel = viewModel()
+    val lyricsVm: LyricsViewModel = viewModel()
+    val settingsVm: SettingsViewModel = viewModel()
     val s by vm.uiState.collectAsState()
+    val settingsState by settingsVm.uiState.collectAsState()
     val art by vm.albumArt.collectAsState()
     val aiState by vm.aiState.collectAsState()
     val vizData by vm.visualizerData.collectAsState()
+    val lyricsState by lyricsVm.state.collectAsState()
     val p = MaterialTheme.colorScheme.primary
     val ctx = LocalContext.current
     val lc = LocalLifecycleOwner.current
     LaunchedEffect(lc) { lc.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { vm.checkNotificationListener() } }
     LaunchedEffect(s.savedMessage) { if (s.savedMessage.isNotBlank()) Toast.makeText(ctx, s.savedMessage, Toast.LENGTH_SHORT).show() }
+    // Trigger lyrics load when track changes
+    LaunchedEffect(s.title, s.artist) {
+        if (s.hasTrack) lyricsVm.load(s.title, s.artist, "", s.duration)
+        else lyricsVm.reset()
+    }
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -125,81 +135,49 @@ fun DashboardScreen() {
         }
 
         item {
-            NowPlayingBar(title = if (s.hasTrack) s.title else "No music playing",
-                artist = s.artist, isPlaying = s.isPlaying, albumArt = art,
-                duration = s.duration, position = s.position, positionTimestamp = s.positionTimestamp)
+            NowPlayingBar(
+                title = if (s.hasTrack) s.title else "No music playing",
+                artist = s.artist,
+                isPlaying = s.isPlaying,
+                albumArt = art,
+                duration = s.duration,
+                position = s.position,
+                positionTimestamp = s.positionTimestamp,
+                lyricsState = lyricsState,
+                lyricsAnimationStyle = settingsState.lyricsAnimationStyle,
+                onClick = if (s.playerPackage.isNotBlank()) ({
+                    ctx.packageManager.getLaunchIntentForPackage(s.playerPackage)
+                        ?.let { ctx.startActivity(it) }
+                }) else null
+            )
         }
 
-        // AI Audio Analysis
-        if (aiState.isReady && s.hasTrack) {
+        // Unified AI Analysis + MoodRing card
+        if (s.hasTrack) {
             item {
                 var feedbackSent by remember(s.title) { mutableStateOf(false) }
                 var feedbackText by remember(s.title) { mutableStateOf("") }
                 FluentCard {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Rounded.Hearing, null, Modifier.size(18.dp), tint = p)
-                        Text(aiState.status.display, style = MaterialTheme.typography.labelMedium, color = p)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text("${s.genre} · ${s.mood} · Confidence ${(s.confidence * 100).toInt()}%",
-                        style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
-                    Spacer(Modifier.height(4.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        StatusChip(s.sourceLabel, ChipStatus.Active, Icons.Rounded.Memory, compact = true)
-                        StatusChip(if (s.confidence > 0.7f) "High" else if (s.confidence > 0.4f) "Med" else "Low",
-                            if (s.confidence > 0.5f) ChipStatus.Active else ChipStatus.Inactive, compact = true)
-                    }
-                    if (!feedbackSent) {
-                        // Legacy: show chips. Modern: text only
-                        if (s.legacyAnalysis) {
-                            Spacer(Modifier.height(12.dp))
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                FeedbackType.allOptions.forEach { fb ->
-                                    AssistChip(onClick = { vm.onAiFeedback(fb.id); feedbackSent = true
-                                        Toast.makeText(ctx, "${fb.emoji} ${fb.label}", Toast.LENGTH_SHORT).show() },
-                                        label = { Text("${fb.emoji} ${fb.label}", style = MaterialTheme.typography.labelSmall) },
-                                        colors = AssistChipDefaults.assistChipColors(containerColor = SonaraCardElevated))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                        MoodRing(mood = s.mood, energy = s.energy, genre = s.genre, modifier = Modifier.size(112.dp))
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            if (aiState.isReady) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Icon(Icons.Rounded.Hearing, null, Modifier.size(14.dp), tint = p)
+                                    Text(aiState.status.display, style = MaterialTheme.typography.labelSmall, color = p)
                                 }
                             }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedTextField(value = feedbackText, onValueChange = { feedbackText = it },
-                                placeholder = { Text("Tell AI what you want...", color = SonaraTextTertiary, style = MaterialTheme.typography.bodySmall) },
-                                modifier = Modifier.weight(1f).height(44.dp), singleLine = true, textStyle = MaterialTheme.typography.bodySmall,
-                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p, unfocusedBorderColor = SonaraDivider.copy(0.5f),
-                                    cursorColor = p, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary))
-                            FilledTonalButton(onClick = { vm.onAiFeedback("custom:$feedbackText"); feedbackSent = true
-                                Toast.makeText(ctx, "Applying...", Toast.LENGTH_SHORT).show() },
-                                enabled = feedbackText.isNotBlank(),
-                                colors = ButtonDefaults.filledTonalButtonColors(containerColor = p, contentColor = SonaraBackground)
-                            ) { Text("Apply", style = MaterialTheme.typography.labelSmall) }
-                        }
-                    } else {
-                        Spacer(Modifier.height(8.dp))
-                        Text("✓ AI applied your request!", style = MaterialTheme.typography.labelSmall, color = SonaraSuccess)
-                    }
-                }
-            }
-        }
-
-        if (s.hasTrack) {
-            item {
-                FluentCard {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                        MoodRing(mood = s.mood, energy = s.energy, genre = s.genre, modifier = Modifier.size(120.dp))
-                        Spacer(Modifier.width(16.dp))
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             if (s.sourceLabel != "None") StatusChip(
                                 s.sourceLabel, ChipStatus.Active,
-                                if (s.sourceLabel.contains("Last")) Icons.Rounded.Public else Icons.Rounded.Memory
+                                if (s.sourceLabel.contains("Last")) Icons.Rounded.Public else Icons.Rounded.Memory,
+                                compact = true
                             )
                             Text("${s.genre} / ${s.mood}", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
                             Text("Confidence ${(s.confidence * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                            Text("Route: ${s.route}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                             if (s.songsLearned > 0) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Icon(Icons.Rounded.School, null, Modifier.size(14.dp), tint = p)
+                                    Icon(Icons.Rounded.School, null, Modifier.size(12.dp), tint = p)
                                     Text("${s.songsLearned} songs learned", style = MaterialTheme.typography.labelSmall, color = p)
                                 }
                             }
@@ -209,10 +187,44 @@ fun DashboardScreen() {
                         Spacer(Modifier.height(8.dp))
                         Text(s.geminiSummary, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (s.bassBoost > 0) Pill("Bass", "${(s.bassBoost / 10f).toInt()}%", Modifier.weight(1f), p)
-                        if (s.virtualizer > 0) Pill("Surround", "${(s.virtualizer / 10f).toInt()}%", Modifier.weight(1f), p)
+                    val hasPills = s.bassBoost > 0 || s.virtualizer > 0
+                    if (hasPills) {
+                        Spacer(Modifier.height(10.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (s.bassBoost > 0) Pill("Bass", "${(s.bassBoost / 10f).toInt()}%", Modifier.weight(1f), p)
+                            if (s.virtualizer > 0) Pill("Surround", "${(s.virtualizer / 10f).toInt()}%", Modifier.weight(1f), p)
+                        }
+                    }
+                    if (aiState.isReady) {
+                        if (!feedbackSent) {
+                            if (s.legacyAnalysis) {
+                                Spacer(Modifier.height(10.dp))
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    FeedbackType.allOptions.forEach { fb ->
+                                        AssistChip(onClick = { vm.onAiFeedback(fb.id); feedbackSent = true
+                                            Toast.makeText(ctx, "${fb.emoji} ${fb.label}", Toast.LENGTH_SHORT).show() },
+                                            label = { Text("${fb.emoji} ${fb.label}", style = MaterialTheme.typography.labelSmall) },
+                                            colors = AssistChipDefaults.assistChipColors(containerColor = SonaraCardElevated))
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                OutlinedTextField(value = feedbackText, onValueChange = { feedbackText = it },
+                                    placeholder = { Text("Tell AI what you want...", color = SonaraTextTertiary, style = MaterialTheme.typography.bodySmall) },
+                                    modifier = Modifier.weight(1f).height(44.dp), singleLine = true, textStyle = MaterialTheme.typography.bodySmall,
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p, unfocusedBorderColor = SonaraDivider.copy(0.5f),
+                                        cursorColor = p, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary))
+                                FilledTonalButton(onClick = { vm.onAiFeedback("custom:$feedbackText"); feedbackSent = true
+                                    Toast.makeText(ctx, "Applying...", Toast.LENGTH_SHORT).show() },
+                                    enabled = feedbackText.isNotBlank(),
+                                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = p, contentColor = SonaraBackground)
+                                ) { Text("Apply", style = MaterialTheme.typography.labelSmall) }
+                            }
+                        } else {
+                            Spacer(Modifier.height(8.dp))
+                            Text("✓ AI applied your request!", style = MaterialTheme.typography.labelSmall, color = SonaraSuccess)
+                        }
                     }
                 }
             }

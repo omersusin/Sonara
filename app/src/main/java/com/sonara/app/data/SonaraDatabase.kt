@@ -18,6 +18,8 @@ import com.sonara.app.intelligence.lastfm.PendingScrobble
 import com.sonara.app.intelligence.lastfm.PendingScrobbleDao
 import com.sonara.app.ai.models.TrainingExample
 import com.sonara.app.ai.models.TrainingExampleDao
+import com.sonara.app.intelligence.lyrics.LyricsCacheDao
+import com.sonara.app.intelligence.lyrics.LyricsCacheEntity
 
 @Database(
     entities = [
@@ -26,9 +28,10 @@ import com.sonara.app.ai.models.TrainingExampleDao
         UserEqPreference::class,
         UserFeedback::class,
         PendingScrobble::class,
-        TrainingExample::class
+        TrainingExample::class,
+        LyricsCacheEntity::class
     ],
-    version = 5,
+    version = 8,
     exportSchema = false
 )
 abstract class SonaraDatabase : RoomDatabase() {
@@ -38,9 +41,38 @@ abstract class SonaraDatabase : RoomDatabase() {
     abstract fun userFeedbackDao(): UserFeedbackDao
     abstract fun pendingScrobbleDao(): PendingScrobbleDao
     abstract fun trainingExampleDao(): TrainingExampleDao
+    abstract fun lyricsCacheDao(): LyricsCacheDao
 
     companion object {
         @Volatile private var INSTANCE: SonaraDatabase? = null
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE lyrics_cache ADD COLUMN translatedLyrics TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE lyrics_cache ADD COLUMN translationLanguage TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE lyrics_cache ADD COLUMN translationMode TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS lyrics_cache (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    cacheKey TEXT NOT NULL,
+                    syncedLyrics TEXT,
+                    plainLyrics TEXT,
+                    source TEXT NOT NULL DEFAULT 'lrclib',
+                    cachedAt INTEGER NOT NULL
+                )""")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_lyrics_cache_cacheKey ON lyrics_cache (cacheKey)")
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE presets ADD COLUMN reverb INTEGER NOT NULL DEFAULT 0")
+            }
+        }
 
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -79,7 +111,7 @@ abstract class SonaraDatabase : RoomDatabase() {
         fun get(context: Context): SonaraDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(context.applicationContext, SonaraDatabase::class.java, "sonara.db")
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .fallbackToDestructiveMigration()
                     .build().also { INSTANCE = it }
             }

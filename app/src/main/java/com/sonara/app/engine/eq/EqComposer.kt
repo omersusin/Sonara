@@ -109,6 +109,28 @@ class EqComposer {
         Mood.NEUTRAL to floatArrayOf(0f,0f,0f,0f,0f,0f,0f,0f,0f,0f)
     )
 
+    // ═══ Per-genre reverb presets (0=Off 1=SmallRoom 2=MedRoom 3=LargeRoom 4=MedHall 5=LargeHall 6=Plate) ═══
+    private val genreReverb: Map<Genre, Int> = mapOf(
+        Genre.CLASSICAL  to 4,   // Medium Hall — concert hall feel
+        Genre.JAZZ       to 2,   // Medium Room — intimate club
+        Genre.AMBIENT    to 3,   // Large Room — spacious atmosphere
+        Genre.SOUL       to 2,   // Medium Room — warm, intimate
+        Genre.BLUES      to 1,   // Small Room — club stage
+        Genre.FOLK       to 1,   // Small Room — acoustic space
+        Genre.INDIE      to 1,   // Small Room — indie venue
+        Genre.ALTERNATIVE to 1, // Small Room
+        Genre.COUNTRY    to 1,   // Small Room — studio hall
+        Genre.REGGAE     to 2,   // Medium Room
+        Genre.PUNK       to 0,   // Off — raw/dry
+        Genre.METAL      to 0,   // Off — tight and punchy
+        Genre.ELECTRONIC to 0,   // Off — electronic is already processed
+        Genre.DANCE      to 0,   // Off — club is already processed
+        Genre.HIP_HOP    to 0,   // Off
+        Genre.RNB        to 1,   // Small Room — studio feel
+        Genre.PODCAST    to 0,   // Off — voice clarity
+        Genre.AUDIOBOOK  to 0,   // Off
+    )
+
     private val routeCorr = mapOf(
         AudioRoute.SPEAKER to floatArrayOf(3.0f,2.5f,1.5f,0.5f,0.0f,0.0f,-0.5f,-1.0f,-0.5f,0.0f),
         AudioRoute.BLUETOOTH to floatArrayOf(0.5f,0.5f,0.5f,0.0f,0.0f,0.0f,0.5f,0.5f,1.0f,0.5f),
@@ -171,7 +193,8 @@ class EqComposer {
         val bassBoost = when (prediction.genre) { Genre.HIP_HOP -> 500; Genre.ELECTRONIC, Genre.DANCE -> 450; Genre.REGGAE -> 420; Genre.RNB, Genre.LATIN -> 350; Genre.METAL -> 300; Genre.ROCK, Genre.POP -> 200; else -> 100 }
         val virtualizer = when (prediction.genre) { Genre.ELECTRONIC, Genre.DANCE -> 500; Genre.AMBIENT, Genre.CLASSICAL -> 300; Genre.JAZZ -> 250; Genre.PODCAST, Genre.AUDIOBOOK -> 0; else -> 200 }
         val loudness = when { prediction.energy > 0.7f -> 200; prediction.energy < 0.3f -> 0; else -> 100 }
+        val reverb = genreReverb[prediction.genre] ?: 0
 
-        return FinalEqProfile(bands, preamp, bassBoost, virtualizer, loudness, prediction)
+        return FinalEqProfile(bands, preamp, bassBoost, virtualizer, loudness, prediction, reverb)
     }
 }

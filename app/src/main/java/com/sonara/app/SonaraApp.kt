@@ -248,14 +248,16 @@ class SonaraApp : Application() {
                     toVirt = profile.virtualizer,
                     fromLoud = currentState.loudness,
                     toLoud = profile.loudness,
+                    fromReverb = currentState.reverb,
+                    toReverb = profile.reverb,
                     onBandStep = { audioSessionManager.applyBands(it) },
-                    onEffectStep = { b, v, l -> audioSessionManager.applyEffects(b, v, l) }
+                    onEffectStep = { b, v, l, r -> audioSessionManager.applyEffects(b, v, l, r) }
                 )
             }
         } else {
             transitionJob?.cancel()
             audioSessionManager.applyBands(adjustedTarget)
-            audioSessionManager.applyEffects(profile.bassBoost, profile.virtualizer, profile.loudness)
+            audioSessionManager.applyEffects(profile.bassBoost, profile.virtualizer, profile.loudness, profile.reverb)
         }
 
         _currentProfile.value = profile
@@ -266,7 +268,8 @@ class SonaraApp : Application() {
                 isManualPreset = false,
                 bassBoost = profile.bassBoost,
                 virtualizer = profile.virtualizer,
-                loudness = profile.loudness
+                loudness = profile.loudness,
+                reverb = profile.reverb
             )
         }
 
@@ -278,11 +281,12 @@ class SonaraApp : Application() {
         val (safeBands, safePreamp) = if (useSafety) SafetyLimiter.limit(profile.bands, profile.preamp) else profile.bands to profile.preamp
         val adjusted = FloatArray(safeBands.size) { (safeBands[it] + safePreamp).coerceIn(-12f, 12f) }
         audioSessionManager.applyBands(adjusted)
-        audioSessionManager.applyEffects(profile.bassBoost, profile.virtualizer, profile.loudness)
+        audioSessionManager.applyEffects(profile.bassBoost, profile.virtualizer, profile.loudness, profile.reverb)
         _currentProfile.value = profile
         _eqState.update {
             it.copy(bands = safeBands.take(10).toFloatArray(), presetName = "AI: ${profile.prediction.genre.displayName}",
-                isManualPreset = false, bassBoost = profile.bassBoost, virtualizer = profile.virtualizer, loudness = profile.loudness)
+                isManualPreset = false, bassBoost = profile.bassBoost, virtualizer = profile.virtualizer,
+                loudness = profile.loudness, reverb = profile.reverb)
         }
     }
 
@@ -318,8 +322,10 @@ class SonaraApp : Application() {
                     toVirt = virtualizer,
                     fromLoud = currentState.loudness,
                     toLoud = loudness,
+                    fromReverb = currentState.reverb,
+                    toReverb = reverb,
                     onBandStep = { audioSessionManager.applyBands(it) },
-                    onEffectStep = { b, v, l -> audioSessionManager.applyEffects(b, v, l, reverb) }
+                    onEffectStep = { b, v, l, r -> audioSessionManager.applyEffects(b, v, l, r) }
                 )
             }
         } else {
@@ -362,6 +368,7 @@ class SonaraApp : Application() {
                 name = name, bands = com.sonara.app.preset.Preset.fromArray(profile.bands),
                 preamp = profile.preamp, bassBoost = profile.bassBoost,
                 virtualizer = profile.virtualizer, loudness = profile.loudness,
+                reverb = profile.reverb,
                 category = "ai-generated", genre = profile.prediction.genre.name)
             presetRepository.save(preset)
             SonaraLogger.i("App", "Saved AI preset: $name")

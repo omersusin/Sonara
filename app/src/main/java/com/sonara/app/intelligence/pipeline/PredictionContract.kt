@@ -17,16 +17,17 @@ data class SonaraPrediction(
 
 data class FinalEqProfile(
     val bands: FloatArray, val preamp: Float, val bassBoost: Int,
-    val virtualizer: Int, val loudness: Int, val prediction: SonaraPrediction
+    val virtualizer: Int, val loudness: Int, val prediction: SonaraPrediction,
+    val reverb: Int = 0
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true; if (other !is FinalEqProfile) return false
-        return bands.contentEquals(other.bands) && preamp == other.preamp && bassBoost == other.bassBoost
+        return bands.contentEquals(other.bands) && preamp == other.preamp && bassBoost == other.bassBoost && reverb == other.reverb
     }
     override fun hashCode() = bands.contentHashCode()
     companion object {
         fun neutral() = FinalEqProfile(FloatArray(10), 0f, 0, 0, 0,
-            SonaraPrediction(Genre.UNKNOWN, null, Mood.NEUTRAL, 0.5f, 0f, PredictionSource.FALLBACK, MediaType.UNKNOWN))
+            SonaraPrediction(Genre.UNKNOWN, null, Mood.NEUTRAL, 0.5f, 0f, PredictionSource.FALLBACK, MediaType.UNKNOWN), reverb = 0)
     }
 }
 
