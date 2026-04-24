@@ -9,7 +9,8 @@ data class LastFmTrack(
     val album: LastFmAlbum? = null,
     val toptags: LastFmTopTags? = null,
     val duration: String? = null,
-    val listeners: String? = null
+    val listeners: String? = null,
+    val playcount: String? = null
 )
 data class LastFmArtist(val name: String = "")
 data class LastFmAlbum(
@@ -121,3 +122,25 @@ data class LastFmArtistInfo(
 )
 data class LastFmBio(val summary: String = "", val content: String = "")
 data class LastFmArtistStats(val listeners: String = "", val playcount: String = "")
+
+// ═══ Similar Artists / Tracks ═══
+data class LastFmSimilarArtistsResponse(val similarartists: LastFmSimilarArtistsList? = null)
+data class LastFmSimilarArtistsList(val artist: List<LastFmSimilarArtist> = emptyList())
+data class LastFmSimilarArtist(
+    val name: String = "",
+    val match: String = "0",
+    val image: List<LastFmImage> = emptyList()
+) {
+    val imageUrl: String? get() = image.lastOrNull { it.text.isNotBlank() && !it.text.contains("2a96cbd8b46e") }?.text
+}
+
+data class LastFmSimilarTracksResponse(val similartracks: LastFmSimilarTracksList? = null)
+data class LastFmSimilarTracksList(val track: List<LastFmSimilarTrack> = emptyList())
+data class LastFmSimilarTrack(
+    val name: String = "",
+    val artist: LastFmArtist? = null,
+    val match: String = "0",
+    val image: List<LastFmImage> = emptyList()
+) {
+    val imageUrl: String? get() = image.lastOrNull { it.text.isNotBlank() && !it.text.contains("2a96cbd8b46e") }?.text
+}

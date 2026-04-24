@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,6 +26,7 @@ import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Launch
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -53,6 +53,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -61,6 +62,7 @@ import com.sonara.app.intelligence.deezer.DeezerImageResolver
 import com.sonara.app.intelligence.events.BandsintownClient
 import com.sonara.app.intelligence.events.BandsintownEvent
 import com.sonara.app.intelligence.lastfm.LastFmClient
+import com.sonara.app.intelligence.lastfm.LastFmSimilarArtist
 import com.sonara.app.intelligence.odesli.OdesliHelper
 import com.sonara.app.intelligence.theaudiodb.AudioDbAlbum
 import com.sonara.app.intelligence.theaudiodb.AudioDbArtist
@@ -78,7 +80,8 @@ fun ArtistDetailScreen(
     artistName: String,
     onBack: () -> Unit,
     onTrackClick: (String, String) -> Unit = { _, _ -> },
-    onAlbumClick: (name: String, artist: String, plays: String, imageUrl: String) -> Unit = { _, _, _, _ -> }
+    onAlbumClick: (name: String, artist: String, plays: String, imageUrl: String) -> Unit = { _, _, _, _ -> },
+    onArtistClick: (String) -> Unit = {}
 ) {
     val ctx = LocalContext.current
     val p = MaterialTheme.colorScheme.primary
@@ -91,24 +94,22 @@ fun ArtistDetailScreen(
     var loading by remember { mutableStateOf(true) }
     var artistTags by remember { mutableStateOf<List<String>>(emptyList()) }
     var userPlayCount by remember { mutableStateOf("") }
+    var globalPlayCount by remember { mutableStateOf("") }
     var platformLinks by remember { mutableStateOf<List<OdesliHelper.PlatformLink>>(emptyList()) }
-    // Tracks with (title, plays, imageUrl)
     var userTopTracks by remember { mutableStateOf<List<Triple<String, String, String>>>(emptyList()) }
-    var deezerTopTracks by remember { mutableStateOf<List<DeezerImageResolver.ArtistDetail.Track>>(emptyList()) }
+    var deezerTopTracks by remember { mutableStateOf<List<DeezerImageResolver.TrackItem>>(emptyList()) }
     var artistBio by remember { mutableStateOf("") }
     var artistListeners by remember { mutableStateOf("") }
     var upcomingEvents by remember { mutableStateOf<List<BandsintownEvent>>(emptyList()) }
+    var similarArtists by remember { mutableStateOf<List<LastFmSimilarArtist>>(emptyList()) }
 
     LaunchedEffect(artistName) {
         withContext(Dispatchers.IO) {
-            // Parallel: Deezer + AudioDB + Bandsintown
             detail = DeezerImageResolver.getArtistDetail(artistName)
-            deezerTopTracks = detail?.topTracks ?: emptyList()
+            deezerTopTracks = detail?.topTracks ?: emptyList<DeezerImageResolver.TrackItem>()
 
             try { audioDbArtist = TheAudioDbClient.searchArtist(artistName) } catch (_: Exception) {}
             try { upcomingEvents = BandsintownClient.getUpcomingEvents(artistName) } catch (_: Exception) {}
-
-            // Discography from TheAudioDB
             try {
                 discography = TheAudioDbClient.getDiscography(artistName)
                     .sortedByDescending { it.intYearReleased ?: 0 }
@@ -121,6 +122,7 @@ fun ArtistDetailScreen(
                     val info = LastFmClient.api.getArtistInfo(artistName, apiKey, username)
                     info.artist?.let { a ->
                         artistListeners = a.stats?.listeners ?: ""
+                        globalPlayCount = a.stats?.playcount ?: ""
                         val raw = a.bio?.content?.takeIf { it.isNotBlank() } ?: a.bio?.summary ?: ""
                         artistBio = raw.substringBefore("<a href=\"https://www.last.fm").trim()
                     }
@@ -128,6 +130,18 @@ fun ArtistDetailScreen(
                 try {
                     artistTags = LastFmClient.api.getArtistTags(artistName, apiKey)
                         .toptags?.tag?.take(10)?.map { it.name }?.filter { it.isNotBlank() } ?: emptyList()
+                } catch (_: Exception) {}
+                try {
+                    val sim = LastFmClient.api.getSimilarArtists(artistName, apiKey, 8)
+                    val raw = sim.similarartists?.artist ?: emptyList()
+                    val enriched = raw.map { a ->
+                        val img = a.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") }
+                            ?: DeezerImageResolver.getArtistImageWithFallback(a.name) ?: ""
+                        a.copy(image = if (img.isNotBlank()) listOf(
+                            com.sonara.app.intelligence.lastfm.LastFmImage(img, "large")
+                        ) else a.image)
+                    }
+                    similarArtists = enriched
                 } catch (_: Exception) {}
                 if (username.isNotBlank()) {
                     try {
@@ -138,18 +152,16 @@ fun ArtistDetailScreen(
                 }
             }
 
-            // User's top tracks by this artist — with album art
             if (username.isNotBlank() && apiKey.isNotBlank()) {
                 try {
                     val topTr = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 200)
-                    val byArtist = topTr.toptracks?.track
+                    userTopTracks = topTr.toptracks?.track
                         ?.filter { it.artist?.name.equals(artistName, ignoreCase = true) }
                         ?.take(15)
                         ?.map { t ->
                             val img = t.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") } ?: ""
                             Triple(t.name, t.playcount, img)
                         } ?: emptyList()
-                    userTopTracks = byArtist
                 } catch (_: Exception) {}
             }
 
@@ -179,55 +191,91 @@ fun ArtistDetailScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+
                 // ── Artist header ─────────────────────────────────────────────────
                 item {
                     FluentCard {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
                             val imageUrl = audioDbArtist?.strThumb?.takeIf { it.isNotBlank() }
                                 ?: d?.imageUrl?.takeIf { it.isNotBlank() }
                             if (!imageUrl.isNullOrBlank()) {
                                 AsyncImage(
                                     model = ImageRequest.Builder(ctx).data(imageUrl).crossfade(true).build(),
                                     contentDescription = artistName,
-                                    modifier = Modifier.size(100.dp).clip(CircleShape),
+                                    modifier = Modifier.size(96.dp).clip(CircleShape),
                                     contentScale = ContentScale.Crop
                                 )
                             } else {
-                                Surface(Modifier.size(100.dp), shape = CircleShape, color = p.copy(0.15f)) {
+                                Surface(Modifier.size(96.dp), shape = CircleShape, color = p.copy(0.15f)) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Text(artistName.take(2).uppercase(), style = MaterialTheme.typography.headlineMedium, color = p)
                                     }
                                 }
                             }
                             Column(Modifier.weight(1f)) {
-                                Text(d?.name ?: artistName, style = MaterialTheme.typography.headlineSmall, color = SonaraTextPrimary)
-                                if (d != null && d.fans > 0) {
-                                    Text("${fmt.format(d.fans.toLong())} fans", style = MaterialTheme.typography.bodyMedium, color = SonaraTextSecondary)
-                                }
-                                if (d != null && d.albums > 0) {
-                                    Text("${d.albums} albums", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
-                                }
+                                Text(d?.name ?: artistName, style = MaterialTheme.typography.headlineSmall, color = SonaraTextPrimary, fontWeight = FontWeight.Bold)
                                 val adb = audioDbArtist
-                                if (adb != null) {
-                                    val meta = listOfNotNull(
-                                        adb.strCountry,
-                                        adb.intFormedYear?.let { "est. $it" }
-                                    ).joinToString(" · ")
-                                    if (meta.isNotBlank()) {
-                                        Spacer(Modifier.height(4.dp))
-                                        Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                                    }
-                                }
-                                if (artistListeners.isNotBlank()) {
+                                val meta = listOfNotNull(
+                                    adb?.strCountry?.takeIf { it.isNotBlank() },
+                                    adb?.intFormedYear?.let { "est. $it" }
+                                ).joinToString(" · ")
+                                if (meta.isNotBlank()) {
                                     Spacer(Modifier.height(2.dp))
-                                    Text(
-                                        try { "${fmt.format(artistListeners.toLong())} listeners" } catch (_: Exception) { "$artistListeners listeners" },
-                                        style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary
-                                    )
+                                    Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                                 }
                             }
                         }
-                        // Social links — fix URLs that are bare handles/paths
+
+                        // Stats row
+                        val hasStats = userPlayCount.isNotBlank() || artistListeners.isNotBlank() || globalPlayCount.isNotBlank() || (d?.fans ?: 0) > 0
+                        if (hasStats) {
+                            Spacer(Modifier.height(14.dp))
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(SonaraDivider.copy(0.2f)))
+                            Spacer(Modifier.height(14.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                if (userPlayCount.isNotBlank()) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            try { fmt.format(userPlayCount.toLong()) } catch (_: Exception) { userPlayCount },
+                                            style = MaterialTheme.typography.titleMedium, color = p, fontWeight = FontWeight.Bold
+                                        )
+                                        Text("your plays", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                                    }
+                                }
+                                if (artistListeners.isNotBlank()) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            try { fmt.format(artistListeners.toLong()) } catch (_: Exception) { artistListeners },
+                                            style = MaterialTheme.typography.titleMedium, color = SonaraTextSecondary, fontWeight = FontWeight.Bold
+                                        )
+                                        Text("listeners", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                                    }
+                                }
+                                if (globalPlayCount.isNotBlank()) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            try { fmt.format(globalPlayCount.toLong()) } catch (_: Exception) { globalPlayCount },
+                                            style = MaterialTheme.typography.titleMedium, color = SonaraTextSecondary, fontWeight = FontWeight.Bold
+                                        )
+                                        Text("scrobbles", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                                    }
+                                }
+                                if ((d?.fans ?: 0) > 0) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            try { fmt.format(d!!.fans.toLong()) } catch (_: Exception) { "${d?.fans}" },
+                                            style = MaterialTheme.typography.titleMedium, color = SonaraTextSecondary, fontWeight = FontWeight.Bold
+                                        )
+                                        Text("fans", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Social links
                         val adb = audioDbArtist
                         if (adb != null) {
                             val socialLinks = buildList {
@@ -241,44 +289,22 @@ fun ArtistDetailScreen(
                                     ?.let { url -> add("website" to if (url.startsWith("http")) url else "https://$url") }
                             }
                             if (socialLinks.isNotEmpty()) {
-                                Spacer(Modifier.height(10.dp))
+                                Spacer(Modifier.height(12.dp))
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     socialLinks.forEach { (key, url) ->
                                         val displayName = key.replaceFirstChar { it.uppercase() }
                                         AssistChip(
-                                            onClick = {
-                                                OdesliHelper.openLink(ctx, OdesliHelper.PlatformLink(name = displayName, url = url, key = key))
-                                            },
+                                            onClick = { OdesliHelper.openLink(ctx, OdesliHelper.PlatformLink(name = displayName, url = url, key = key)) },
                                             label = { Text(displayName, style = MaterialTheme.typography.labelSmall) },
                                             leadingIcon = {
                                                 val iconRes = platformIconRes(key)
-                                                if (iconRes != null) {
-                                                    Icon(painterResource(iconRes), null, Modifier.size(14.dp), tint = p)
-                                                } else {
-                                                    Icon(Icons.Rounded.Launch, null, Modifier.size(14.dp))
-                                                }
+                                                if (iconRes != null) Icon(painterResource(iconRes), null, Modifier.size(14.dp), tint = p)
+                                                else Icon(Icons.Rounded.Launch, null, Modifier.size(14.dp))
                                             },
                                             colors = AssistChipDefaults.assistChipColors(containerColor = p.copy(0.1f), labelColor = p),
                                             border = null
                                         )
                                     }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ── User play count ───────────────────────────────────────────────
-                if (userPlayCount.isNotBlank()) {
-                    item {
-                        FluentCard {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        try { fmt.format(userPlayCount.toLong()) } catch (_: Exception) { userPlayCount },
-                                        style = MaterialTheme.typography.headlineMedium, color = p
-                                    )
-                                    Text("your plays", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                                 }
                             }
                         }
@@ -296,15 +322,13 @@ fun ArtistDetailScreen(
                             Spacer(Modifier.height(8.dp))
                             Text(
                                 if (!bioExpanded && isLong) bioToShow.take(300) + "…" else bioToShow,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = SonaraTextSecondary
+                                style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary
                             )
                             if (isLong) {
                                 Spacer(Modifier.height(6.dp))
                                 Text(
                                     if (bioExpanded) "Show less" else "Show more",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = p,
+                                    style = MaterialTheme.typography.labelMedium, color = p,
                                     modifier = Modifier.clickable { bioExpanded = !bioExpanded }
                                 )
                             }
@@ -322,7 +346,7 @@ fun ArtistDetailScreen(
                                 artistTags.forEach { tag ->
                                     AssistChip(
                                         onClick = {},
-                                        label = { Text(tag) },
+                                        label = { Text(tag, style = MaterialTheme.typography.labelSmall) },
                                         colors = AssistChipDefaults.assistChipColors(containerColor = p.copy(0.1f), labelColor = p),
                                         border = null
                                     )
@@ -332,7 +356,7 @@ fun ArtistDetailScreen(
                     }
                 }
 
-                // ── Deezer / Top Tracks ───────────────────────────────────────────
+                // ── Top Tracks (Deezer) ───────────────────────────────────────────
                 if (deezerTopTracks.isNotEmpty()) {
                     item {
                         FluentCard {
@@ -340,20 +364,11 @@ fun ArtistDetailScreen(
                             Spacer(Modifier.height(12.dp))
                             deezerTopTracks.forEachIndexed { i, track ->
                                 Row(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .clickable { onTrackClick(track.title, artistName) }
-                                        .padding(vertical = 6.dp),
+                                    Modifier.fillMaxWidth().clickable { onTrackClick(track.title, artistName) }.padding(vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    Text(
-                                        "${i + 1}",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = if (i < 3) p else SonaraTextTertiary,
-                                        modifier = Modifier.width(24.dp)
-                                    )
-                                    // Album art thumbnail
+                                    Text("${i + 1}", style = MaterialTheme.typography.labelLarge, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(24.dp))
                                     if (!track.albumArt.isNullOrBlank()) {
                                         AsyncImage(
                                             model = ImageRequest.Builder(ctx).data(track.albumArt).crossfade(true).build(),
@@ -362,59 +377,44 @@ fun ArtistDetailScreen(
                                             contentScale = ContentScale.Crop
                                         )
                                     } else {
-                                        Box(
-                                            Modifier.size(40.dp).background(SonaraCardElevated, RoundedCornerShape(6.dp)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
+                                        Box(Modifier.size(40.dp).background(SonaraCardElevated, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
                                             Icon(Icons.Rounded.MusicNote, null, Modifier.size(16.dp), tint = p.copy(0.4f))
                                         }
                                     }
                                     Column(Modifier.weight(1f)) {
                                         Text(track.title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
-                                        val mins = track.durationSec / 60; val secs = track.durationSec % 60
                                         if (track.durationSec > 0) {
-                                            Text("${mins}:${"%02d".format(secs)}", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                                            Text("${track.durationSec / 60}:${"%02d".format(track.durationSec % 60)}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                                         }
                                     }
                                 }
-                                if (i < deezerTopTracks.lastIndex) HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                                if (i < deezerTopTracks.lastIndex) HorizontalDivider(color = SonaraDivider.copy(0.12f))
                             }
                         }
                     }
                 }
 
-                // ── User's Top Tracks for this artist ────────────────────────────
+                // ── Your Top Tracks ───────────────────────────────────────────────
                 if (userTopTracks.isNotEmpty()) {
                     item {
                         FluentCard {
                             Text("Your Top Tracks", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
                             Spacer(Modifier.height(10.dp))
                             userTopTracks.forEachIndexed { i, (title, plays, imgUrl) ->
-                                // Resolve missing image lazily
                                 var resolvedImg by remember(title) { mutableStateOf(imgUrl) }
                                 LaunchedEffect(title) {
                                     if (resolvedImg.isBlank() || resolvedImg.contains("2a96cbd8b46e")) {
-                                        val r = withContext(Dispatchers.IO) {
-                                            DeezerImageResolver.getTrackImageWithFallback(title, artistName) ?: ""
-                                        }
+                                        val r = withContext(Dispatchers.IO) { DeezerImageResolver.getTrackImageWithFallback(title, artistName) ?: "" }
                                         if (r.isNotBlank()) resolvedImg = r
                                     }
                                 }
                                 Row(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .clickable { onTrackClick(title, artistName) }
-                                        .padding(vertical = 6.dp),
+                                    Modifier.fillMaxWidth().clickable { onTrackClick(title, artistName) }.padding(vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    Text(
-                                        "${i + 1}",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = if (i < 3) p else SonaraTextTertiary,
-                                        modifier = Modifier.width(24.dp)
-                                    )
-                                    if (!resolvedImg.isBlank() && !resolvedImg.contains("2a96cbd8b46e")) {
+                                    Text("${i + 1}", style = MaterialTheme.typography.labelLarge, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(24.dp))
+                                    if (resolvedImg.isNotBlank() && !resolvedImg.contains("2a96cbd8b46e")) {
                                         AsyncImage(
                                             model = ImageRequest.Builder(ctx).data(resolvedImg).crossfade(true).build(),
                                             contentDescription = null,
@@ -422,26 +422,26 @@ fun ArtistDetailScreen(
                                             contentScale = ContentScale.Crop
                                         )
                                     } else {
-                                        Box(
-                                            Modifier.size(40.dp).background(SonaraCardElevated, RoundedCornerShape(6.dp)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
+                                        Box(Modifier.size(40.dp).background(SonaraCardElevated, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
                                             Icon(Icons.Rounded.MusicNote, null, Modifier.size(16.dp), tint = p.copy(0.4f))
                                         }
                                     }
                                     Text(title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1, modifier = Modifier.weight(1f))
-                                    Text(
-                                        try { fmt.format(plays.toLong()) } catch (_: Exception) { plays },
-                                        style = MaterialTheme.typography.labelMedium, color = p
-                                    )
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            try { fmt.format(plays.toLong()) } catch (_: Exception) { plays },
+                                            style = MaterialTheme.typography.labelMedium, color = p
+                                        )
+                                        Text("plays", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                                    }
                                 }
-                                if (i < userTopTracks.lastIndex) HorizontalDivider(color = SonaraDivider.copy(0.2f))
+                                if (i < userTopTracks.lastIndex) HorizontalDivider(color = SonaraDivider.copy(0.12f))
                             }
                         }
                     }
                 }
 
-                // ── Discography (TheAudioDB) ──────────────────────────────────────
+                // ── Discography ───────────────────────────────────────────────────
                 if (discography.isNotEmpty()) {
                     item {
                         FluentCard {
@@ -451,8 +451,7 @@ fun ArtistDetailScreen(
                                 items(discography) { album ->
                                     val artUrl = album.strThumbHQ ?: album.strThumb ?: ""
                                     Column(
-                                        modifier = Modifier
-                                            .width(100.dp)
+                                        modifier = Modifier.width(96.dp)
                                             .clickable { onAlbumClick(album.strAlbum, artistName, "", artUrl) },
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
@@ -460,31 +459,18 @@ fun ArtistDetailScreen(
                                             AsyncImage(
                                                 model = ImageRequest.Builder(ctx).data(artUrl).crossfade(true).build(),
                                                 contentDescription = album.strAlbum,
-                                                modifier = Modifier.size(100.dp).clip(RoundedCornerShape(10.dp)),
+                                                modifier = Modifier.size(96.dp).clip(RoundedCornerShape(10.dp)),
                                                 contentScale = ContentScale.Crop
                                             )
                                         } else {
-                                            Box(
-                                                Modifier.size(100.dp).background(SonaraCardElevated, RoundedCornerShape(10.dp)),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(Icons.Rounded.Album, null, Modifier.size(32.dp), tint = p.copy(0.4f))
+                                            Box(Modifier.size(96.dp).background(SonaraCardElevated, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Rounded.Album, null, Modifier.size(30.dp), tint = p.copy(0.4f))
                                             }
                                         }
                                         Spacer(Modifier.height(6.dp))
-                                        Text(
-                                            album.strAlbum,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = SonaraTextPrimary,
-                                            maxLines = 2,
-                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                        )
+                                        Text(album.strAlbum, style = MaterialTheme.typography.labelSmall, color = SonaraTextPrimary, maxLines = 2, textAlign = TextAlign.Center)
                                         if (album.intYearReleased != null) {
-                                            Text(
-                                                "${album.intYearReleased}",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = SonaraTextTertiary
-                                            )
+                                            Text("${album.intYearReleased}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                                         }
                                     }
                                 }
@@ -493,28 +479,34 @@ fun ArtistDetailScreen(
                     }
                 }
 
-                // ── Listen on ─────────────────────────────────────────────────────
-                if (platformLinks.isNotEmpty()) {
+                // ── Similar Artists ───────────────────────────────────────────────
+                if (similarArtists.isNotEmpty()) {
                     item {
                         FluentCard {
-                            Text("Listen on", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
-                            Spacer(Modifier.height(8.dp))
-                            platformLinks.forEach { link ->
-                                Row(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .clickable { OdesliHelper.openLink(ctx, link) }
-                                        .padding(vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    val iconRes = platformIconRes(link.key)
-                                    if (iconRes != null) {
-                                        Icon(painterResource(iconRes), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface)
-                                    } else {
-                                        Icon(Icons.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
+                            Text("Similar Artists", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                            Spacer(Modifier.height(12.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                items(similarArtists) { artist ->
+                                    val imgUrl = artist.imageUrl ?: ""
+                                    Column(
+                                        modifier = Modifier.width(72.dp).clickable { onArtistClick(artist.name) },
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        if (imgUrl.isNotBlank()) {
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(ctx).data(imgUrl).crossfade(true).build(),
+                                                contentDescription = artist.name,
+                                                modifier = Modifier.size(64.dp).clip(CircleShape),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        } else {
+                                            Box(Modifier.size(64.dp).background(SonaraCardElevated, CircleShape), contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Rounded.Person, null, Modifier.size(28.dp), tint = p.copy(0.4f))
+                                            }
+                                        }
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(artist.name, style = MaterialTheme.typography.labelSmall, color = SonaraTextPrimary, maxLines = 2, textAlign = TextAlign.Center)
                                     }
-                                    Text(link.name, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
                                 }
                             }
                         }
@@ -529,15 +521,9 @@ fun ArtistDetailScreen(
                             Spacer(Modifier.height(10.dp))
                             upcomingEvents.take(5).forEachIndexed { i, event ->
                                 Row(
-                                    Modifier
-                                        .fillMaxWidth()
+                                    Modifier.fillMaxWidth()
                                         .clickable {
-                                            ctx.startActivity(
-                                                android.content.Intent(
-                                                    android.content.Intent.ACTION_VIEW,
-                                                    android.net.Uri.parse(event.url)
-                                                )
-                                            )
+                                            ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(event.url)))
                                         }
                                         .padding(vertical = 8.dp),
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -549,7 +535,29 @@ fun ArtistDetailScreen(
                                     }
                                     Text(event.displayDate, style = MaterialTheme.typography.labelMedium, color = p)
                                 }
-                                if (i < upcomingEvents.take(5).lastIndex) HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                                if (i < upcomingEvents.take(5).lastIndex) HorizontalDivider(color = SonaraDivider.copy(0.12f))
+                            }
+                        }
+                    }
+                }
+
+                // ── Listen on ─────────────────────────────────────────────────────
+                if (platformLinks.isNotEmpty()) {
+                    item {
+                        FluentCard {
+                            Text("Listen on", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                            Spacer(Modifier.height(8.dp))
+                            platformLinks.forEach { link ->
+                                Row(
+                                    Modifier.fillMaxWidth().clickable { OdesliHelper.openLink(ctx, link) }.padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val iconRes = platformIconRes(link.key)
+                                    if (iconRes != null) Icon(painterResource(iconRes), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface)
+                                    else Icon(Icons.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
+                                    Text(link.name, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                                }
                             }
                         }
                     }
@@ -561,10 +569,8 @@ fun ArtistDetailScreen(
     }
 }
 
-/** Build a proper social media URL from a handle or partial path. */
 private fun buildSocialUrl(domain: String, raw: String): String {
     if (raw.startsWith("http://") || raw.startsWith("https://")) return raw
-    // Strip any leading domain if present
     val cleaned = raw
         .removePrefix("www.$domain/")
         .removePrefix("$domain/")
@@ -575,11 +581,11 @@ private fun buildSocialUrl(domain: String, raw: String): String {
 
 fun platformIconRes(key: String): Int? = when (key.lowercase()) {
     "spotify" -> com.sonara.app.R.drawable.ic_spotify_24
-    "applemusic", "apple_music", "appleMusic" -> com.sonara.app.R.drawable.ic_apple_24
-    "youtubemusic", "youtube_music", "youtubeMusic" -> com.sonara.app.R.drawable.ic_youtube_music_24
+    "applemusic", "apple_music", "applemusic" -> com.sonara.app.R.drawable.ic_apple_24
+    "youtubemusic", "youtube_music", "youtubemusic" -> com.sonara.app.R.drawable.ic_youtube_music_24
     "youtube" -> com.sonara.app.R.drawable.ic_youtube_24
     "deezer" -> com.sonara.app.R.drawable.ic_deezer_24
-    "amazonmusic", "amazon_music", "amazonMusic" -> com.sonara.app.R.drawable.ic_amazon_24
+    "amazonmusic", "amazon_music", "amazonmusic" -> com.sonara.app.R.drawable.ic_amazon_24
     "soundcloud" -> com.sonara.app.R.drawable.ic_soundcloud_24
     "tidal" -> com.sonara.app.R.drawable.ic_tidal_24
     "pandora" -> com.sonara.app.R.drawable.ic_pandora_24
