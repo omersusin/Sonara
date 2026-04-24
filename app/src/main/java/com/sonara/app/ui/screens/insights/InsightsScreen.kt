@@ -91,7 +91,7 @@ fun InsightsScreen(
                             StatColumn(try { fmt.format(s.trackCount.toLong()) } catch (_: Exception) { s.trackCount }, "tracks", p)
                             StatColumn("~${s.avgDailyScrobbles}", "per day", p)
                         }
-                        if (s.streakDays > 0 || s.peakHour >= 0) {
+                        if (s.streakDays > 0 || s.peakHour >= 0 || s.discoveryRate > 0) {
                             Spacer(Modifier.height(10.dp))
                             Box(Modifier.fillMaxWidth().height(0.5.dp).background(SonaraDivider.copy(0.2f)))
                             Spacer(Modifier.height(10.dp))
@@ -101,6 +101,7 @@ fun InsightsScreen(
                                     val h = s.peakHour
                                     StatColumn("${if (h % 12 == 0) 12 else h % 12}${if (h < 12) "am" else "pm"}", "peak hour", p)
                                 }
+                                if (s.discoveryRate > 0) StatColumn("${s.discoveryRate}%", "variety", p)
                             }
                         }
                     }

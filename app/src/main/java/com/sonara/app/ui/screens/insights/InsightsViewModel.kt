@@ -51,7 +51,8 @@ data class InsightsUiState(
     val streakDays: Int = 0,
     val peakHour: Int = -1,
     val heatmap: Map<String, Int> = emptyMap(),
-    val selectedPeriodLabel: String = "All Time"
+    val selectedPeriodLabel: String = "All Time",
+    val discoveryRate: Int = 0
 )
 
 data class TopTrackItem(val title: String, val artist: String, val plays: String, val imageUrl: String = "")
@@ -216,7 +217,11 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                     check.add(java.util.Calendar.DAY_OF_YEAR, -1)
                 }
                 val peakHour = hourBuckets.indices.maxByOrNull { hourBuckets[it] }?.takeIf { hourBuckets[it] > 0 } ?: -1
-                _uiState.update { it.copy(weeklyActivity = activity, streakDays = streak, peakHour = peakHour, heatmap = heatmap) }
+                // Discovery rate: unique artists in recent batch / total tracks
+                val scrobbledTracks = list.filter { !it.isNowPlaying }
+                val uniqueArtistCount = scrobbledTracks.map { it.artist.lowercase() }.toSet().size
+                val discoveryRate = if (scrobbledTracks.isNotEmpty()) (uniqueArtistCount * 100 / scrobbledTracks.size).coerceAtMost(100) else 0
+                _uiState.update { it.copy(weeklyActivity = activity, streakDays = streak, peakHour = peakHour, heatmap = heatmap, discoveryRate = discoveryRate) }
                 // Enrich images
                 val enrichedRecent = list.map { t -> if (t.imageUrl.isBlank() || t.imageUrl.contains("2a96cbd8b46e")) t.copy(imageUrl = DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") else t }
                 _uiState.update { it.copy(recentTracks = enrichedRecent) }
