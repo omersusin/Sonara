@@ -106,7 +106,8 @@ fun SonaraNavigation() {
                     onSeeAllAlbums = { navController.navigate(Screen.TopAlbumsList.route) },
                     onSeeAllRecentTracks = { navController.navigate(Screen.RecentTracks.route) },
                     onSeeAllGenres = { navController.navigate(Screen.AllGenres.route) },
-                    onSeeAllListeningActivity = { navController.navigate(Screen.ListeningActivity.route) }
+                    onSeeAllListeningActivity = { navController.navigate(Screen.ListeningActivity.route) },
+                    onConnectLastFm = { navController.navigate(Screen.SettingsBehavior.route) }
                 )
             }
             composable(Screen.Settings.route) {

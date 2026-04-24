@@ -41,7 +41,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -61,7 +65,8 @@ fun InsightsScreen(
     onSeeAllRecentTracks: () -> Unit = {},
     onSeeAllGenres: () -> Unit = {},
     onSeeAllListeningActivity: () -> Unit = {},
-    onAlbumClick: (name: String, artist: String, plays: String, imageUrl: String) -> Unit = { _, _, _, _ -> }
+    onAlbumClick: (name: String, artist: String, plays: String, imageUrl: String) -> Unit = { _, _, _, _ -> },
+    onConnectLastFm: () -> Unit = {}
 ) {
     val vm: InsightsViewModel = viewModel()
     val s by vm.uiState.collectAsState()
@@ -101,8 +106,37 @@ fun InsightsScreen(
                     }
                 }
             } else {
-                Text("Insights", style = MaterialTheme.typography.headlineLarge, color = SonaraTextPrimary)
-                Text("Connect Last.fm in Settings for stats", style = MaterialTheme.typography.bodyMedium, color = SonaraTextTertiary)
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            "Insights",
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = SonaraTextPrimary
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Connect Last.fm to unlock listening stats,\ntop artists, albums, and more.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = SonaraTextTertiary,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(Modifier.height(24.dp))
+                        OutlinedButton(
+                            onClick = onConnectLastFm,
+                            shape = RoundedCornerShape(50.dp),
+                            border = BorderStroke(1.5.dp, p),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
+                        ) {
+                            Text(
+                                "Connect Last.fm",
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                    }
+                }
             }
         }
 
