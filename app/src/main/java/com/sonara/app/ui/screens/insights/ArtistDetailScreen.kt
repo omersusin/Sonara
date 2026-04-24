@@ -81,7 +81,9 @@ fun ArtistDetailScreen(
     onBack: () -> Unit,
     onTrackClick: (String, String) -> Unit = { _, _ -> },
     onAlbumClick: (name: String, artist: String, plays: String, imageUrl: String) -> Unit = { _, _, _, _ -> },
-    onArtistClick: (String) -> Unit = {}
+    onArtistClick: (String) -> Unit = {},
+    onSeeAllDiscography: (String) -> Unit = {},
+    onSeeAllSimilar: (String) -> Unit = {}
 ) {
     val ctx = LocalContext.current
     val p = MaterialTheme.colorScheme.primary
@@ -445,7 +447,10 @@ fun ArtistDetailScreen(
                 if (discography.isNotEmpty()) {
                     item {
                         FluentCard {
-                            Text("Discography", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text("Discography", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                                Text("See all >", style = MaterialTheme.typography.labelMedium, color = p, modifier = Modifier.clickable { onSeeAllDiscography(artistName) })
+                            }
                             Spacer(Modifier.height(12.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(discography) { album ->
@@ -483,7 +488,10 @@ fun ArtistDetailScreen(
                 if (similarArtists.isNotEmpty()) {
                     item {
                         FluentCard {
-                            Text("Similar Artists", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text("Similar Artists", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                                Text("See all >", style = MaterialTheme.typography.labelMedium, color = p, modifier = Modifier.clickable { onSeeAllSimilar(artistName) })
+                            }
                             Spacer(Modifier.height(12.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(similarArtists) { artist ->

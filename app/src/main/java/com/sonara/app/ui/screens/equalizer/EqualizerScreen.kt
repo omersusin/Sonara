@@ -16,11 +16,22 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.SurroundSound
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,6 +76,7 @@ fun EqualizerScreen() {
     val p = MaterialTheme.colorScheme.primary
     var showSave by remember { mutableStateOf(false) }
     var showPresetMenu by remember { mutableStateOf(false) }
+    var activeSoundProfile by remember { mutableStateOf("") }
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -114,6 +126,45 @@ fun EqualizerScreen() {
                                 )
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        // Sound Profiles — quick presets
+        item {
+            val profiles = listOf(
+                Triple("Flat",     Icons.Rounded.GraphicEq,    { vm.resetBands(); vm.setBassBoost(0); vm.setVirtualizer(0); vm.setLoudness(0) }),
+                Triple("Bass Boost", Icons.Rounded.GraphicEq,  { vm.setBand(0, 4f); vm.setBand(1, 3.5f); vm.setBand(2, 2f); vm.setBassBoost(600); vm.setVirtualizer(0) }),
+                Triple("Spatial",  Icons.Rounded.SurroundSound, { vm.setVirtualizer(800); vm.setBassBoost(200); vm.setLoudness(400); vm.setBand(3, 1f); vm.setBand(4, 1.5f) }),
+                Triple("Vocal",    Icons.Rounded.GraphicEq,    { vm.setBand(3, 2f); vm.setBand(4, 3f); vm.setBand(5, 2.5f); vm.setBand(6, 1.5f); vm.setBassBoost(0); vm.setVirtualizer(0) }),
+                Triple("Treble",   Icons.Rounded.GraphicEq,    { vm.setBand(6, 2.5f); vm.setBand(7, 3f); vm.setBand(8, 3.5f); vm.setBand(9, 3f); vm.setBassBoost(0) }),
+                Triple("Night",    Icons.Rounded.AutoAwesome,  { vm.setBand(0, 1f); vm.setBand(1, 0.5f); vm.setBand(6, -1f); vm.setBand(7, -2f); vm.setBand(8, -3f); vm.setLoudness(800); vm.setVirtualizer(200) })
+            )
+            FluentCard {
+                Text("Sound Profiles", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+                Spacer(Modifier.height(10.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(profiles) { (name, icon, apply) ->
+                        FilterChip(
+                            selected = activeSoundProfile == name,
+                            onClick = { activeSoundProfile = name; apply() },
+                            label = { Text(name, style = MaterialTheme.typography.labelMedium) },
+                            leadingIcon = { Icon(icon, null, Modifier.size(16.dp)) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = p.copy(0.2f),
+                                selectedLabelColor = p,
+                                selectedLeadingIconColor = p,
+                                containerColor = SonaraCardElevated,
+                                labelColor = SonaraTextSecondary,
+                                iconColor = SonaraTextTertiary
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true, selected = activeSoundProfile == name,
+                                borderColor = SonaraDivider.copy(0.3f),
+                                selectedBorderColor = p.copy(0.4f)
+                            )
+                        )
                     }
                 }
             }

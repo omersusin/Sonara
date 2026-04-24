@@ -20,7 +20,9 @@ import com.sonara.app.ui.screens.equalizer.EqualizerScreen
 import com.sonara.app.ui.screens.insights.AlbumDetailScreen
 import com.sonara.app.ui.screens.insights.AllGenresScreen
 import com.sonara.app.ui.screens.insights.ArtistDetailScreen
+import com.sonara.app.ui.screens.insights.ArtistDiscographyScreen
 import com.sonara.app.ui.screens.insights.ListeningActivityScreen
+import com.sonara.app.ui.screens.insights.SimilarArtistsScreen
 import com.sonara.app.ui.screens.insights.RecentTracksScreen
 import com.sonara.app.ui.screens.insights.TrackDetailScreen
 import com.sonara.app.ui.screens.insights.InsightsScreen
@@ -71,6 +73,12 @@ sealed class Screen(val route: String, val label: String) {
     }
     data object TrackDetail : Screen("track_detail/{title}/{artist}", "Track") {
         fun createRoute(title: String, artist: String) = "track_detail/${java.net.URLEncoder.encode(title, "UTF-8")}/${java.net.URLEncoder.encode(artist, "UTF-8")}"
+    }
+    data object ArtistDiscography : Screen("artist_discography/{name}", "Discography") {
+        fun createRoute(name: String) = "artist_discography/${java.net.URLEncoder.encode(name, "UTF-8")}"
+    }
+    data object SimilarArtists : Screen("similar_artists/{name}", "Similar Artists") {
+        fun createRoute(name: String) = "similar_artists/${java.net.URLEncoder.encode(name, "UTF-8")}"
     }
 }
 
@@ -185,7 +193,9 @@ fun SonaraNavigation() {
                     onAlbumClick = { albumName, artist, plays, imageUrl ->
                         navController.navigate(Screen.AlbumDetail.createRoute(albumName, artist, plays, imageUrl))
                     },
-                    onArtistClick = { artistName -> navController.navigate(Screen.ArtistDetail.createRoute(artistName)) }
+                    onArtistClick = { a -> navController.navigate(Screen.ArtistDetail.createRoute(a)) },
+                    onSeeAllDiscography = { a -> navController.navigate(Screen.ArtistDiscography.createRoute(a)) },
+                    onSeeAllSimilar = { a -> navController.navigate(Screen.SimilarArtists.createRoute(a)) }
                 )
             }
             composable(Screen.TrackDetail.route) { entry ->
@@ -196,6 +206,24 @@ fun SonaraNavigation() {
                     onBack = { navController.popBackStack() },
                     onArtistClick = { name -> navController.navigate(Screen.ArtistDetail.createRoute(name)) },
                     onTrackClick = { t, a -> navController.navigate(Screen.TrackDetail.createRoute(t, a)) }
+                )
+            }
+            composable(Screen.ArtistDiscography.route) { entry ->
+                val name = java.net.URLDecoder.decode(entry.arguments?.getString("name") ?: "", "UTF-8")
+                ArtistDiscographyScreen(
+                    artistName = name,
+                    onBack = { navController.popBackStack() },
+                    onAlbumClick = { albumName, artist, plays, imageUrl ->
+                        navController.navigate(Screen.AlbumDetail.createRoute(albumName, artist, plays, imageUrl))
+                    }
+                )
+            }
+            composable(Screen.SimilarArtists.route) { entry ->
+                val name = java.net.URLDecoder.decode(entry.arguments?.getString("name") ?: "", "UTF-8")
+                SimilarArtistsScreen(
+                    artistName = name,
+                    onBack = { navController.popBackStack() },
+                    onArtistClick = { a -> navController.navigate(Screen.ArtistDetail.createRoute(a)) }
                 )
             }
             composable(Screen.RecentTracks.route) {
