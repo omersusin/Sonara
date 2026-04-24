@@ -54,7 +54,8 @@ object DeezerImageResolver {
                             if (tracks != null) {
                                 val tl = (0 until tracks.length()).map { i ->
                                     val t = tracks.getJSONObject(i)
-                                    TrackItem(t.optString("title", ""), t.optInt("duration", 0), t.optInt("rank", 0))
+                                    val art = t.optJSONObject("album")?.optString("cover_medium", "") ?: ""
+                                    TrackItem(t.optString("title", ""), t.optInt("duration", 0), t.optInt("rank", 0), art.ifBlank { null })
                                 }
                                 return@withContext d.copy(topTracks = tl)
                             }
@@ -68,7 +69,7 @@ object DeezerImageResolver {
     }
 
     data class ArtistDetail(val name: String, val imageUrl: String, val fans: Int, val albums: Int, val topTracks: List<TrackItem>)
-    data class TrackItem(val title: String, val durationSec: Int, val rank: Int)
+    data class TrackItem(val title: String, val durationSec: Int, val rank: Int, val albumArt: String? = null)
 
     suspend fun getTrackImage(title: String, artist: String): String? = withContext(Dispatchers.IO) {
         val key = "${artist.lowercase()}::${title.lowercase()}"
@@ -109,6 +110,28 @@ object DeezerImageResolver {
 
     suspend fun getTrackImageWithFallback(title: String, artist: String): String? {
         return getTrackImage(title, artist) ?: getItunesArtwork("$artist $title")
+    }
+
+    /**
+     * Resolves the best available track artwork with the correct album.
+     * Priority: Last.fm track.getInfo album image → Deezer search → iTunes.
+     * Use this wherever a "correct" album art per track is needed.
+     */
+    suspend fun resolveTrackArtwork(
+        title: String,
+        artist: String,
+        lastFmApiKey: String = ""
+    ): String? = withContext(Dispatchers.IO) {
+        // 1. Last.fm — most accurate: returns the exact album the track belongs to
+        if (lastFmApiKey.isNotBlank()) {
+            try {
+                val resp = com.sonara.app.intelligence.lastfm.LastFmClient.api.getTrackInfo(title, artist, lastFmApiKey)
+                val img = resp.track?.album?.imageUrl
+                if (!img.isNullOrBlank()) return@withContext img
+            } catch (_: Exception) {}
+        }
+        // 2. Deezer (may pick wrong album for compilation tracks)
+        getTrackImage(title, artist) ?: getItunesArtwork("$artist $title")
     }
 
     suspend fun getArtistImageWithFallback(name: String): String? {

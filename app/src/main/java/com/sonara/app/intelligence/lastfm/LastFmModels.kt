@@ -12,7 +12,12 @@ data class LastFmTrack(
     val listeners: String? = null
 )
 data class LastFmArtist(val name: String = "")
-data class LastFmAlbum(val title: String = "")
+data class LastFmAlbum(
+    val title: String = "",
+    val image: List<LastFmImage> = emptyList()
+) {
+    val imageUrl: String? get() = image.lastOrNull { it.text.isNotBlank() && !it.text.contains("2a96cbd8b46e") }?.text
+}
 data class LastFmTopTags(val tag: List<LastFmTag> = emptyList())
 data class LastFmTag(val name: String = "", val count: Int = 0)
 

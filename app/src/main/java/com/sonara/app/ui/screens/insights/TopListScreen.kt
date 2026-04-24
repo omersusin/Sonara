@@ -25,9 +25,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.ViewList
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePickerDialog
@@ -38,6 +40,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -80,6 +84,39 @@ private enum class ViewMode(val label: String, val cols: Int) {
     GRID5("5 Grid", 5)
 }
 
+@Composable
+private fun ListSearchBar(query: String, onQuery: (String) -> Unit, modifier: Modifier = Modifier) {
+    val p = MaterialTheme.colorScheme.primary
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQuery,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        placeholder = { Text("Search…", style = MaterialTheme.typography.bodyMedium, color = SonaraTextTertiary) },
+        leadingIcon = { Icon(Icons.Rounded.Search, null, Modifier.size(18.dp), tint = SonaraTextTertiary) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQuery("") }) {
+                    Icon(Icons.Rounded.Close, "Clear", Modifier.size(16.dp), tint = SonaraTextTertiary)
+                }
+            }
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(12.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = p,
+            unfocusedBorderColor = SonaraDivider.copy(0.3f),
+            focusedContainerColor = SonaraCard,
+            unfocusedContainerColor = SonaraCard,
+            focusedTextColor = SonaraTextPrimary,
+            unfocusedTextColor = SonaraTextPrimary,
+            cursorColor = p
+        ),
+        textStyle = MaterialTheme.typography.bodyMedium
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
@@ -92,6 +129,7 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
     var loading by remember { mutableStateOf(true) }
     var viewMode by rememberSaveable { mutableStateOf(ViewMode.LIST) }
     var showViewMenu by remember { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(period) {
         loading = true
@@ -133,13 +171,18 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { pad ->
+        val filteredArtists = remember(searchQuery, artists) {
+            if (searchQuery.isBlank()) artists
+            else artists.filter { it.first.contains(searchQuery, ignoreCase = true) }
+        }
         Column(Modifier.fillMaxSize().padding(pad)) {
             TabPeriodRow(period, p, { period = it })
+            ListSearchBar(searchQuery, { searchQuery = it })
             if (loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p) }
             } else if (viewMode == ViewMode.LIST) {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                    itemsIndexed(artists) { i, a ->
+                    itemsIndexed(filteredArtists) { i, a ->
                         var imgUrl by remember(a.first) { mutableStateOf(a.third) }
                         LaunchedEffect(a.first) {
                             if (imgUrl.isBlank()) {
@@ -156,7 +199,7 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
                                 Text(try { "${fmt.format(a.second.toLong())} plays" } catch (_: Exception) { "${a.second} plays" }, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                             }
                         }
-                        if (i < artists.lastIndex) Box(Modifier.fillMaxWidth().padding(start = 90.dp).height(0.5.dp).background(SonaraDivider.copy(0.12f)))
+                        if (i < filteredArtists.lastIndex) Box(Modifier.fillMaxWidth().padding(start = 90.dp).height(0.5.dp).background(SonaraDivider.copy(0.12f)))
                     }
                 }
             } else {
@@ -166,7 +209,7 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    itemsIndexed(artists) { i, a ->
+                    itemsIndexed(filteredArtists) { i, a ->
                         var imgUrl by remember(a.first) { mutableStateOf(a.third) }
                         LaunchedEffect(a.first) {
                             if (imgUrl.isBlank()) {
@@ -205,6 +248,7 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
     var loading by remember { mutableStateOf(true) }
     var viewMode by rememberSaveable { mutableStateOf(ViewMode.LIST) }
     var showViewMenu by remember { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(period) {
         loading = true
@@ -246,13 +290,18 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { pad ->
+        val filteredTracks = remember(searchQuery, tracks) {
+            if (searchQuery.isBlank()) tracks
+            else tracks.filter { it.title.contains(searchQuery, ignoreCase = true) || it.artist.contains(searchQuery, ignoreCase = true) }
+        }
         Column(Modifier.fillMaxSize().padding(pad)) {
             TabPeriodRow(period, p, { period = it })
+            ListSearchBar(searchQuery, { searchQuery = it })
             if (loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p) }
             } else if (viewMode == ViewMode.LIST) {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                    itemsIndexed(tracks) { i, track ->
+                    itemsIndexed(filteredTracks) { i, track ->
                         var imgUrl by remember(track.title, track.artist) { mutableStateOf(track.imageUrl) }
                         LaunchedEffect(track.title, track.artist) {
                             if (imgUrl.isBlank()) {
@@ -270,7 +319,7 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
                             }
                             Text(try { fmt.format(track.plays.toLong()) } catch (_: Exception) { track.plays }, style = MaterialTheme.typography.labelMedium, color = p)
                         }
-                        if (i < tracks.lastIndex) Box(Modifier.fillMaxWidth().padding(start = 84.dp).height(0.5.dp).background(SonaraDivider.copy(0.12f)))
+                        if (i < filteredTracks.lastIndex) Box(Modifier.fillMaxWidth().padding(start = 84.dp).height(0.5.dp).background(SonaraDivider.copy(0.12f)))
                     }
                 }
             } else {
@@ -280,7 +329,7 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    itemsIndexed(tracks) { i, track ->
+                    itemsIndexed(filteredTracks) { i, track ->
                         var imgUrl by remember(track.title, track.artist) { mutableStateOf(track.imageUrl) }
                         LaunchedEffect(track.title, track.artist) {
                             if (imgUrl.isBlank()) {
@@ -325,6 +374,7 @@ fun TopAlbumsListScreen(
     var loading by remember { mutableStateOf(true) }
     var viewMode by rememberSaveable { mutableStateOf(ViewMode.LIST) }
     var showViewMenu by remember { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(period) {
         loading = true
@@ -366,13 +416,18 @@ fun TopAlbumsListScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { pad ->
+        val filteredAlbums = remember(searchQuery, albums) {
+            if (searchQuery.isBlank()) albums
+            else albums.filter { it.name.contains(searchQuery, ignoreCase = true) || it.artist.contains(searchQuery, ignoreCase = true) }
+        }
         Column(Modifier.fillMaxSize().padding(pad)) {
             TabPeriodRow(period, p, { period = it })
+            ListSearchBar(searchQuery, { searchQuery = it })
             if (loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p) }
             } else if (viewMode == ViewMode.LIST) {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                    itemsIndexed(albums) { i, album ->
+                    itemsIndexed(filteredAlbums) { i, album ->
                         var imgUrl by remember(album.name, album.artist) { mutableStateOf(album.imageUrl) }
                         LaunchedEffect(album.name, album.artist) {
                             if (imgUrl.isBlank()) {
@@ -396,7 +451,7 @@ fun TopAlbumsListScreen(
                             }
                             Text(try { "${fmt.format(album.plays.toLong())}" } catch (_: Exception) { album.plays }, style = MaterialTheme.typography.labelMedium, color = p)
                         }
-                        if (i < albums.lastIndex) Box(Modifier.fillMaxWidth().padding(start = 90.dp).height(0.5.dp).background(SonaraDivider.copy(0.12f)))
+                        if (i < filteredAlbums.lastIndex) Box(Modifier.fillMaxWidth().padding(start = 90.dp).height(0.5.dp).background(SonaraDivider.copy(0.12f)))
                     }
                 }
             } else {
@@ -406,7 +461,7 @@ fun TopAlbumsListScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    itemsIndexed(albums) { i, album ->
+                    itemsIndexed(filteredAlbums) { i, album ->
                         var imgUrl by remember(album.name, album.artist) { mutableStateOf(album.imageUrl) }
                         LaunchedEffect(album.name, album.artist) {
                             if (imgUrl.isBlank()) {

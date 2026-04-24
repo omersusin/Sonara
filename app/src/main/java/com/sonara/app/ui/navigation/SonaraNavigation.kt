@@ -107,7 +107,10 @@ fun SonaraNavigation() {
                     onSeeAllRecentTracks = { navController.navigate(Screen.RecentTracks.route) },
                     onSeeAllGenres = { navController.navigate(Screen.AllGenres.route) },
                     onSeeAllListeningActivity = { navController.navigate(Screen.ListeningActivity.route) },
-                    onConnectLastFm = { navController.navigate(Screen.SettingsBehavior.route) }
+                    onConnectLastFm = { navController.navigate(Screen.SettingsBehavior.route) },
+                    onAlbumClick = { name, artist, plays, imageUrl ->
+                        navController.navigate(Screen.AlbumDetail.createRoute(name, artist, plays, imageUrl))
+                    }
                 )
             }
             composable(Screen.Settings.route) {
@@ -175,8 +178,14 @@ fun SonaraNavigation() {
             }
             composable(Screen.ArtistDetail.route) { entry ->
                 val name = java.net.URLDecoder.decode(entry.arguments?.getString("name") ?: "", "UTF-8")
-                ArtistDetailScreen(artistName = name, onBack = { navController.popBackStack() },
-                    onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) })
+                ArtistDetailScreen(
+                    artistName = name,
+                    onBack = { navController.popBackStack() },
+                    onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) },
+                    onAlbumClick = { albumName, artist, plays, imageUrl ->
+                        navController.navigate(Screen.AlbumDetail.createRoute(albumName, artist, plays, imageUrl))
+                    }
+                )
             }
             composable(Screen.TrackDetail.route) { entry ->
                 val title = java.net.URLDecoder.decode(entry.arguments?.getString("title") ?: "", "UTF-8")
