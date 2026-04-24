@@ -94,7 +94,6 @@ fun NowPlayingBar(
 
     // Multi-artist display
     val displayArtist = remember(artist) { ArtistNameParser.formatForDisplay(artist) }
-    val artists = remember(artist) { ArtistNameParser.resolve(artist) }
 
     // Synced lyrics active line
     val readyState = lyricsState as? LyricsState.Ready
@@ -144,26 +143,13 @@ fun NowPlayingBar(
                     overflow = TextOverflow.Ellipsis
                 )
                 if (displayArtist.isNotEmpty()) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        if (artists.size > 1) {
-                            MultiArtistAvatarRow(
-                                artists = artists,
-                                avatarSize = 20.dp,
-                                overlap = 8.dp,
-                                maxVisible = 3
-                            )
-                        }
-                        Text(
-                            displayArtist,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SonaraTextSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    Text(
+                        displayArtist,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SonaraTextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
                 if (hasTrack && duration > 0) {
                     Spacer(Modifier.height(5.dp))
