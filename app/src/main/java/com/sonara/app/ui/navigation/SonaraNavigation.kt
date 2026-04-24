@@ -64,7 +64,7 @@ sealed class Screen(val route: String, val label: String) {
     data object ListeningActivity : Screen("listening_activity", "Listening Activity")
     data object AlbumDetail : Screen("album_detail/{name}/{artist}/{plays}/{imageUrl}", "Album") {
         fun createRoute(name: String, artist: String, plays: String, imageUrl: String) =
-            "album_detail/${java.net.URLEncoder.encode(name, "UTF-8")}/${java.net.URLEncoder.encode(artist, "UTF-8")}/${java.net.URLEncoder.encode(plays, "UTF-8")}/${java.net.URLEncoder.encode(imageUrl.ifBlank { "-" }, "UTF-8")}"
+            "album_detail/${java.net.URLEncoder.encode(name, "UTF-8")}/${java.net.URLEncoder.encode(artist, "UTF-8")}/${java.net.URLEncoder.encode(plays.ifBlank { "-" }, "UTF-8")}/${java.net.URLEncoder.encode(imageUrl.ifBlank { "-" }, "UTF-8")}"
     }
     data object ArtistDetail : Screen("artist_detail/{name}", "Artist") {
         fun createRoute(name: String) = "artist_detail/${java.net.URLEncoder.encode(name, "UTF-8")}"
@@ -167,7 +167,7 @@ fun SonaraNavigation() {
             composable(Screen.AlbumDetail.route) { entry ->
                 val name = java.net.URLDecoder.decode(entry.arguments?.getString("name") ?: "", "UTF-8")
                 val artist = java.net.URLDecoder.decode(entry.arguments?.getString("artist") ?: "", "UTF-8")
-                val plays = java.net.URLDecoder.decode(entry.arguments?.getString("plays") ?: "", "UTF-8")
+                val plays = java.net.URLDecoder.decode(entry.arguments?.getString("plays") ?: "", "UTF-8").let { if (it == "-") "" else it }
                 val imageUrl = java.net.URLDecoder.decode(entry.arguments?.getString("imageUrl") ?: "", "UTF-8").let { if (it == "-") "" else it }
                 AlbumDetailScreen(
                     albumName = name, artistName = artist, albumPlays = plays, albumImageUrl = imageUrl,
