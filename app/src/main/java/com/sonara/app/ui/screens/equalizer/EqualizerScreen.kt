@@ -55,8 +55,15 @@ import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.SonaraApp
 import com.sonara.app.autoeq.WaveletAutoEqLoader
 import com.sonara.app.autoeq.AutoEqDatabase
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SurroundSound
 import com.sonara.app.ui.theme.*
 import kotlin.math.roundToInt
 
