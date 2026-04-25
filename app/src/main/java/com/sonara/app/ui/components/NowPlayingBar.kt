@@ -6,8 +6,10 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -55,6 +58,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -68,6 +72,7 @@ import com.sonara.app.ui.theme.*
 import kotlin.math.abs
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NowPlayingBar(
     title: String = "No music playing",
@@ -85,15 +90,22 @@ fun NowPlayingBar(
     isLoved: Boolean = false,
     onToggleLove: () -> Unit = {},
     lyricsShowTranslated: Boolean = false,
-    lyricsTargetLanguage: String = "en"
+    lyricsTargetLanguage: String = "en",
+    playerPackage: String = "",
+    onImmersiveRequest: () -> Unit = {}
 ) {
     val p = MaterialTheme.colorScheme.primary
+    val ctx = LocalContext.current
     val hasTrack = title != "No music playing" && title.isNotBlank()
     var lyricsExpanded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(title) { lyricsExpanded = false }
+    val lyricsListState = rememberLazyListState()
+    LaunchedEffect(title) {
+        lyricsExpanded = false
+        lyricsListState.scrollToItem(0)
+    }
 
-    // Drag state: while dragging, freeze the ticker and show drag value
+    // Drag state
     var isDragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableFloatStateOf(0f) }
 
@@ -115,12 +127,10 @@ fun NowPlayingBar(
         else -> position
     }
 
-    val progress = if (duration > 0) (estimatedPosition.toFloat() / duration).coerceIn(0f, 1f) else 0f
     val displayProgress by remember {
         derivedStateOf {
             if (isDragging) dragValue
-            else if (duration > 0)
-                (estimatedPosition.toFloat() / duration).coerceIn(0f, 1f)
+            else if (duration > 0) (estimatedPosition.toFloat() / duration).coerceIn(0f, 1f)
             else 0f
         }
     }
@@ -128,13 +138,22 @@ fun NowPlayingBar(
     val displayArtist = remember(artist) { ArtistNameParser.formatForDisplay(artist) }
     val lyricsPosition = estimatedPosition + lyricsSyncOffsetMs
 
+    // Resolve source app label from package name
+    val sourceAppName = remember(playerPackage) {
+        if (playerPackage.isBlank()) ""
+        else try {
+            ctx.packageManager.getApplicationLabel(
+                ctx.packageManager.getApplicationInfo(playerPackage, 0)
+            ).toString()
+        } catch (_: Exception) { "" }
+    }
+
     val readyState = lyricsState as? LyricsState.Ready
     val activeLineIndex by remember {
         derivedStateOf {
             readyState?.lyrics?.lines?.let { LrcParser.activeLineIndex(it, lyricsPosition) } ?: -1
         }
     }
-    val lyricsListState = rememberLazyListState()
     LaunchedEffect(activeLineIndex) {
         if (activeLineIndex >= 0 && lyricsExpanded) {
             val viewportCenter = lyricsListState.layoutInfo.viewportSize.height / 2
@@ -149,25 +168,25 @@ fun NowPlayingBar(
 
     FluentCard(onClick = if (hasTrack) onClick else null) {
 
-        // ── Top row: album art + title/artist ────────────────────────────
+        // ── Top row: album art + title/artist + heart ────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (albumArt != null) {
                 Image(
                     bitmap = albumArt.asImageBitmap(),
                     contentDescription = "Album Art",
-                    modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)),
+                    modifier = Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)),
                     contentScale = ContentScale.Crop
                 )
             } else {
                 Box(
-                    modifier = Modifier.size(56.dp).background(SonaraCardElevated, RoundedCornerShape(12.dp)),
+                    modifier = Modifier.size(52.dp).background(SonaraCardElevated, RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.MusicNote, null, tint = p, modifier = Modifier.size(28.dp))
+                    Icon(Icons.Rounded.MusicNote, null, tint = p, modifier = Modifier.size(26.dp))
                 }
             }
 
@@ -179,9 +198,14 @@ fun NowPlayingBar(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (displayArtist.isNotEmpty()) {
+                val subtitleText = when {
+                    displayArtist.isNotBlank() && sourceAppName.isNotBlank() -> "$displayArtist · $sourceAppName"
+                    displayArtist.isNotBlank() -> displayArtist
+                    else -> ""
+                }
+                if (subtitleText.isNotEmpty()) {
                     Text(
-                        displayArtist,
+                        subtitleText,
                         style = MaterialTheme.typography.bodySmall,
                         color = SonaraTextSecondary,
                         maxLines = 1,
@@ -190,12 +214,20 @@ fun NowPlayingBar(
                 }
             }
 
-            if (!hasTrack && isPlaying) {
-                Box(modifier = Modifier.size(8.dp).background(SonaraSuccess, CircleShape))
+            // Heart icon in top row
+            if (hasTrack) {
+                IconButton(onClick = onToggleLove, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        if (isLoved) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                        contentDescription = "Love",
+                        tint = if (isLoved) Color(0xFFE91E63) else SonaraTextSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
 
-        // ── Lyrics panel (between top row and controls) ──────────────────
+        // ── Lyrics panel ─────────────────────────────────────────────────────
         AnimatedVisibility(
             visible = lyricsExpanded && hasTrack,
             enter = expandVertically() + fadeIn(),
@@ -207,7 +239,7 @@ fun NowPlayingBar(
                         Modifier.fillMaxWidth().height(80.dp).padding(top = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = p, strokeWidth = 2.dp)
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = p, strokeWidth = 2.dp)
                     }
                 }
                 is LyricsState.Ready -> {
@@ -215,7 +247,7 @@ fun NowPlayingBar(
                     if (lyrics.lines.isNotEmpty()) {
                         LazyColumn(
                             state = lyricsListState,
-                            modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp).padding(top = 10.dp),
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp).padding(top = 10.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             itemsIndexed(
@@ -226,7 +258,7 @@ fun NowPlayingBar(
                                 val activeWord = if (isActive && lyrics.hasWordTimestamps) {
                                     LrcParser.activeWordIndex(line, lyricsPosition)
                                 } else -1
-                                val distanceFromActive = kotlin.math.abs(idx - activeLineIndex)
+                                val distanceFromActive = abs(idx - activeLineIndex)
                                 SyncedLyricLine(
                                     line = line,
                                     isActive = isActive,
@@ -244,9 +276,7 @@ fun NowPlayingBar(
                                         text = translatedLine,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = SonaraTextSecondary.copy(alpha = 0.6f),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 14.dp),
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
                                         textAlign = TextAlign.Center
                                     )
                                 }
@@ -257,10 +287,7 @@ fun NowPlayingBar(
                             text = lyricsState.plain,
                             style = MaterialTheme.typography.bodySmall,
                             color = SonaraTextSecondary,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 12.dp)
-                                .heightIn(max = 220.dp),
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(max = 240.dp),
                             textAlign = TextAlign.Center
                         )
                     }
@@ -277,9 +304,9 @@ fun NowPlayingBar(
             }
         }
 
-        // ── Progress slider with elapsed / remaining times ────────────────
+        // ── Progress slider ───────────────────────────────────────────────────
         if (hasTrack && duration > 0) {
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -295,10 +322,7 @@ fun NowPlayingBar(
                 Slider(
                     value = displayProgress,
                     onValueChange = { v ->
-                        if (!isDragging) {
-                            isDragging = true
-                            dragValue = displayProgress
-                        }
+                        if (!isDragging) { isDragging = true; dragValue = displayProgress }
                         dragValue = v
                     },
                     onValueChangeFinished = {
@@ -308,8 +332,8 @@ fun NowPlayingBar(
                     modifier = Modifier.weight(1f).height(24.dp),
                     colors = SliderDefaults.colors(
                         thumbColor = p,
-                        activeTrackColor = p,
-                        inactiveTrackColor = SonaraDivider.copy(alpha = 0.35f)
+                        activeTrackColor = p.copy(alpha = 0.9f),
+                        inactiveTrackColor = SonaraDivider.copy(alpha = 0.25f)
                     )
                 )
                 val remainingMs = duration - displayMs
@@ -322,46 +346,29 @@ fun NowPlayingBar(
             }
         }
 
-        // ── Playback controls — always shown when hasTrack ────────────────
+        // ── Playback controls ─────────────────────────────────────────────────
         if (hasTrack) {
+            Spacer(Modifier.height(4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
             ) {
-                if (hasLyrics) {
-                    IconButton(
-                        onClick = { lyricsExpanded = !lyricsExpanded },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            if (lyricsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.Lyrics,
-                            contentDescription = "Lyrics",
-                            tint = if (lyricsExpanded) p else SonaraTextSecondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-                IconButton(
-                    onClick = { onToggleLove() },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        if (isLoved) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                        contentDescription = "Love",
-                        tint = if (isLoved) Color(0xFFE91E63) else SonaraTextSecondary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
                 IconButton(
                     onClick = { SonaraNotificationListener.sendPrevious() },
                     modifier = Modifier.size(40.dp)
                 ) {
                     Icon(Icons.Rounded.SkipPrevious, "Previous", tint = SonaraTextSecondary, modifier = Modifier.size(24.dp))
                 }
-                IconButton(
-                    onClick = { SonaraNotificationListener.sendPlayPause() },
-                    modifier = Modifier.size(44.dp).background(p.copy(alpha = 0.15f), CircleShape)
+
+                // Pill-shaped play/pause
+                Box(
+                    modifier = Modifier
+                        .width(52.dp)
+                        .height(36.dp)
+                        .background(p.copy(alpha = 0.15f), RoundedCornerShape(50))
+                        .combinedClickable(onClick = { SonaraNotificationListener.sendPlayPause() }),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
@@ -370,11 +377,38 @@ fun NowPlayingBar(
                         modifier = Modifier.size(26.dp)
                     )
                 }
+
                 IconButton(
                     onClick = { SonaraNotificationListener.sendNext() },
                     modifier = Modifier.size(40.dp)
                 ) {
                     Icon(Icons.Rounded.SkipNext, "Next", tint = SonaraTextSecondary, modifier = Modifier.size(24.dp))
+                }
+            }
+
+            // Lyrics toggle below controls
+            if (hasLyrics) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 2.dp)
+                            .combinedClickable(
+                                onClick = { lyricsExpanded = !lyricsExpanded },
+                                onLongClick = { onImmersiveRequest() }
+                            )
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            if (lyricsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.Lyrics,
+                            contentDescription = "Lyrics",
+                            tint = if (lyricsExpanded) p else SonaraTextTertiary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
         }

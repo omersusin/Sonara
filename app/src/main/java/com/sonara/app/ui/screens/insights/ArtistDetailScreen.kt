@@ -56,6 +56,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sonara.app.SonaraApp
@@ -71,6 +72,7 @@ import com.sonara.app.intelligence.theaudiodb.AudioDbArtist
 import com.sonara.app.intelligence.theaudiodb.TheAudioDbClient
 import com.sonara.app.intelligence.artist.ArtistNameParser
 import com.sonara.app.intelligence.artist.TrackTitleCleaner
+import com.sonara.app.ui.components.ArtistAvatarCircle
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.components.MultiArtistAvatarRow
 import com.sonara.app.ui.theme.*
@@ -250,23 +252,10 @@ fun ArtistDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    MultiArtistAvatarRow(
-                                        artists = allArtists,
-                                        avatarSize = 52.dp,
-                                        overlap = 20.dp,
-                                        maxVisible = 3,
-                                        onArtistClick = onArtistClick
-                                    )
-                                    if (allArtists.size > 3) {
-                                        Spacer(Modifier.height(4.dp))
-                                        Text(
-                                            "+${allArtists.size - 3}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = SonaraTextTertiary
-                                        )
-                                    }
-                                }
+                                MultiArtistAvatarRow(
+                                    artists = allArtists,
+                                    onArtistClick = onArtistClick
+                                )
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     allArtists.forEach { name ->
                                         Text(
@@ -601,26 +590,7 @@ fun ArtistDetailScreen(
                             Spacer(Modifier.height(12.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(similarArtists) { artist ->
-                                    val imgUrl = artist.imageUrl ?: ""
-                                    Column(
-                                        modifier = Modifier.width(72.dp).clickable { onArtistClick(artist.name) },
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        if (imgUrl.isNotBlank()) {
-                                            AsyncImage(
-                                                model = ImageRequest.Builder(ctx).data(imgUrl).crossfade(true).build(),
-                                                contentDescription = artist.name,
-                                                modifier = Modifier.size(64.dp).clip(CircleShape),
-                                                contentScale = ContentScale.Crop
-                                            )
-                                        } else {
-                                            Box(Modifier.size(64.dp).background(SonaraCardElevated, CircleShape), contentAlignment = Alignment.Center) {
-                                                Icon(Icons.Rounded.Person, null, Modifier.size(28.dp), tint = p.copy(0.4f))
-                                            }
-                                        }
-                                        Spacer(Modifier.height(4.dp))
-                                        Text(artist.name, style = MaterialTheme.typography.labelSmall, color = SonaraTextPrimary, maxLines = 2, textAlign = TextAlign.Center)
-                                    }
+                                    SimilarArtistItem(artist) { onArtistClick(artist.name) }
                                 }
                             }
                         }
@@ -679,6 +649,46 @@ fun ArtistDetailScreen(
 
                 item { Spacer(Modifier.height(16.dp)) }
             }
+        }
+    }
+}
+
+@Composable
+private fun SimilarArtistItem(artist: LastFmSimilarArtist, onClick: () -> Unit) {
+    val parsedNames = remember(artist.name) { ArtistNameParser.resolve(artist.name) }
+    Column(
+        modifier = Modifier.width(72.dp).clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (parsedNames.size > 1) {
+            MultiArtistAvatarRow(
+                artists = parsedNames,
+                modifier = Modifier.height(44.dp),
+                onArtistClick = {}
+            )
+        } else {
+            ArtistAvatarCircle(
+                artistName = parsedNames.firstOrNull() ?: artist.name,
+                size = 64.dp,
+                onClick = {}
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = artist.name,
+            style = MaterialTheme.typography.labelSmall,
+            color = SonaraTextPrimary,
+            maxLines = 2,
+            textAlign = TextAlign.Center
+        )
+        val matchPct = artist.match.toFloatOrNull() ?: 0f
+        if (matchPct > 0f) {
+            Text(
+                text = "${(matchPct * 100).toInt()}% match",
+                style = MaterialTheme.typography.labelSmall,
+                color = SonaraTextTertiary,
+                fontSize = 10.sp
+            )
         }
     }
 }

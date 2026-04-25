@@ -29,6 +29,7 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
         val key = "${title.trim().lowercase()}|${artist.trim().lowercase()}"
         if (key == loadedKey) return
         loadedKey = key
+        _state.value = LyricsState.Idle
         _state.value = LyricsState.Loading
 
         viewModelScope.launch {

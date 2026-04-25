@@ -111,7 +111,7 @@ class SonaraService : Service() {
                     val np = SonaraNotificationListener.nowPlaying.value
                     if (!np.isPlaying) {
                         SonaraLogger.i("Service", "Removing notification (keepNotification=false, paused)")
-                        stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
+                        stopForeground(STOP_FOREGROUND_REMOVE)
                     }
                 }
             } catch (_: Exception) {}
@@ -171,14 +171,15 @@ class SonaraService : Service() {
             }
             ACTION_LOVE -> {
                 val np = SonaraNotificationListener.nowPlaying.value
-                if (!hasSessionKey) { SonaraLogger.w("Love", "No session key"); return START_STICKY }
                 if (np.title.isNotBlank()) {
                     isLoved = !isLoved; updateNotification()
-                    scope.launch(Dispatchers.IO) {
-                        try {
-                            val ok = (application as SonaraApp).loveTrack(np.title, np.artist, isLoved)
-                            if (!ok) { isLoved = !isLoved; scope.launch(Dispatchers.Main) { updateNotification() } }
-                        } catch (_: Exception) { isLoved = !isLoved; scope.launch(Dispatchers.Main) { updateNotification() } }
+                    if (hasSessionKey) {
+                        scope.launch(Dispatchers.IO) {
+                            try {
+                                val ok = (application as SonaraApp).loveTrack(np.title, np.artist, isLoved)
+                                if (!ok) { isLoved = !isLoved; scope.launch(Dispatchers.Main) { updateNotification() } }
+                            } catch (_: Exception) { isLoved = !isLoved; scope.launch(Dispatchers.Main) { updateNotification() } }
+                        }
                     }
                 }
                 return START_STICKY
@@ -225,10 +226,10 @@ class SonaraService : Service() {
             .build()
 
         val heartIcon = Icon.createWithResource(this, if (isLoved) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
-        val heartAction = if (hasSessionKey) Notification.Action.Builder(heartIcon, if (isLoved) "Loved" else "Love", love).build() else null
+        val heartAction = Notification.Action.Builder(heartIcon, if (isLoved) "Loved" else "Love", love).build()
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play).setContentTitle(title).setContentText(sub)
-            .setContentIntent(open).also { if (heartAction != null) it.addAction(heartAction) }
+            .setContentIntent(open).addAction(heartAction)
             .addAction(requestAction)
             .addAction(Notification.Action.Builder(null, "Stop", stop).build())
             .setOngoing(isPlaying).setShowWhen(false)

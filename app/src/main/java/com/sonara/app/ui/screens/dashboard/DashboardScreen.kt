@@ -52,6 +52,7 @@ import com.sonara.app.ui.screens.settings.SettingsViewModel
 import com.sonara.app.ui.components.ChipStatus
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.components.MoodRing
+import com.sonara.app.ui.components.ImmersiveLyricsOverlay
 import com.sonara.app.ui.components.NowPlayingBar
 import com.sonara.app.ui.components.PermissionCard
 import com.sonara.app.ui.components.SonaraVisualizer
@@ -90,6 +91,7 @@ fun DashboardScreen() {
     val lyricsState by lyricsVm.state.collectAsState()
     val lyricsInsight by com.sonara.app.service.SonaraNotificationListener.lyricsInsight.collectAsState()
     val p = MaterialTheme.colorScheme.primary
+    var immersiveLyricsVisible by remember { mutableStateOf(false) }
     val ctx = LocalContext.current
     val lc = LocalLifecycleOwner.current
     LaunchedEffect(lc) { lc.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { vm.checkNotificationListener() } }
@@ -149,6 +151,8 @@ fun DashboardScreen() {
                 lyricsTargetLanguage = settingsState.lyricsTargetLanguage,
                 isLoved = s.isLoved,
                 onToggleLove = { vm.toggleLove() },
+                playerPackage = s.playerPackage,
+                onImmersiveRequest = { immersiveLyricsVisible = true },
                 onClick = if (s.playerPackage.isNotBlank()) ({
                     ctx.packageManager.getLaunchIntentForPackage(s.playerPackage)
                         ?.let { ctx.startActivity(it) }
@@ -324,6 +328,25 @@ fun DashboardScreen() {
             }
         }
         item { Spacer(Modifier.height(8.dp)) }
+    }
+
+    if (immersiveLyricsVisible) {
+        ImmersiveLyricsOverlay(
+            title = s.title,
+            artist = s.artist,
+            albumArt = art,
+            isPlaying = s.isPlaying,
+            duration = s.duration,
+            position = s.position,
+            positionTimestamp = s.positionTimestamp,
+            lyricsState = lyricsState,
+            lyricsSyncOffsetMs = settingsState.lyricsSyncOffsetMs,
+            lyricsAnimationStyle = settingsState.lyricsAnimationStyle,
+            onDismiss = { immersiveLyricsVisible = false },
+            onTogglePlayPause = { com.sonara.app.service.SonaraNotificationListener.sendPlayPause() },
+            onNext = { com.sonara.app.service.SonaraNotificationListener.sendNext() },
+            onPrevious = { com.sonara.app.service.SonaraNotificationListener.sendPrevious() }
+        )
     }
 }
 
