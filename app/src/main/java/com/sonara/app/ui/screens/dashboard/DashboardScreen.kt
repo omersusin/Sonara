@@ -60,22 +60,19 @@ import com.sonara.app.ui.components.VisualizerMode
 import com.sonara.app.ui.components.VisualizerStateDetector
 import com.sonara.app.ui.theme.*
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.material.icons.filled.Hearing
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.ui.draw.clip
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.foundation.layout.height
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 
@@ -99,7 +96,7 @@ fun DashboardScreen() {
     LaunchedEffect(s.savedMessage) { if (s.savedMessage.isNotBlank()) Toast.makeText(ctx, s.savedMessage, Toast.LENGTH_SHORT).show() }
     // Trigger lyrics load when track changes
     LaunchedEffect(s.title, s.artist) {
-        if (s.hasTrack) lyricsVm.load(s.title, s.artist, "", s.duration)
+        if (s.hasTrack) lyricsVm.load(s.title, s.artist, "", s.duration, settingsState.lyricsShowTranslated, settingsState.lyricsTargetLanguage)
         else lyricsVm.reset()
     }
 
@@ -148,6 +145,8 @@ fun DashboardScreen() {
                 lyricsAnimationStyle = settingsState.lyricsAnimationStyle,
                 lyricsSyncOffsetMs = settingsState.lyricsSyncOffsetMs,
                 lyricsTextSizeSp = settingsState.lyricsTextSize,
+                lyricsShowTranslated = settingsState.lyricsShowTranslated,
+                lyricsTargetLanguage = settingsState.lyricsTargetLanguage,
                 isLoved = s.isLoved,
                 onToggleLove = { vm.toggleLove() },
                 onClick = if (s.playerPackage.isNotBlank()) ({
@@ -350,7 +349,7 @@ private fun HearTheDifferenceBanner(
 
     FluentCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(imageVector = Icons.Default.Hearing, contentDescription = null, tint = p, modifier = Modifier.size(20.dp))
+            Icon(imageVector = Icons.Rounded.Hearing, contentDescription = null, tint = p, modifier = Modifier.size(20.dp))
             Text("Hear the Difference", style = MaterialTheme.typography.titleSmall, color = p)
         }
         Spacer(Modifier.height(8.dp))

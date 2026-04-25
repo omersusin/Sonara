@@ -107,7 +107,12 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                         st.copy(recentTracks = listOf(nowItem) + filtered)
                     }
                     val u = _uiState.value.lastFmUsername
-                    if (u.isNotBlank()) { kotlinx.coroutines.delay(5000); refreshRecentTracks(u) }
+                    if (u.isNotBlank()) {
+                        viewModelScope.launch {
+                            kotlinx.coroutines.delay(5000)
+                            refreshRecentTracks(u)
+                        }
+                    }
                 }
             }
         }
@@ -129,6 +134,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         val apiKey = app.lastFmAuth.getActiveApiKey()
         if (apiKey.isBlank()) return
         viewModelScope.launch(Dispatchers.IO) {
+            val period = _uiState.value.selectedPeriod
             // User info
             try {
                 val info = LastFmClient.api.getUserInfo(username, apiKey)
@@ -143,7 +149,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
             } catch (_: Exception) {}
             // Top artists
             try {
-                val artists = LastFmClient.api.getUserTopArtists(username, apiKey, "overall", 10)
+                val artists = LastFmClient.api.getUserTopArtists(username, apiKey, period, 10)
                 val list = artists.topartists?.artist?.map { Triple(it.name, it.playcount, it.imageUrl ?: "") } ?: emptyList()
                 _uiState.update { it.copy(topArtists = list) }
                 val enriched = list.map { (name, plays, img) -> Triple(name, plays, if (img.isNotBlank() && !img.contains("2a96cbd8b46e")) img else DeezerImageResolver.getArtistImageWithFallback(name) ?: "") }
@@ -151,7 +157,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
             } catch (_: Exception) {}
             // Top tracks
             try {
-                val tracks = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 10)
+                val tracks = LastFmClient.api.getUserTopTracks(username, apiKey, period, 10)
                 val list = tracks.toptracks?.track?.map { TopTrackItem(it.name, it.artist?.name ?: "", it.playcount, it.imageUrl ?: "") } ?: emptyList()
                 _uiState.update { it.copy(topTracks = list) }
                 val enriched = list.map { t -> t.copy(imageUrl = if (t.imageUrl.isNotBlank()) t.imageUrl else DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") }
@@ -178,7 +184,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
             } catch (_: Exception) {}
             // Top albums
             try {
-                val albums = LastFmClient.api.getUserTopAlbums(username, apiKey, "overall", 6)
+                val albums = LastFmClient.api.getUserTopAlbums(username, apiKey, period, 6)
                 val list = albums.topalbums?.album?.map { TopAlbumItem(it.name, it.artist?.name ?: "", it.playcount, it.imageUrl ?: "") } ?: emptyList()
                 _uiState.update { it.copy(topAlbums = list) }
                 val enriched = list.map { a -> a.copy(imageUrl = if (a.imageUrl.isNotBlank() && !a.imageUrl.contains("2a96cbd8b46e")) a.imageUrl else DeezerImageResolver.getTrackImageWithFallback(a.name, a.artist) ?: "") }

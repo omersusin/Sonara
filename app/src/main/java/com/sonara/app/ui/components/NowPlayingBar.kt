@@ -195,107 +195,7 @@ fun NowPlayingBar(
             }
         }
 
-        // ── Progress slider with elapsed / remaining times ────────────────
-        if (hasTrack && duration > 0) {
-            Spacer(Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                val displayMs = if (isDragging) (dragValue * duration).toLong() else estimatedPosition
-                Text(
-                    text = displayMs.toMmSs(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = SonaraTextTertiary,
-                    fontSize = 10.sp
-                )
-                Slider(
-                    value = displayProgress,
-                    onValueChange = { v ->
-                        if (!isDragging) {
-                            isDragging = true
-                            dragValue = displayProgress
-                        }
-                        dragValue = v
-                    },
-                    onValueChangeFinished = {
-                        SonaraNotificationListener.seekTo((dragValue * duration).toLong())
-                        isDragging = false
-                    },
-                    modifier = Modifier.weight(1f).height(24.dp),
-                    colors = SliderDefaults.colors(
-                        thumbColor = p,
-                        activeTrackColor = p,
-                        inactiveTrackColor = SonaraDivider.copy(alpha = 0.35f)
-                    )
-                )
-                val remainingMs = duration - displayMs
-                Text(
-                    text = "-${remainingMs.toMmSs()}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = SonaraTextTertiary,
-                    fontSize = 10.sp
-                )
-            }
-
-            // ── Playback controls (centered below slider) ─────────────────
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                if (hasLyrics) {
-                    IconButton(
-                        onClick = { lyricsExpanded = !lyricsExpanded },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            if (lyricsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.Lyrics,
-                            contentDescription = "Lyrics",
-                            tint = if (lyricsExpanded) p else SonaraTextSecondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-                IconButton(
-                    onClick = { onToggleLove() },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        if (isLoved) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                        contentDescription = "Love",
-                        tint = if (isLoved) Color(0xFFE91E63) else SonaraTextSecondary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                IconButton(
-                    onClick = { SonaraNotificationListener.sendPrevious() },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(Icons.Rounded.SkipPrevious, "Previous", tint = SonaraTextSecondary, modifier = Modifier.size(24.dp))
-                }
-                IconButton(
-                    onClick = { SonaraNotificationListener.sendPlayPause() },
-                    modifier = Modifier.size(44.dp).background(p.copy(alpha = 0.15f), CircleShape)
-                ) {
-                    Icon(
-                        if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        if (isPlaying) "Pause" else "Play",
-                        tint = p,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-                IconButton(
-                    onClick = { SonaraNotificationListener.sendNext() },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(Icons.Rounded.SkipNext, "Next", tint = SonaraTextSecondary, modifier = Modifier.size(24.dp))
-                }
-            }
-        }
-
-        // ── Lyrics panel ─────────────────────────────────────────────────
+        // ── Lyrics panel (between top row and controls) ──────────────────
         AnimatedVisibility(
             visible = lyricsExpanded && hasTrack,
             enter = expandVertically() + fadeIn(),
@@ -374,6 +274,108 @@ fun NowPlayingBar(
                     }
                 }
                 else -> {}
+            }
+        }
+
+        // ── Progress slider with elapsed / remaining times ────────────────
+        if (hasTrack && duration > 0) {
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                val displayMs = if (isDragging) (dragValue * duration).toLong() else estimatedPosition
+                Text(
+                    text = displayMs.toMmSs(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SonaraTextTertiary,
+                    fontSize = 10.sp
+                )
+                Slider(
+                    value = displayProgress,
+                    onValueChange = { v ->
+                        if (!isDragging) {
+                            isDragging = true
+                            dragValue = displayProgress
+                        }
+                        dragValue = v
+                    },
+                    onValueChangeFinished = {
+                        SonaraNotificationListener.seekTo((dragValue * duration).toLong())
+                        isDragging = false
+                    },
+                    modifier = Modifier.weight(1f).height(24.dp),
+                    colors = SliderDefaults.colors(
+                        thumbColor = p,
+                        activeTrackColor = p,
+                        inactiveTrackColor = SonaraDivider.copy(alpha = 0.35f)
+                    )
+                )
+                val remainingMs = duration - displayMs
+                Text(
+                    text = "-${remainingMs.toMmSs()}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SonaraTextTertiary,
+                    fontSize = 10.sp
+                )
+            }
+        }
+
+        // ── Playback controls — always shown when hasTrack ────────────────
+        if (hasTrack) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                if (hasLyrics) {
+                    IconButton(
+                        onClick = { lyricsExpanded = !lyricsExpanded },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            if (lyricsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.Lyrics,
+                            contentDescription = "Lyrics",
+                            tint = if (lyricsExpanded) p else SonaraTextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                IconButton(
+                    onClick = { onToggleLove() },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        if (isLoved) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                        contentDescription = "Love",
+                        tint = if (isLoved) Color(0xFFE91E63) else SonaraTextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                IconButton(
+                    onClick = { SonaraNotificationListener.sendPrevious() },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(Icons.Rounded.SkipPrevious, "Previous", tint = SonaraTextSecondary, modifier = Modifier.size(24.dp))
+                }
+                IconButton(
+                    onClick = { SonaraNotificationListener.sendPlayPause() },
+                    modifier = Modifier.size(44.dp).background(p.copy(alpha = 0.15f), CircleShape)
+                ) {
+                    Icon(
+                        if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        if (isPlaying) "Pause" else "Play",
+                        tint = p,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                IconButton(
+                    onClick = { SonaraNotificationListener.sendNext() },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(Icons.Rounded.SkipNext, "Next", tint = SonaraTextSecondary, modifier = Modifier.size(24.dp))
+                }
             }
         }
     }

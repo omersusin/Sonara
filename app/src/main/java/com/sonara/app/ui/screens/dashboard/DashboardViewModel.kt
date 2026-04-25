@@ -55,6 +55,8 @@ data class DashboardUiState(
         if (other !is DashboardUiState) return false
         return title == other.title && artist == other.artist &&
             isPlaying == other.isPlaying && hasTrack == other.hasTrack &&
+            duration == other.duration && position == other.position &&
+            positionTimestamp == other.positionTimestamp &&
             genre == other.genre && mood == other.mood &&
             energy == other.energy && confidence == other.confidence &&
             sourceLabel == other.sourceLabel &&
@@ -76,6 +78,12 @@ data class DashboardUiState(
     }
     override fun hashCode(): Int {
         var result = title.hashCode()
+        result = 31 * result + artist.hashCode()
+        result = 31 * result + isPlaying.hashCode()
+        result = 31 * result + hasTrack.hashCode()
+        result = 31 * result + duration.hashCode()
+        result = 31 * result + position.hashCode()
+        result = 31 * result + positionTimestamp.hashCode()
         result = 31 * result + genre.hashCode()
         result = 31 * result + mood.hashCode()
         result = 31 * result + route.hashCode()

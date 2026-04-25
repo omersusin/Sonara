@@ -3,7 +3,6 @@ package com.sonara.app.ai.cloud
 import android.content.Context
 import android.util.Log
 import androidx.work.*
-import com.sonara.app.ai.classifier.KnnClassifier
 import com.sonara.app.data.SonaraDatabase
 import com.sonara.app.data.preferences.SecureSecrets
 import java.util.concurrent.TimeUnit
@@ -31,7 +30,6 @@ class DailySyncWorker(appContext: Context, params: WorkerParameters) : Coroutine
         Log.d(TAG, "Daily sync started")
         val ctx = applicationContext; val queue = ContributionQueue(ctx); val sync = GitHubSync(ctx, queue)
         try {
-            val db = SonaraDatabase.get(ctx); val dao = db.trainingExampleDao(); val classifier = KnnClassifier(dao)
             val dlCount = sync.checkAndDownloadPrototypes()
             // VULN-11: Removed duplicate raw URL download — checkAndDownloadPrototypes() handles this
             if (dlCount > 0) {
@@ -41,13 +39,6 @@ class DailySyncWorker(appContext: Context, params: WorkerParameters) : Coroutine
                 val token = SecureSecrets.getGitHubToken(ctx)
                 if (!token.isNullOrBlank()) sync.uploadContributions(token)
             }
-            try {
-                val downloader = com.sonara.app.ai.classifier.PrototypeDownloader(applicationContext)
-                val fresh = downloader.downloadLatest()
-                if (fresh != null) {
-                    com.sonara.app.ai.classifier.KnnClassifier.getInstance(applicationContext).replacePrototypes(fresh)
-                }
-            } catch (_: Exception) {}
             Log.d(TAG, "Sync completed"); return Result.success()
         } catch (e: Exception) { Log.e(TAG, "Sync failed: ${e.message}"); return if (runAttemptCount < 5) Result.retry() else Result.failure() }
     }
