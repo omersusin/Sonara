@@ -522,6 +522,8 @@ internal fun AdvancedCard(s: SettingsUiState, vm: SettingsViewModel) {
             Spacer(Modifier.height(4.dp))
             Text("Pending: ${s.pendingScrobbles} scrobbles queued", style = MaterialTheme.typography.bodySmall, color = SonaraWarning)
         }
+        SettingsDivider()
+        SwitchRow("AI Feedback Chips", "Show quick emoji feedback buttons on Dashboard", s.legacyAnalysis) { vm.setLegacyAnalysis(it) }
     }
 }
 
