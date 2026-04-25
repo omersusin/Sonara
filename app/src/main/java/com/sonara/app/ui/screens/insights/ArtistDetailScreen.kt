@@ -43,6 +43,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -70,6 +71,7 @@ import com.sonara.app.intelligence.theaudiodb.AudioDbArtist
 import com.sonara.app.intelligence.theaudiodb.TheAudioDbClient
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.theme.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
@@ -106,6 +108,7 @@ fun ArtistDetailScreen(
     var upcomingEvents by remember { mutableStateOf<List<BandsintownEvent>>(emptyList()) }
     var similarArtists by remember { mutableStateOf<List<LastFmSimilarArtist>>(emptyList()) }
     var mbUrls by remember { mutableStateOf<MusicBrainzClient.MbArtistUrls?>(null) }
+    val discographyArtUrls = remember { mutableStateMapOf<String, String>() }
 
     LaunchedEffect(artistName) {
         withContext(Dispatchers.IO) {
@@ -172,6 +175,36 @@ fun ArtistDetailScreen(
 
             try { platformLinks = OdesliHelper.getArtistLinks(artistName) } catch (_: Exception) {}
             loading = false
+        }
+    }
+
+    // Sequential art resolution for the inline discography preview
+    LaunchedEffect(discography) {
+        if (discography.isEmpty()) return@LaunchedEffect
+        val apiKey = app.lastFmAuth.getActiveApiKey()
+        withContext(Dispatchers.IO) {
+            for (album in discography) {
+                if (discographyArtUrls.containsKey(album.idAlbum)) continue
+                try {
+                    val full = TheAudioDbClient.getAlbumById(album.idAlbum)
+                    val url = full?.strThumbHQ ?: full?.strThumb
+                    if (!url.isNullOrBlank()) {
+                        discographyArtUrls[album.idAlbum] = url
+                        delay(400L)
+                        continue
+                    }
+                } catch (_: Exception) {}
+                try {
+                    if (apiKey.isNotBlank()) {
+                        val info = LastFmClient.api.getAlbumInfo(artistName, album.strAlbum, apiKey)
+                        val url = info.album?.imageUrl
+                        if (!url.isNullOrBlank() && !url.contains("2a96cbd8b46e")) {
+                            discographyArtUrls[album.idAlbum] = url
+                        }
+                    }
+                } catch (_: Exception) {}
+                delay(400L)
+            }
         }
     }
 
@@ -470,28 +503,7 @@ fun ArtistDetailScreen(
                             Spacer(Modifier.height(12.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(discography) { album ->
-                                    var artUrl by remember(album.idAlbum) {
-                                        mutableStateOf(album.strThumbHQ ?: album.strThumb ?: "")
-                                    }
-                                    LaunchedEffect(album.idAlbum) {
-                                        if (artUrl.isBlank()) {
-                                            withContext(Dispatchers.IO) {
-                                                try {
-                                                    val full = TheAudioDbClient.searchAlbum(artistName, album.strAlbum)
-                                                    val url = full?.strThumbHQ ?: full?.strThumb
-                                                    if (!url.isNullOrBlank()) { artUrl = url; return@withContext }
-                                                } catch (_: Exception) {}
-                                                try {
-                                                    val apiKey = app.lastFmAuth.getActiveApiKey()
-                                                    if (apiKey.isNotBlank()) {
-                                                        val info = LastFmClient.api.getAlbumInfo(artistName, album.strAlbum, apiKey)
-                                                        val url = info.album?.imageUrl
-                                                        if (!url.isNullOrBlank() && !url.contains("2a96cbd8b46e")) artUrl = url
-                                                    }
-                                                } catch (_: Exception) {}
-                                            }
-                                        }
-                                    }
+                                    val artUrl = discographyArtUrls[album.idAlbum] ?: ""
                                     Column(
                                         modifier = Modifier.width(96.dp)
                                             .clickable { onAlbumClick(album.strAlbum, artistName, "", artUrl) },

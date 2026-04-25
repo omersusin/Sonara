@@ -66,17 +66,30 @@ object TheAudioDbClient {
         val arr = json.optJSONArray("album") ?: return null
         if (arr.length() == 0) return null
         val obj = arr.getJSONObject(0)
-        return AudioDbAlbum(
+        return parseAlbumObject(obj, artist)
+    }
+
+    /** Fetch a specific album by its TheAudioDB ID — faster and more reliable than name search. */
+    suspend fun getAlbumById(albumId: String): AudioDbAlbum? {
+        if (albumId.isBlank()) return null
+        val json = get("$BASE/album.php?i=$albumId") ?: return null
+        val arr = json.optJSONArray("album") ?: return null
+        if (arr.length() == 0) return null
+        val obj = arr.getJSONObject(0)
+        return parseAlbumObject(obj, obj.optString("strArtist"))
+    }
+
+    private fun parseAlbumObject(obj: org.json.JSONObject, fallbackArtist: String): AudioDbAlbum =
+        AudioDbAlbum(
             idAlbum = obj.optString("idAlbum"),
             strAlbum = obj.optString("strAlbum"),
-            strArtist = obj.optString("strArtist"),
+            strArtist = obj.optString("strArtist").ifBlank { fallbackArtist },
             strThumb = obj.optString("strAlbumThumb").takeIf { it.isNotBlank() },
             strThumbHQ = obj.optString("strAlbumThumbHQ").takeIf { it.isNotBlank() },
             intYearReleased = obj.optString("intYearReleased").toIntOrNull(),
             strGenre = obj.optString("strGenre").takeIf { it.isNotBlank() },
             strDescriptionEN = obj.optString("strDescriptionEN").takeIf { it.isNotBlank() }
         )
-    }
 
     /** Belirli bir albümün track listesini çeker. Önce searchAlbum ile idAlbum al. */
     suspend fun getAlbumTracks(audioDbAlbumId: String): List<AudioDbTrack> {
