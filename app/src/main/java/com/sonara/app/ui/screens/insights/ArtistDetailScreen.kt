@@ -69,7 +69,10 @@ import com.sonara.app.intelligence.odesli.OdesliHelper
 import com.sonara.app.intelligence.theaudiodb.AudioDbAlbum
 import com.sonara.app.intelligence.theaudiodb.AudioDbArtist
 import com.sonara.app.intelligence.theaudiodb.TheAudioDbClient
+import com.sonara.app.intelligence.artist.ArtistNameParser
+import com.sonara.app.intelligence.artist.TrackTitleCleaner
 import com.sonara.app.ui.components.FluentCard
+import com.sonara.app.ui.components.MultiArtistAvatarRow
 import com.sonara.app.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -81,6 +84,7 @@ import java.util.Locale
 @Composable
 fun ArtistDetailScreen(
     artistName: String,
+    trackTitle: String = "",
     onBack: () -> Unit,
     onTrackClick: (String, String) -> Unit = { _, _ -> },
     onAlbumClick: (name: String, artist: String, plays: String, imageUrl: String) -> Unit = { _, _, _, _ -> },
@@ -92,6 +96,13 @@ fun ArtistDetailScreen(
     val p = MaterialTheme.colorScheme.primary
     val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
     val app = SonaraApp.instance
+
+    // Merge artists from the artist field + featured artists extracted from the track title
+    val allArtists = remember(artistName, trackTitle) {
+        val fromArtist = ArtistNameParser.resolve(artistName)
+        val fromTitle = if (trackTitle.isNotBlank()) TrackTitleCleaner.clean(trackTitle).featuredArtists else emptyList()
+        (fromArtist + fromTitle).distinct()
+    }
 
     var detail by remember { mutableStateOf<DeezerImageResolver.ArtistDetail?>(null) }
     var audioDbArtist by remember { mutableStateOf<AudioDbArtist?>(null) }
@@ -233,36 +244,82 @@ fun ArtistDetailScreen(
                 // ── Artist header ─────────────────────────────────────────────────
                 item {
                     FluentCard {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            val imageUrl = audioDbArtist?.strThumb?.takeIf { it.isNotBlank() }
-                                ?: d?.imageUrl?.takeIf { it.isNotBlank() }
-                            if (!imageUrl.isNullOrBlank()) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(ctx).data(imageUrl).crossfade(true).build(),
-                                    contentDescription = artistName,
-                                    modifier = Modifier.size(96.dp).clip(CircleShape),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Surface(Modifier.size(96.dp), shape = CircleShape, color = p.copy(0.15f)) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(artistName.take(2).uppercase(), style = MaterialTheme.typography.headlineMedium, color = p)
+                        if (allArtists.size > 1) {
+                            // ── Multi-artist header ──────────────────────────────────────
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    MultiArtistAvatarRow(
+                                        artists = allArtists,
+                                        avatarSize = 52.dp,
+                                        overlap = 20.dp,
+                                        maxVisible = 3,
+                                        onArtistClick = onArtistClick
+                                    )
+                                    if (allArtists.size > 3) {
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            "+${allArtists.size - 3}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = SonaraTextTertiary
+                                        )
+                                    }
+                                }
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    allArtists.forEach { name ->
+                                        Text(
+                                            name,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = SonaraTextPrimary,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.clickable { onArtistClick(name) }
+                                        )
+                                    }
+                                    val adb = audioDbArtist
+                                    val meta = listOfNotNull(
+                                        adb?.strCountry?.takeIf { it.isNotBlank() },
+                                        adb?.intFormedYear?.let { "est. $it" }
+                                    ).joinToString(" · ")
+                                    if (meta.isNotBlank()) {
+                                        Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                                     }
                                 }
                             }
-                            Column(Modifier.weight(1f)) {
-                                Text(d?.name ?: artistName, style = MaterialTheme.typography.headlineSmall, color = SonaraTextPrimary, fontWeight = FontWeight.Bold)
-                                val adb = audioDbArtist
-                                val meta = listOfNotNull(
-                                    adb?.strCountry?.takeIf { it.isNotBlank() },
-                                    adb?.intFormedYear?.let { "est. $it" }
-                                ).joinToString(" · ")
-                                if (meta.isNotBlank()) {
-                                    Spacer(Modifier.height(2.dp))
-                                    Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                        } else {
+                            // ── Single-artist header (unchanged) ─────────────────────────
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                val imageUrl = audioDbArtist?.strThumb?.takeIf { it.isNotBlank() }
+                                    ?: d?.imageUrl?.takeIf { it.isNotBlank() }
+                                if (!imageUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(ctx).data(imageUrl).crossfade(true).build(),
+                                        contentDescription = artistName,
+                                        modifier = Modifier.size(96.dp).clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Surface(Modifier.size(96.dp), shape = CircleShape, color = p.copy(0.15f)) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(artistName.take(2).uppercase(), style = MaterialTheme.typography.headlineMedium, color = p)
+                                        }
+                                    }
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Text(d?.name ?: artistName, style = MaterialTheme.typography.headlineSmall, color = SonaraTextPrimary, fontWeight = FontWeight.Bold)
+                                    val adb = audioDbArtist
+                                    val meta = listOfNotNull(
+                                        adb?.strCountry?.takeIf { it.isNotBlank() },
+                                        adb?.intFormedYear?.let { "est. $it" }
+                                    ).joinToString(" · ")
+                                    if (meta.isNotBlank()) {
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                                    }
                                 }
                             }
                         }
