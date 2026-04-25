@@ -90,6 +90,81 @@ object MusicBrainzClient {
         }
     }
 
+    data class MbArtistUrls(
+        val mbid: String,
+        val name: String,
+        val website: String? = null,
+        val twitter: String? = null,
+        val facebook: String? = null,
+        val instagram: String? = null,
+        val youtube: String? = null,
+        val discogs: String? = null,
+        val soundcloud: String? = null
+    )
+
+    /** Artist arama + URL ilişkileri. Social media / web links için kullanılır. */
+    suspend fun searchArtistUrls(artistName: String): MbArtistUrls? {
+        if (artistName.isBlank()) return null
+        return withContext(Dispatchers.IO) {
+            try {
+                enforceRateLimit()
+                val query = "artist:" + URLEncoder.encode("\"$artistName\"", "UTF-8")
+                val searchUrl = "$BASE_URL/artist?query=$query&limit=1&fmt=json"
+                val searchReq = Request.Builder().url(searchUrl).get().build()
+                val searchBody = client.newCall(searchReq).execute().body?.string() ?: return@withContext null
+                val artists = JSONObject(searchBody).optJSONArray("artists") ?: return@withContext null
+                if (artists.length() == 0) return@withContext null
+
+                val best = artists.getJSONObject(0)
+                val score = best.optInt("score", 0)
+                if (score < 60) return@withContext null
+
+                val mbid = best.optString("id").takeIf { it.isNotBlank() } ?: return@withContext null
+                val name = best.optString("name", artistName)
+
+                // Fetch URL relationships
+                enforceRateLimit()
+                val detailUrl = "$BASE_URL/artist/$mbid?inc=url-rels&fmt=json"
+                val detailReq = Request.Builder().url(detailUrl).get().build()
+                val detailBody = client.newCall(detailReq).execute().body?.string() ?: return@withContext null
+                val detailJson = JSONObject(detailBody)
+
+                val relations = detailJson.optJSONArray("relations") ?: return@withContext MbArtistUrls(mbid, name)
+
+                var website: String? = null
+                var twitter: String? = null
+                var facebook: String? = null
+                var instagram: String? = null
+                var youtube: String? = null
+                var discogs: String? = null
+                var soundcloud: String? = null
+
+                for (i in 0 until relations.length()) {
+                    val rel = relations.optJSONObject(i) ?: continue
+                    val relType = rel.optString("type").lowercase()
+                    val urlObj = rel.optJSONObject("url") ?: continue
+                    val href = urlObj.optString("resource").takeIf { it.isNotBlank() } ?: continue
+
+                    when {
+                        relType == "official homepage" || relType == "official website" -> website = href
+                        relType.contains("twitter") || href.contains("twitter.com") || href.contains("x.com") -> twitter = href
+                        relType.contains("facebook") || href.contains("facebook.com") -> facebook = href
+                        relType.contains("instagram") || href.contains("instagram.com") -> instagram = href
+                        relType.contains("youtube") || href.contains("youtube.com") -> youtube = href
+                        relType.contains("discogs") || href.contains("discogs.com") -> discogs = href
+                        relType.contains("soundcloud") || href.contains("soundcloud.com") -> soundcloud = href
+                    }
+                }
+
+                SonaraLogger.d("MusicBrainz", "Artist URLs for $name: tw=$twitter fb=$facebook ig=$instagram web=$website")
+                MbArtistUrls(mbid, name, website, twitter, facebook, instagram, youtube, discogs, soundcloud)
+            } catch (e: Exception) {
+                SonaraLogger.w("MusicBrainz", "Artist URL search error: ${e.message}")
+                null
+            }
+        }
+    }
+
     private suspend fun enforceRateLimit() {
         val now = System.currentTimeMillis()
         val diff = now - lastRequestTime

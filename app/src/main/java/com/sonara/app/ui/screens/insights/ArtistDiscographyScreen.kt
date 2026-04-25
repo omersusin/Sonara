@@ -21,6 +21,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.sonara.app.SonaraApp
+import com.sonara.app.intelligence.lastfm.LastFmClient
 import com.sonara.app.intelligence.theaudiodb.AudioDbAlbum
 import com.sonara.app.intelligence.theaudiodb.TheAudioDbClient
 import com.sonara.app.ui.theme.*
@@ -36,6 +38,7 @@ fun ArtistDiscographyScreen(
 ) {
     val ctx = LocalContext.current
     val p = MaterialTheme.colorScheme.primary
+    val app = SonaraApp.instance
     var albums by remember { mutableStateOf<List<AudioDbAlbum>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
 
@@ -75,7 +78,31 @@ fun ArtistDiscographyScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(albums) { album ->
-                    val artUrl = album.strThumbHQ ?: album.strThumb ?: ""
+                    var artUrl by remember(album.idAlbum) {
+                        mutableStateOf(album.strThumbHQ ?: album.strThumb ?: "")
+                    }
+
+                    // Lazy fallback: TheAudioDB searchAlbum → Last.fm
+                    LaunchedEffect(album.idAlbum) {
+                        if (artUrl.isBlank()) {
+                            withContext(Dispatchers.IO) {
+                                try {
+                                    val full = TheAudioDbClient.searchAlbum(artistName, album.strAlbum)
+                                    val url = full?.strThumbHQ ?: full?.strThumb
+                                    if (!url.isNullOrBlank()) { artUrl = url; return@withContext }
+                                } catch (_: Exception) {}
+                                try {
+                                    val apiKey = app.lastFmAuth.getActiveApiKey()
+                                    if (apiKey.isNotBlank()) {
+                                        val info = LastFmClient.api.getAlbumInfo(artistName, album.strAlbum, apiKey)
+                                        val url = info.album?.imageUrl
+                                        if (!url.isNullOrBlank() && !url.contains("2a96cbd8b46e")) artUrl = url
+                                    }
+                                } catch (_: Exception) {}
+                            }
+                        }
+                    }
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()

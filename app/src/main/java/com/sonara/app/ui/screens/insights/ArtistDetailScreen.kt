@@ -63,6 +63,7 @@ import com.sonara.app.intelligence.events.BandsintownClient
 import com.sonara.app.intelligence.events.BandsintownEvent
 import com.sonara.app.intelligence.lastfm.LastFmClient
 import com.sonara.app.intelligence.lastfm.LastFmSimilarArtist
+import com.sonara.app.intelligence.musicbrainz.MusicBrainzClient
 import com.sonara.app.intelligence.odesli.OdesliHelper
 import com.sonara.app.intelligence.theaudiodb.AudioDbAlbum
 import com.sonara.app.intelligence.theaudiodb.AudioDbArtist
@@ -104,6 +105,7 @@ fun ArtistDetailScreen(
     var artistListeners by remember { mutableStateOf("") }
     var upcomingEvents by remember { mutableStateOf<List<BandsintownEvent>>(emptyList()) }
     var similarArtists by remember { mutableStateOf<List<LastFmSimilarArtist>>(emptyList()) }
+    var mbUrls by remember { mutableStateOf<MusicBrainzClient.MbArtistUrls?>(null) }
 
     LaunchedEffect(artistName) {
         withContext(Dispatchers.IO) {
@@ -111,6 +113,7 @@ fun ArtistDetailScreen(
             deezerTopTracks = detail?.topTracks ?: emptyList<DeezerImageResolver.TrackItem>()
 
             try { audioDbArtist = TheAudioDbClient.searchArtist(artistName) } catch (_: Exception) {}
+            try { mbUrls = MusicBrainzClient.searchArtistUrls(artistName) } catch (_: Exception) {}
             try { upcomingEvents = BandsintownClient.getUpcomingEvents(artistName) } catch (_: Exception) {}
             try {
                 discography = TheAudioDbClient.getDiscography(artistName)
@@ -277,36 +280,49 @@ fun ArtistDetailScreen(
                             }
                         }
 
-                        // Social links
+                        // Social links — TheAudioDB primary, MusicBrainz fallback
                         val adb = audioDbArtist
-                        if (adb != null) {
-                            val socialLinks = buildList {
-                                adb.strTwitter?.takeIf { it.isNotBlank() && it != "1" }
-                                    ?.let { add("twitter" to buildSocialUrl("twitter.com", it)) }
-                                adb.strFacebook?.takeIf { it.isNotBlank() && it != "1" }
-                                    ?.let { add("facebook" to buildSocialUrl("facebook.com", it)) }
-                                adb.strInstagram?.takeIf { it.isNotBlank() && it != "1" }
-                                    ?.let { add("instagram" to buildSocialUrl("instagram.com", it)) }
-                                adb.strWebsite?.takeIf { it.isNotBlank() && it != "1" }
-                                    ?.let { url -> add("website" to if (url.startsWith("http")) url else "https://$url") }
-                            }
-                            if (socialLinks.isNotEmpty()) {
-                                Spacer(Modifier.height(12.dp))
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    socialLinks.forEach { (key, url) ->
-                                        val displayName = key.replaceFirstChar { it.uppercase() }
-                                        AssistChip(
-                                            onClick = { OdesliHelper.openLink(ctx, OdesliHelper.PlatformLink(name = displayName, url = url, key = key)) },
-                                            label = { Text(displayName, style = MaterialTheme.typography.labelSmall) },
-                                            leadingIcon = {
-                                                val iconRes = platformIconRes(key)
-                                                if (iconRes != null) Icon(painterResource(iconRes), null, Modifier.size(14.dp), tint = p)
-                                                else Icon(Icons.Rounded.Launch, null, Modifier.size(14.dp))
-                                            },
-                                            colors = AssistChipDefaults.assistChipColors(containerColor = p.copy(0.1f), labelColor = p),
-                                            border = null
-                                        )
-                                    }
+                        val mb = mbUrls
+                        val socialLinks = buildList {
+                            val twitterUrl = adb?.strTwitter?.takeIf { it.isNotBlank() && it != "1" }
+                                ?.let { buildSocialUrl("twitter.com", it) }
+                                ?: mb?.twitter
+                            twitterUrl?.let { add("twitter" to it) }
+
+                            val fbUrl = adb?.strFacebook?.takeIf { it.isNotBlank() && it != "1" }
+                                ?.let { buildSocialUrl("facebook.com", it) }
+                                ?: mb?.facebook
+                            fbUrl?.let { add("facebook" to it) }
+
+                            val igUrl = adb?.strInstagram?.takeIf { it.isNotBlank() && it != "1" }
+                                ?.let { buildSocialUrl("instagram.com", it) }
+                                ?: mb?.instagram
+                            igUrl?.let { add("instagram" to it) }
+
+                            val webUrl = adb?.strWebsite?.takeIf { it.isNotBlank() && it != "1" }
+                                ?.let { if (it.startsWith("http")) it else "https://$it" }
+                                ?: mb?.website
+                            webUrl?.let { add("website" to it) }
+
+                            mb?.youtube?.let { add("youtube" to it) }
+                            mb?.soundcloud?.let { add("soundcloud" to it) }
+                        }
+                        if (socialLinks.isNotEmpty()) {
+                            Spacer(Modifier.height(12.dp))
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                socialLinks.forEach { (key, url) ->
+                                    val displayName = key.replaceFirstChar { it.uppercase() }
+                                    AssistChip(
+                                        onClick = { OdesliHelper.openLink(ctx, OdesliHelper.PlatformLink(name = displayName, url = url, key = key)) },
+                                        label = { Text(displayName, style = MaterialTheme.typography.labelSmall) },
+                                        leadingIcon = {
+                                            val iconRes = platformIconRes(key)
+                                            if (iconRes != null) Icon(painterResource(iconRes), null, Modifier.size(14.dp), tint = p)
+                                            else Icon(Icons.Rounded.Launch, null, Modifier.size(14.dp))
+                                        },
+                                        colors = AssistChipDefaults.assistChipColors(containerColor = p.copy(0.1f), labelColor = p),
+                                        border = null
+                                    )
                                 }
                             }
                         }
@@ -454,7 +470,28 @@ fun ArtistDetailScreen(
                             Spacer(Modifier.height(12.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(discography) { album ->
-                                    val artUrl = album.strThumbHQ ?: album.strThumb ?: ""
+                                    var artUrl by remember(album.idAlbum) {
+                                        mutableStateOf(album.strThumbHQ ?: album.strThumb ?: "")
+                                    }
+                                    LaunchedEffect(album.idAlbum) {
+                                        if (artUrl.isBlank()) {
+                                            withContext(Dispatchers.IO) {
+                                                try {
+                                                    val full = TheAudioDbClient.searchAlbum(artistName, album.strAlbum)
+                                                    val url = full?.strThumbHQ ?: full?.strThumb
+                                                    if (!url.isNullOrBlank()) { artUrl = url; return@withContext }
+                                                } catch (_: Exception) {}
+                                                try {
+                                                    val apiKey = app.lastFmAuth.getActiveApiKey()
+                                                    if (apiKey.isNotBlank()) {
+                                                        val info = LastFmClient.api.getAlbumInfo(artistName, album.strAlbum, apiKey)
+                                                        val url = info.album?.imageUrl
+                                                        if (!url.isNullOrBlank() && !url.contains("2a96cbd8b46e")) artUrl = url
+                                                    }
+                                                } catch (_: Exception) {}
+                                            }
+                                        }
+                                    }
                                     Column(
                                         modifier = Modifier.width(96.dp)
                                             .clickable { onAlbumClick(album.strAlbum, artistName, "", artUrl) },
