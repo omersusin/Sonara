@@ -71,6 +71,8 @@ fun NowPlayingBar(
     positionTimestamp: Long = 0,
     lyricsState: LyricsState = LyricsState.Idle,
     lyricsAnimationStyle: LyricsAnimationStyle = LyricsAnimationStyle.KARAOKE,
+    lyricsSyncOffsetMs: Int = 0,
+    lyricsTextSizeSp: Float = 0f,
     onClick: (() -> Unit)? = null
 ) {
     val p = MaterialTheme.colorScheme.primary
@@ -95,10 +97,13 @@ fun NowPlayingBar(
     // Multi-artist display
     val displayArtist = remember(artist) { ArtistNameParser.formatForDisplay(artist) }
 
+    // Apply sync offset only to lyrics lookup, not to the progress bar
+    val lyricsPosition = estimatedPosition + lyricsSyncOffsetMs
+
     // Synced lyrics active line
     val readyState = lyricsState as? LyricsState.Ready
-    val activeLineIndex = remember(estimatedPosition, readyState) {
-        readyState?.lyrics?.lines?.let { LrcParser.activeLineIndex(it, estimatedPosition) } ?: -1
+    val activeLineIndex = remember(lyricsPosition, readyState) {
+        readyState?.lyrics?.lines?.let { LrcParser.activeLineIndex(it, lyricsPosition) } ?: -1
     }
     val lyricsListState = rememberLazyListState()
     LaunchedEffect(activeLineIndex) {
@@ -228,14 +233,15 @@ fun NowPlayingBar(
                             itemsIndexed(lyrics.lines) { idx, line ->
                                 val isActive = idx == activeLineIndex
                                 val activeWord = if (isActive && lyrics.hasWordTimestamps) {
-                                    LrcParser.activeWordIndex(line, estimatedPosition)
+                                    LrcParser.activeWordIndex(line, lyricsPosition)
                                 } else -1
                                 SyncedLyricLine(
                                     line = line,
                                     isActive = isActive,
                                     activeWordIndex = activeWord,
-                                    estimatedPositionMs = estimatedPosition,
-                                    animationStyle = lyricsAnimationStyle
+                                    estimatedPositionMs = lyricsPosition,
+                                    animationStyle = lyricsAnimationStyle,
+                                    textSizeSp = lyricsTextSizeSp
                                 )
                             }
                         }

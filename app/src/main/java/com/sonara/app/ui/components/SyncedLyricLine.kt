@@ -45,6 +45,7 @@ fun SyncedLyricLine(
     activeWordIndex: Int = -1,
     estimatedPositionMs: Long = 0L,
     animationStyle: LyricsAnimationStyle = LyricsAnimationStyle.KARAOKE,
+    textSizeSp: Float = 0f,
     modifier: Modifier = Modifier
 ) {
     val primary  = MaterialTheme.colorScheme.primary
@@ -61,6 +62,7 @@ fun SyncedLyricLine(
     val vPad      = if (line.isBackground) 2.dp  else 3.dp
     val baseStyle = if (line.isBackground) MaterialTheme.typography.bodySmall
                    else MaterialTheme.typography.bodyLarge
+    val effectiveStyle = if (textSizeSp > 0f) baseStyle.copy(fontSize = textSizeSp.sp) else baseStyle
 
     // ── Shared sweep progress [0..1] for VIVIMUSIC / LYRICS_V2 ───────────────
     val sweepTarget = sweepTarget(line, isActive, estimatedPositionMs)
@@ -79,7 +81,7 @@ fun SyncedLyricLine(
                 text      = line.text,
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad),
                 textAlign = textAlign,
-                style     = if (isActive) baseStyle.copy(fontWeight = FontWeight.Bold) else baseStyle,
+                style     = if (isActive) effectiveStyle.copy(fontWeight = FontWeight.Bold) else effectiveStyle,
                 color     = if (isActive) SonaraTextPrimary else dimColor
             )
         }
@@ -96,7 +98,7 @@ fun SyncedLyricLine(
                 text      = line.text,
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad).alpha(alpha),
                 textAlign = textAlign,
-                style     = if (isActive) baseStyle.copy(fontWeight = FontWeight.Bold) else baseStyle,
+                style     = if (isActive) effectiveStyle.copy(fontWeight = FontWeight.Bold) else effectiveStyle,
                 color     = color
             )
         }
@@ -114,7 +116,7 @@ fun SyncedLyricLine(
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
                     .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
                 textAlign = textAlign,
-                style     = if (isActive) baseStyle.copy(fontWeight = FontWeight.Bold) else baseStyle,
+                style     = if (isActive) effectiveStyle.copy(fontWeight = FontWeight.Bold) else effectiveStyle,
                 color     = if (isActive) primary else dimColor
             )
         }
@@ -132,7 +134,7 @@ fun SyncedLyricLine(
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
                     .graphicsLayer { translationY = offsetY; this.alpha = alpha },
                 textAlign = textAlign,
-                style     = if (isActive) baseStyle.copy(fontWeight = FontWeight.Bold) else baseStyle,
+                style     = if (isActive) effectiveStyle.copy(fontWeight = FontWeight.Bold) else effectiveStyle,
                 color     = if (isActive) SonaraTextPrimary else dimColor
             )
         }
@@ -174,7 +176,7 @@ fun SyncedLyricLine(
                     text      = annotated,
                     modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad),
                     textAlign = textAlign,
-                    style     = baseStyle
+                    style     = effectiveStyle
                 )
             } else {
                 val color by animateColorAsState(
@@ -184,7 +186,7 @@ fun SyncedLyricLine(
                     text      = line.text,
                     modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad),
                     textAlign = textAlign,
-                    style     = if (isActive) baseStyle.copy(fontWeight = FontWeight.Bold) else baseStyle,
+                    style     = if (isActive) effectiveStyle.copy(fontWeight = FontWeight.Bold) else effectiveStyle,
                     color     = color
                 )
             }
@@ -203,7 +205,7 @@ fun SyncedLyricLine(
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp)
                     .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
                 textAlign = textAlign,
-                style     = baseStyle.copy(
+                style     = effectiveStyle.copy(
                     fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.Medium
                 ),
                 color     = if (isActive) SonaraTextPrimary else dimColor
@@ -223,7 +225,7 @@ fun SyncedLyricLine(
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp)
                     .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
                 textAlign = textAlign,
-                style     = MaterialTheme.typography.titleMedium.copy(
+                style     = effectiveStyle.copy(
                     fontWeight    = if (isActive) FontWeight.Black else FontWeight.Light,
                     letterSpacing = if (isActive) 0.sp else 1.2.sp
                 ),
@@ -248,7 +250,7 @@ fun SyncedLyricLine(
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp)
                     .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
                 textAlign = textAlign,
-                style     = baseStyle.copy(
+                style     = effectiveStyle.copy(
                     brush      = brush,
                     fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal
                 ),
@@ -279,10 +281,10 @@ fun SyncedLyricLine(
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
                     .graphicsLayer { translationY = offsetY; this.alpha = alpha },
                 textAlign = textAlign,
-                style     = if (isActive) baseStyle.copy(
+                style     = if (isActive) effectiveStyle.copy(
                     brush      = brush,
                     fontWeight = FontWeight.SemiBold
-                ) else baseStyle,
+                ) else effectiveStyle,
                 color     = if (brush == null) (if (isActive) SonaraTextPrimary else dimColor) else Color.Unspecified
             )
         }
@@ -308,7 +310,7 @@ fun SyncedLyricLine(
                     modifier  = Modifier.fillMaxWidth()
                         .graphicsLayer { scaleX = scale; scaleY = scale },
                     textAlign = textAlign,
-                    style     = MaterialTheme.typography.titleMedium.copy(
+                    style     = effectiveStyle.copy(
                         fontWeight    = if (isActive) FontWeight.Black else FontWeight.Normal,
                         letterSpacing = if (isActive) 0.sp else 0.5.sp
                     ),

@@ -145,6 +145,8 @@ fun DashboardScreen() {
                 positionTimestamp = s.positionTimestamp,
                 lyricsState = lyricsState,
                 lyricsAnimationStyle = settingsState.lyricsAnimationStyle,
+                lyricsSyncOffsetMs = settingsState.lyricsSyncOffsetMs,
+                lyricsTextSizeSp = settingsState.lyricsTextSize,
                 onClick = if (s.playerPackage.isNotBlank()) ({
                     ctx.packageManager.getLaunchIntentForPackage(s.playerPackage)
                         ?.let { ctx.startActivity(it) }
