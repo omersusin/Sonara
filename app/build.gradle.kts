@@ -99,6 +99,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines)
     implementation(libs.workmanager.runtime)
     implementation(libs.coil.compose)
+    implementation(libs.compose.google.fonts)
 
     debugImplementation(libs.compose.ui.tooling)
 }

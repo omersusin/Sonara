@@ -21,12 +21,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -52,6 +56,7 @@ import coil.request.ImageRequest
 import com.sonara.app.SonaraApp
 import com.sonara.app.intelligence.deezer.DeezerImageResolver
 import com.sonara.app.intelligence.lastfm.LastFmClient
+import com.sonara.app.ui.theme.SonaraCard
 import com.sonara.app.ui.theme.SonaraCardElevated
 import com.sonara.app.ui.theme.SonaraDivider
 import com.sonara.app.ui.theme.SonaraSuccess
@@ -84,6 +89,7 @@ fun RecentTracksScreen(
     // Each load-more fetches 200 tracks strictly BEFORE this timestamp,
     // eliminating the page-drift bug caused by page-number-only pagination.
     var oldestUts by remember { mutableLongStateOf(0L) }
+    var searchQuery by remember { mutableStateOf("") }
 
     // On open: refresh to get freshest data
     LaunchedEffect(Unit) {
@@ -147,18 +153,52 @@ fun RecentTracksScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Recently Played (${allTracks.size})") },
+                title = { Text("Recently Played") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
+        val displayTracks = if (searchQuery.isBlank()) allTracks
+            else allTracks.filter { it.title.contains(searchQuery, ignoreCase = true) || it.artist.contains(searchQuery, ignoreCase = true) }
+
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            // Search bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                placeholder = { Text("Search…", style = MaterialTheme.typography.bodyMedium, color = SonaraTextTertiary) },
+                leadingIcon = { Icon(Icons.Rounded.Search, null, Modifier.size(18.dp), tint = SonaraTextTertiary) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Rounded.Close, "Clear", Modifier.size(16.dp), tint = SonaraTextTertiary)
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = p,
+                    unfocusedBorderColor = SonaraDivider.copy(0.3f),
+                    focusedContainerColor = SonaraCard,
+                    unfocusedContainerColor = SonaraCard,
+                    focusedTextColor = SonaraTextPrimary,
+                    unfocusedTextColor = SonaraTextPrimary,
+                    cursorColor = p
+                ),
+                textStyle = MaterialTheme.typography.bodyMedium
+            )
+
         LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
+            Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            itemsIndexed(allTracks) { i, t ->
+            itemsIndexed(displayTracks) { i, t ->
                 Row(
                     Modifier.fillMaxWidth().clickable { onTrackClick(t.title, t.artist) }.padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -188,10 +228,10 @@ fun RecentTracksScreen(
                         Text(relativeTime(t.uts), style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                     }
                 }
-                if (i < allTracks.lastIndex) Box(Modifier.fillMaxWidth().height(0.5.dp).background(SonaraDivider.copy(0.1f)))
+                if (i < displayTracks.lastIndex) Box(Modifier.fillMaxWidth().height(0.5.dp).background(SonaraDivider.copy(0.1f)))
             }
 
-            if (hasMore) {
+            if (hasMore && searchQuery.isBlank()) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
                         if (loading) {
@@ -205,5 +245,6 @@ fun RecentTracksScreen(
 
             item { Spacer(Modifier.height(16.dp)) }
         }
+        } // end Column
     }
 }

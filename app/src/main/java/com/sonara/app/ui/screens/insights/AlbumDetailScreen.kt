@@ -50,6 +50,7 @@ import coil.request.ImageRequest
 import com.sonara.app.SonaraApp
 import com.sonara.app.intelligence.deezer.DeezerImageResolver
 import com.sonara.app.intelligence.lastfm.LastFmClient
+import com.sonara.app.intelligence.theaudiodb.TheAudioDbClient
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
@@ -61,8 +62,11 @@ data class AlbumTrackItem(
     val rank: Int,
     val title: String,
     val durationSec: Int,
-    val userPlays: String
+    val userPlays: String,
+    val imageUrl: String = ""
 )
+
+private fun String.isPlaceholder() = isBlank() || contains("2a96cbd8b46e")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,36 +89,44 @@ fun AlbumDetailScreen(
     var loading by remember { mutableStateOf(true) }
     var listeners by remember { mutableStateOf("") }
     var totalPlays by remember { mutableStateOf(albumPlays) }
+    var albumYear by remember { mutableStateOf("") }
+    var albumGenre by remember { mutableStateOf("") }
 
     LaunchedEffect(albumName, artistName) {
         withContext(Dispatchers.IO) {
             val apiKey = app.lastFmAuth.getActiveApiKey()
-            // Resolve better image if needed
-            if (imageUrl.isBlank() || imageUrl.contains("2a96cbd8b46e")) {
-                imageUrl = DeezerImageResolver.getTrackImageWithFallback(albumName, artistName) ?: imageUrl
+
+            // ── Resolve artwork: Last.fm → TheAudioDB → Deezer ─────────────────
+            if (imageUrl.isPlaceholder()) {
+                imageUrl = tryResolveAlbumArt(albumName, artistName, apiKey)
             }
+
+            // ── User play map (for cross-referencing) ────────────────────────────
+            val userPlayMap = mutableMapOf<String, String>()
+            if (apiKey.isNotBlank()) {
+                val username = app.lastFmAuth.getConnectionInfo().username
+                if (username.isNotBlank()) {
+                    try {
+                        val topTracks = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 500)
+                        topTracks.toptracks?.track
+                            ?.filter { it.artist?.name.equals(artistName, ignoreCase = true) }
+                            ?.forEach { t -> userPlayMap[t.name.lowercase()] = t.playcount }
+                    } catch (_: Exception) {}
+                }
+            }
+
+            // ── Source 1: Last.fm album.getInfo ──────────────────────────────────
+            var parsed: List<AlbumTrackItem> = emptyList()
             if (apiKey.isNotBlank()) {
                 try {
                     val info = LastFmClient.api.getAlbumInfo(artistName, albumName, apiKey)
                     info.album?.let { album ->
                         listeners = album.listeners
                         if (album.playcount.isNotBlank()) totalPlays = album.playcount
-                        if (album.imageUrl?.isNotBlank() == true && !album.imageUrl!!.contains("2a96cbd8b46e")) {
+                        if (!album.imageUrl.isNullOrBlank() && !album.imageUrl!!.isPlaceholder()) {
                             imageUrl = album.imageUrl!!
                         }
-
-                        // Build track list — cross-reference with user's top tracks for play counts
-                        val username = app.lastFmAuth.getConnectionInfo().username
-                        val userPlayMap = mutableMapOf<String, String>()
-                        if (username.isNotBlank()) {
-                            try {
-                                val topTracks = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 500)
-                                topTracks.toptracks?.track?.filter { it.artist?.name.equals(artistName, ignoreCase = true) }
-                                    ?.forEach { t -> userPlayMap[t.name.lowercase()] = t.playcount }
-                            } catch (_: Exception) {}
-                        }
-
-                        val parsed = album.tracks?.track?.mapIndexed { idx, t ->
+                        parsed = album.tracks?.track?.mapIndexed { idx, t ->
                             AlbumTrackItem(
                                 rank = t.attr?.rank?.toIntOrNull() ?: (idx + 1),
                                 title = t.name,
@@ -122,13 +134,65 @@ fun AlbumDetailScreen(
                                 userPlays = userPlayMap[t.name.lowercase()] ?: ""
                             )
                         }?.sortedBy { it.rank } ?: emptyList()
-                        // Singles have no track list — show the release itself as one track
-                        tracks = if (parsed.isEmpty()) listOf(
-                            AlbumTrackItem(1, albumName, 0, userPlayMap[albumName.lowercase()] ?: albumPlays)
-                        ) else parsed
                     }
                 } catch (_: Exception) {}
             }
+
+            // ── Source 2: TheAudioDB fallback ─────────────────────────────────────
+            if (parsed.isEmpty()) {
+                try {
+                    val adbAlbum = TheAudioDbClient.searchAlbum(artistName, albumName)
+                    if (adbAlbum != null) {
+                        if (imageUrl.isPlaceholder() && !adbAlbum.strThumb.isNullOrBlank()) {
+                            imageUrl = adbAlbum.strThumbHQ ?: adbAlbum.strThumb!!
+                        }
+                        albumYear = adbAlbum.intYearReleased?.toString() ?: ""
+                        albumGenre = adbAlbum.strGenre ?: ""
+
+                        if (adbAlbum.idAlbum.isNotBlank()) {
+                            val adbTracks = TheAudioDbClient.getAlbumTracks(adbAlbum.idAlbum)
+                            parsed = adbTracks.mapIndexed { idx, t ->
+                                val durationMs = t.strDuration?.toLongOrNull() ?: 0L
+                                AlbumTrackItem(
+                                    rank = t.intTrackNumber ?: (idx + 1),
+                                    title = t.strTrack,
+                                    durationSec = (durationMs / 1000).toInt(),
+                                    userPlays = userPlayMap[t.strTrack.lowercase()] ?: "",
+                                    imageUrl = t.strThumb ?: imageUrl
+                                )
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+
+            // ── Source 3: TheAudioDB top-10 fallback (if still empty) ─────────────
+            if (parsed.isEmpty()) {
+                try {
+                    val top10 = TheAudioDbClient.getTop10Tracks(artistName)
+                    if (top10.isNotEmpty()) {
+                        parsed = top10.mapIndexed { idx, t ->
+                            val durationMs = t.strDuration?.toLongOrNull() ?: 0L
+                            AlbumTrackItem(
+                                rank = t.intTrackNumber ?: (idx + 1),
+                                title = t.strTrack,
+                                durationSec = (durationMs / 1000).toInt(),
+                                userPlays = userPlayMap[t.strTrack.lowercase()] ?: "",
+                                imageUrl = t.strThumb ?: ""
+                            )
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+
+            // ── Singles: show the release itself ─────────────────────────────────
+            if (parsed.isEmpty()) {
+                parsed = listOf(
+                    AlbumTrackItem(1, albumName, 0, userPlayMap[albumName.lowercase()] ?: albumPlays, imageUrl)
+                )
+            }
+
+            tracks = parsed
             loading = false
         }
     }
@@ -153,11 +217,11 @@ fun AlbumDetailScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Album header
+                // ── Album header ────────────────────────────────────────────────
                 item {
                     FluentCard {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            if (imageUrl.isNotBlank()) {
+                            if (!imageUrl.isPlaceholder()) {
                                 AsyncImage(
                                     model = ImageRequest.Builder(ctx).data(imageUrl).crossfade(true).build(),
                                     contentDescription = albumName,
@@ -174,22 +238,49 @@ fun AlbumDetailScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(albumName, style = MaterialTheme.typography.titleLarge, color = SonaraTextPrimary, maxLines = 2)
                                 Spacer(Modifier.height(2.dp))
-                                Text(artistName, style = MaterialTheme.typography.bodyMedium, color = p, maxLines = 1,
-                                    modifier = Modifier.clickable { onArtistClick(artistName) })
+                                Text(
+                                    artistName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = p,
+                                    maxLines = 1,
+                                    modifier = Modifier.clickable { onArtistClick(artistName) }
+                                )
+                                // Year + genre metadata
+                                val meta = listOfNotNull(
+                                    albumYear.takeIf { it.isNotBlank() },
+                                    albumGenre.takeIf { it.isNotBlank() }
+                                ).joinToString(" · ")
+                                if (meta.isNotBlank()) {
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, maxLines = 1)
+                                }
                                 Spacer(Modifier.height(8.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                     if (totalPlays.isNotBlank()) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Text(try { fmt.format(totalPlays.toLong()) } catch (_: Exception) { totalPlays },
-                                                style = MaterialTheme.typography.titleMedium, color = p, fontWeight = FontWeight.Bold)
+                                            Text(
+                                                try { fmt.format(totalPlays.toLong()) } catch (_: Exception) { totalPlays },
+                                                style = MaterialTheme.typography.titleMedium, color = p, fontWeight = FontWeight.Bold
+                                            )
                                             Text("your plays", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                                         }
                                     }
                                     if (listeners.isNotBlank()) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Text(try { fmt.format(listeners.toLong()) } catch (_: Exception) { listeners },
-                                                style = MaterialTheme.typography.titleMedium, color = SonaraTextSecondary, fontWeight = FontWeight.Bold)
+                                            Text(
+                                                try { fmt.format(listeners.toLong()) } catch (_: Exception) { listeners },
+                                                style = MaterialTheme.typography.titleMedium, color = SonaraTextSecondary, fontWeight = FontWeight.Bold
+                                            )
                                             Text("listeners", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                                        }
+                                    }
+                                    if (tracks.isNotEmpty()) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(
+                                                "${tracks.size}",
+                                                style = MaterialTheme.typography.titleMedium, color = SonaraTextSecondary, fontWeight = FontWeight.Bold
+                                            )
+                                            Text("tracks", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                                         }
                                     }
                                 }
@@ -198,77 +289,62 @@ fun AlbumDetailScreen(
                     }
                 }
 
-                // Tracks
-                if (tracks.isNotEmpty()) {
-                    item {
-                        FluentCard {
-                            Text("Tracks", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
-                            Spacer(Modifier.height(10.dp))
-                            tracks.forEachIndexed { i, track ->
-                                var trackImgUrl by remember(track.title) { mutableStateOf(imageUrl) }
-                                LaunchedEffect(track.title) {
-                                    if (trackImgUrl.isBlank() || trackImgUrl.contains("2a96cbd8b46e")) {
-                                        val resolved = withContext(Dispatchers.IO) {
-                                            DeezerImageResolver.getTrackImageWithFallback(track.title, artistName) ?: imageUrl
-                                        }
-                                        if (resolved.isNotBlank()) trackImgUrl = resolved
-                                    }
-                                }
-                                Row(
-                                    Modifier.fillMaxWidth()
-                                        .clickable { onTrackClick(track.title, artistName) }
-                                        .padding(vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Text(
-                                        "${track.rank}",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = if (i < 3) p else SonaraTextTertiary,
-                                        modifier = Modifier.width(26.dp)
+                // ── Track list ────────────────────────────────────────────────────
+                item {
+                    FluentCard {
+                        Text("Tracks", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                        Spacer(Modifier.height(10.dp))
+                        tracks.forEachIndexed { i, track ->
+                            // Per-track image: prefer track-specific (TheAudioDB), fall back to album art
+                            val trackImgUrl = track.imageUrl.takeIf { !it.isPlaceholder() } ?: imageUrl
+
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onTrackClick(track.title, artistName) }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    "${track.rank}",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = if (i < 3) p else SonaraTextTertiary,
+                                    modifier = Modifier.width(26.dp)
+                                )
+                                if (!trackImgUrl.isPlaceholder()) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(ctx).data(trackImgUrl).crossfade(true).build(),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(6.dp)),
+                                        contentScale = ContentScale.Crop
                                     )
-                                    if (trackImgUrl.isNotBlank() && !trackImgUrl.contains("2a96cbd8b46e")) {
-                                        AsyncImage(
-                                            model = ImageRequest.Builder(ctx).data(trackImgUrl).crossfade(true).build(),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(36.dp).clip(RoundedCornerShape(6.dp)),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    } else {
-                                        Box(
-                                            Modifier.size(36.dp).background(SonaraCardElevated, RoundedCornerShape(6.dp)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(Icons.Rounded.MusicNote, null, Modifier.size(16.dp), tint = p.copy(0.4f))
-                                        }
-                                    }
-                                    Column(Modifier.weight(1f)) {
-                                        Text(track.title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
-                                        if (track.durationSec > 0) {
-                                            val m = track.durationSec / 60; val s = track.durationSec % 60
-                                            Text("$m:${"%02d".format(s)}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                                        }
-                                    }
-                                    if (track.userPlays.isNotBlank()) {
-                                        Column(horizontalAlignment = Alignment.End) {
-                                            Text(
-                                                try { fmt.format(track.userPlays.toLong()) } catch (_: Exception) { track.userPlays },
-                                                style = MaterialTheme.typography.labelMedium, color = p
-                                            )
-                                            Text("plays", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                                        }
+                                } else {
+                                    Box(
+                                        Modifier.size(36.dp).background(SonaraCardElevated, RoundedCornerShape(6.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Rounded.MusicNote, null, Modifier.size(16.dp), tint = p.copy(0.4f))
                                     }
                                 }
-                                if (i < tracks.lastIndex) HorizontalDivider(color = SonaraDivider.copy(0.12f))
+                                Column(Modifier.weight(1f)) {
+                                    Text(track.title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
+                                    if (track.durationSec > 0) {
+                                        val m = track.durationSec / 60; val s = track.durationSec % 60
+                                        Text("$m:${"%02d".format(s)}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                                    }
+                                }
+                                if (track.userPlays.isNotBlank()) {
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            try { fmt.format(track.userPlays.toLong()) } catch (_: Exception) { track.userPlays },
+                                            style = MaterialTheme.typography.labelMedium, color = p
+                                        )
+                                        Text("plays", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                                    }
+                                }
                             }
-                        }
-                    }
-                } else {
-                    item {
-                        FluentCard {
-                            Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) {
-                                Text("No track info available", style = MaterialTheme.typography.bodyMedium, color = SonaraTextTertiary)
-                            }
+                            if (i < tracks.lastIndex) HorizontalDivider(color = SonaraDivider.copy(0.12f))
                         }
                     }
                 }
@@ -278,3 +354,24 @@ fun AlbumDetailScreen(
         }
     }
 }
+
+/** Try to resolve album artwork using Last.fm → TheAudioDB → Deezer priority. */
+private suspend fun tryResolveAlbumArt(album: String, artist: String, apiKey: String): String {
+    // Last.fm
+    if (apiKey.isNotBlank()) {
+        try {
+            val info = LastFmClient.api.getAlbumInfo(artist, album, apiKey)
+            val lfmImg = info.album?.imageUrl
+            if (!lfmImg.isNullOrBlank() && !lfmImg.contains("2a96cbd8b46e")) return lfmImg
+        } catch (_: Exception) {}
+    }
+    // TheAudioDB
+    try {
+        val adb = TheAudioDbClient.searchAlbum(artist, album)
+        val adbImg = adb?.strThumbHQ ?: adb?.strThumb
+        if (!adbImg.isNullOrBlank()) return adbImg
+    } catch (_: Exception) {}
+    // Deezer last resort
+    return DeezerImageResolver.getTrackImageWithFallback(album, artist) ?: ""
+}
+

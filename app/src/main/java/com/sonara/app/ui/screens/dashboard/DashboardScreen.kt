@@ -145,6 +145,8 @@ fun DashboardScreen() {
                 positionTimestamp = s.positionTimestamp,
                 lyricsState = lyricsState,
                 lyricsAnimationStyle = settingsState.lyricsAnimationStyle,
+                lyricsSyncOffsetMs = settingsState.lyricsSyncOffsetMs,
+                lyricsTextSizeSp = settingsState.lyricsTextSize,
                 onClick = if (s.playerPackage.isNotBlank()) ({
                     ctx.packageManager.getLaunchIntentForPackage(s.playerPackage)
                         ?.let { ctx.startActivity(it) }
@@ -192,7 +194,7 @@ fun DashboardScreen() {
                         Spacer(Modifier.height(10.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (s.bassBoost > 0) Pill("Bass", "${(s.bassBoost / 10f).toInt()}%", Modifier.weight(1f), p)
-                            if (s.virtualizer > 0) Pill("Surround", "${(s.virtualizer / 10f).toInt()}%", Modifier.weight(1f), p)
+                            if (s.virtualizer > 0) Pill("Stereo Width", "${(s.virtualizer / 10f).toInt()}%", Modifier.weight(1f), p)
                         }
                     }
                     if (aiState.isReady) {

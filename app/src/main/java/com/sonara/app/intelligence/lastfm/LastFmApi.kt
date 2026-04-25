@@ -84,6 +84,23 @@ interface LastFmApi {
         @Query("page") page: Int = 1
     ): LastFmRecentTracksResponse
 
+    @GET("?method=artist.getSimilar&format=json")
+    suspend fun getSimilarArtists(
+        @Query("artist") artist: String,
+        @Query("api_key") apiKey: String,
+        @Query("limit") limit: Int = 6,
+        @Query("autocorrect") autocorrect: Int = 1
+    ): LastFmSimilarArtistsResponse
+
+    @GET("?method=track.getSimilar&format=json")
+    suspend fun getSimilarTracks(
+        @Query("track") track: String,
+        @Query("artist") artist: String,
+        @Query("api_key") apiKey: String,
+        @Query("limit") limit: Int = 6,
+        @Query("autocorrect") autocorrect: Int = 1
+    ): LastFmSimilarTracksResponse
+
     @GET("?method=album.getInfo&format=json")
     suspend fun getAlbumInfo(
         @Query("artist") artist: String,
