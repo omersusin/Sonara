@@ -101,7 +101,12 @@ class LastFmAuthManager(private val context: Context) {
     }
 
     suspend fun startAuth(): Intent? {
-        Log.d(TAG, "startAuth() called")
+        val url = getAuthUrl() ?: return null
+        return Intent(Intent.ACTION_VIEW, Uri.parse(url))
+    }
+
+    suspend fun getAuthUrl(): String? {
+        Log.d(TAG, "getAuthUrl() called")
         if (_authState.value == AuthState.AUTHENTICATING && pendingToken != null) return null
 
         val apiKey = resolveApiKey()
@@ -132,12 +137,11 @@ class LastFmAuthManager(private val context: Context) {
                 pendingToken = token
                 authPrefs.edit().putLong("pending_token_time", System.currentTimeMillis()).apply()
                 authNonce = java.util.UUID.randomUUID().toString().take(16)
-                val authUri = Uri.parse(AUTH_URL).buildUpon()
+                Uri.parse(AUTH_URL).buildUpon()
                     .appendQueryParameter("api_key", apiKey)
                     .appendQueryParameter("token", token)
                     .appendQueryParameter("cb", CALLBACK_URL)
-                    .build()
-                Intent(Intent.ACTION_VIEW, authUri)
+                    .build().toString()
             } catch (e: Exception) {
                 SonaraLogger.e("LastFmAuth", "Token error: ${e.message}")
                 _authState.value = AuthState.ERROR

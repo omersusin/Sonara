@@ -298,56 +298,17 @@ internal fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Cont
             else -> {
                 Text("Connect your Last.fm account for accurate genre detection and scrobbling.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                 Spacer(Modifier.height(12.dp))
-                // Direct login option
-                var showDirectLogin by remember { mutableStateOf(false) }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { vm.connectLastFm { intent -> ctx.startActivity(intent) } },
-                        Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge,
-                        border = BorderStroke(1.dp, SonaraInfo),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraInfo)
-                    ) { Text("Browser Auth") }
-                    OutlinedButton(
-                        onClick = { showDirectLogin = !showDirectLogin },
-                        Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge,
-                        border = BorderStroke(1.dp, p),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
-                    ) { Text("Direct Login") }
+                var showLoginDialog by remember { mutableStateOf(false) }
+                if (showLoginDialog) {
+                    LastFmLoginDialog(vm = vm, onDismiss = { showLoginDialog = false })
                 }
-
-                if (showDirectLogin && state.isApiKeySet && state.isSharedSecretSet) {
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = state.lastFmUsernameInput,
-                        onValueChange = { vm.updateLastFmUsernameInput(it) },
-                        label = { Text("Last.fm Username") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        colors = tfColors()
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    OutlinedTextField(
-                        value = state.lastFmPasswordInput,
-                        onValueChange = { vm.updateLastFmPasswordInput(it) },
-                        label = { Text("Last.fm Password") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        colors = tfColors()
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    OutlinedButton(
-                        onClick = { vm.directLoginLastFm() },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = state.lastFmUsernameInput.isNotBlank() && state.lastFmPasswordInput.isNotBlank(),
-                        shape = MaterialTheme.shapes.extraLarge,
-                        border = BorderStroke(1.dp, if (state.lastFmUsernameInput.isNotBlank()) SonaraSuccess else SonaraDivider),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraSuccess)
-                    ) { Text("Login") }
-                } else if (showDirectLogin) {
-                    Spacer(Modifier.height(4.dp))
-                    Text("Save API Key & Secret first", style = MaterialTheme.typography.bodySmall, color = SonaraWarning)
-                }
+                OutlinedButton(
+                    onClick = { showLoginDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    border = BorderStroke(1.dp, p),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
+                ) { Text("Log In") }
 
                 // --- API Key guide + inputs ---
                 var showApiGuide by remember { mutableStateOf(false) }
