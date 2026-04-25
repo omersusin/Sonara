@@ -41,6 +41,13 @@ class DailySyncWorker(appContext: Context, params: WorkerParameters) : Coroutine
                 val token = SecureSecrets.getGitHubToken(ctx)
                 if (!token.isNullOrBlank()) sync.uploadContributions(token)
             }
+            try {
+                val downloader = com.sonara.app.ai.classifier.PrototypeDownloader(applicationContext)
+                val fresh = downloader.downloadLatest()
+                if (fresh != null) {
+                    com.sonara.app.ai.classifier.KnnClassifier.getInstance(applicationContext).replacePrototypes(fresh)
+                }
+            } catch (_: Exception) {}
             Log.d(TAG, "Sync completed"); return Result.success()
         } catch (e: Exception) { Log.e(TAG, "Sync failed: ${e.message}"); return if (runAttemptCount < 5) Result.retry() else Result.failure() }
     }

@@ -175,6 +175,37 @@ fun LyricsSettingsScreen(onBack: () -> Unit = {}) {
                 }
             }
 
+            if (s.lyricsShowTranslated) {
+                item {
+                    FluentCard {
+                        Text("Translation Language", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                        Spacer(Modifier.height(8.dp))
+                        val languages = listOf(
+                            "en" to "English", "tr" to "Turkish", "es" to "Spanish",
+                            "fr" to "French", "de" to "German", "ja" to "Japanese",
+                            "ko" to "Korean", "pt" to "Portuguese", "it" to "Italian",
+                            "ru" to "Russian", "zh" to "Chinese (Simplified)"
+                        )
+                        Column(Modifier.selectableGroup()) {
+                            languages.forEach { (code, name) ->
+                                val selected = s.lyricsTargetLanguage == code
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .selectable(selected = selected, role = Role.RadioButton, onClick = { vm.setLyricsTargetLanguage(code) })
+                                        .padding(vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    RadioButton(selected = selected, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = p))
+                                    Text(name, style = MaterialTheme.typography.bodyMedium, color = if (selected) p else SonaraTextPrimary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             item { Spacer(Modifier.height(16.dp)) }
         }
     }

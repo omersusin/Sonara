@@ -38,6 +38,7 @@ data class DashboardUiState(
     val bassBoost: Int = 0,
     val virtualizer: Int = 0,
     val loudness: Int = 0,
+    val reverb: Int = 0,
     val notificationListenerEnabled: Boolean = false,
     val eqActive: Boolean = false,
     val isManualPreset: Boolean = false,
@@ -61,7 +62,7 @@ data class DashboardUiState(
             isAiEnabled == other.isAiEnabled &&
             bands.contentEquals(other.bands) &&
             bassBoost == other.bassBoost && virtualizer == other.virtualizer &&
-            loudness == other.loudness &&
+            loudness == other.loudness && reverb == other.reverb &&
             notificationListenerEnabled == other.notificationListenerEnabled &&
             eqActive == other.eqActive && isManualPreset == other.isManualPreset &&
             songsLearned == other.songsLearned &&
@@ -80,6 +81,7 @@ data class DashboardUiState(
         result = 31 * result + route.hashCode()
         result = 31 * result + bands.contentHashCode()
         result = 31 * result + notificationListenerEnabled.hashCode()
+        result = 31 * result + reverb.hashCode()
         result = 31 * result + isLoved.hashCode()
         result = 31 * result + geminiSummary.hashCode()
         result = 31 * result + legacyAnalysis.hashCode()
@@ -119,7 +121,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
 
-        viewModelScope.launch { app.eqState.collect { eq -> _uiState.update { it.copy(bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer, loudness = eq.loudness, currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset, eqActive = eq.isEnabled) } } }
+        viewModelScope.launch { app.eqState.collect { eq -> _uiState.update { it.copy(bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer, loudness = eq.loudness, reverb = eq.reverb, currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset, eqActive = eq.isEnabled) } } }
         viewModelScope.launch { SonaraNotificationListener.nowPlaying.collect { np ->
             _uiState.update { it.copy(title = np.title, artist = np.artist, isPlaying = np.isPlaying, hasTrack = np.title.isNotBlank(), duration = np.duration, position = np.position, positionTimestamp = np.positionTimestamp, playerPackage = np.packageName) }
             if (np.title.isNotBlank()) {

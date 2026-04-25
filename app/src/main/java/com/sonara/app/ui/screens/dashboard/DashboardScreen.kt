@@ -91,6 +91,7 @@ fun DashboardScreen() {
     val aiState by vm.aiState.collectAsState()
     val vizData by vm.visualizerData.collectAsState()
     val lyricsState by lyricsVm.state.collectAsState()
+    val lyricsInsight by com.sonara.app.service.SonaraNotificationListener.lyricsInsight.collectAsState()
     val p = MaterialTheme.colorScheme.primary
     val ctx = LocalContext.current
     val lc = LocalLifecycleOwner.current
@@ -147,6 +148,8 @@ fun DashboardScreen() {
                 lyricsAnimationStyle = settingsState.lyricsAnimationStyle,
                 lyricsSyncOffsetMs = settingsState.lyricsSyncOffsetMs,
                 lyricsTextSizeSp = settingsState.lyricsTextSize,
+                isLoved = s.isLoved,
+                onToggleLove = { vm.toggleLove() },
                 onClick = if (s.playerPackage.isNotBlank()) ({
                     ctx.packageManager.getLaunchIntentForPackage(s.playerPackage)
                         ?.let { ctx.startActivity(it) }
@@ -189,12 +192,31 @@ fun DashboardScreen() {
                         Spacer(Modifier.height(8.dp))
                         Text(s.geminiSummary, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                     }
-                    val hasPills = s.bassBoost > 0 || s.virtualizer > 0
+                    lyricsInsight?.let { insight ->
+                        Spacer(Modifier.height(8.dp))
+                        androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Lyrical tone: ", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                            Text(insight.tone, style = MaterialTheme.typography.bodySmall, color = p, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { (insight.polarity + 1f) / 2f },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = when {
+                                insight.polarity > 0.3f -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                                insight.polarity < -0.3f -> androidx.compose.ui.graphics.Color(0xFF9C27B0)
+                                else -> p
+                            },
+                            trackColor = SonaraCardElevated
+                        )
+                    }
+                    val hasPills = s.bassBoost > 0 || s.virtualizer > 0 || s.reverb > 0
                     if (hasPills) {
                         Spacer(Modifier.height(10.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (s.bassBoost > 0) Pill("Bass", "${(s.bassBoost / 10f).toInt()}%", Modifier.weight(1f), p)
                             if (s.virtualizer > 0) Pill("Stereo Width", "${(s.virtualizer / 10f).toInt()}%", Modifier.weight(1f), p)
+                            if (s.reverb > 0) Pill("Room", com.sonara.app.engine.effects.EffectsChain.reverbName(s.reverb), Modifier.weight(1f), p)
                         }
                     }
                     if (aiState.isReady) {

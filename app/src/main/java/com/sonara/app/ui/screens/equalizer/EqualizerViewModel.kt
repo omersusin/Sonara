@@ -121,6 +121,15 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setEnabled(on: Boolean) { app.setEqEnabled(on) }
 
+    fun setBypass(bypass: Boolean) {
+        if (bypass) {
+            app.applyEq(FloatArray(10), "Bypass", manual = false, 0, 0, 0, reverb = 0)
+        } else {
+            val s = c()
+            app.applyEq(s.bands, s.currentPresetName, manual = false, s.bassBoost, s.virtualizer, s.loudness, s.preamp, reverb = s.reverb)
+        }
+    }
+
     fun resetBands() {
         applyJob?.cancel()
         app.applyEq(FloatArray(10), "Flat", false, 0, 0, 0, reverb = 0)

@@ -25,6 +25,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
@@ -44,10 +46,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -61,6 +65,7 @@ import com.sonara.app.intelligence.lyrics.LyricsAnimationStyle
 import com.sonara.app.intelligence.lyrics.LyricsState
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.theme.*
+import kotlin.math.abs
 import kotlinx.coroutines.delay
 
 @Composable
@@ -76,7 +81,11 @@ fun NowPlayingBar(
     lyricsAnimationStyle: LyricsAnimationStyle = LyricsAnimationStyle.KARAOKE,
     lyricsSyncOffsetMs: Int = 0,
     lyricsTextSizeSp: Float = 0f,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    isLoved: Boolean = false,
+    onToggleLove: () -> Unit = {},
+    lyricsShowTranslated: Boolean = false,
+    lyricsTargetLanguage: String = "en"
 ) {
     val p = MaterialTheme.colorScheme.primary
     val hasTrack = title != "No music playing" && title.isNotBlank()
@@ -88,13 +97,16 @@ fun NowPlayingBar(
     var isDragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableFloatStateOf(0f) }
 
-    // Ticker: 100ms while playing and not dragging
+    // Ticker: adaptive rate based on lyrics expansion and animation style
     var tick by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(isPlaying, isDragging) {
-        while (isPlaying && !isDragging) {
-            delay(100L)
-            tick = System.currentTimeMillis()
-        }
+    val tickMs = when {
+        !lyricsExpanded -> 250L
+        lyricsAnimationStyle in listOf(LyricsAnimationStyle.KARAOKE,
+            LyricsAnimationStyle.VIVIMUSIC, LyricsAnimationStyle.LYRICS_V2) -> 16L
+        else -> 100L
+    }
+    LaunchedEffect(isPlaying, isDragging, lyricsExpanded, lyricsAnimationStyle) {
+        while (isPlaying && !isDragging) { delay(tickMs); tick = System.currentTimeMillis() }
     }
 
     val estimatedPosition = when {
@@ -104,18 +116,32 @@ fun NowPlayingBar(
     }
 
     val progress = if (duration > 0) (estimatedPosition.toFloat() / duration).coerceIn(0f, 1f) else 0f
+    val displayProgress by remember {
+        derivedStateOf {
+            if (isDragging) dragValue
+            else if (duration > 0)
+                (estimatedPosition.toFloat() / duration).coerceIn(0f, 1f)
+            else 0f
+        }
+    }
 
     val displayArtist = remember(artist) { ArtistNameParser.formatForDisplay(artist) }
     val lyricsPosition = estimatedPosition + lyricsSyncOffsetMs
 
     val readyState = lyricsState as? LyricsState.Ready
-    val activeLineIndex = remember(lyricsPosition, readyState) {
-        readyState?.lyrics?.lines?.let { LrcParser.activeLineIndex(it, lyricsPosition) } ?: -1
+    val activeLineIndex by remember {
+        derivedStateOf {
+            readyState?.lyrics?.lines?.let { LrcParser.activeLineIndex(it, lyricsPosition) } ?: -1
+        }
     }
     val lyricsListState = rememberLazyListState()
     LaunchedEffect(activeLineIndex) {
-        if (activeLineIndex >= 1 && lyricsExpanded) {
-            lyricsListState.animateScrollToItem((activeLineIndex - 1).coerceAtLeast(0))
+        if (activeLineIndex >= 0 && lyricsExpanded) {
+            val viewportCenter = lyricsListState.layoutInfo.viewportSize.height / 2
+            lyricsListState.animateScrollToItem(
+                index = activeLineIndex,
+                scrollOffset = -viewportCenter + 40
+            )
         }
     }
 
@@ -185,9 +211,12 @@ fun NowPlayingBar(
                     fontSize = 10.sp
                 )
                 Slider(
-                    value = if (isDragging) dragValue else progress,
+                    value = displayProgress,
                     onValueChange = { v ->
-                        if (!isDragging) isDragging = true
+                        if (!isDragging) {
+                            isDragging = true
+                            dragValue = displayProgress
+                        }
                         dragValue = v
                     },
                     onValueChangeFinished = {
@@ -228,6 +257,17 @@ fun NowPlayingBar(
                             modifier = Modifier.size(18.dp)
                         )
                     }
+                }
+                IconButton(
+                    onClick = { onToggleLove() },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        if (isLoved) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                        contentDescription = "Love",
+                        tint = if (isLoved) Color(0xFFE91E63) else SonaraTextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
                 IconButton(
                     onClick = { SonaraNotificationListener.sendPrevious() },
@@ -278,19 +318,38 @@ fun NowPlayingBar(
                             modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp).padding(top = 10.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            itemsIndexed(lyrics.lines) { idx, line ->
+                            itemsIndexed(
+                                items = lyrics.lines,
+                                key = { idx, _ -> idx }
+                            ) { idx, line ->
                                 val isActive = idx == activeLineIndex
                                 val activeWord = if (isActive && lyrics.hasWordTimestamps) {
                                     LrcParser.activeWordIndex(line, lyricsPosition)
                                 } else -1
+                                val distanceFromActive = kotlin.math.abs(idx - activeLineIndex)
                                 SyncedLyricLine(
                                     line = line,
                                     isActive = isActive,
                                     activeWordIndex = activeWord,
-                                    estimatedPositionMs = lyricsPosition,
+                                    estimatedPositionMs = if (isActive) lyricsPosition else 0L,
                                     animationStyle = lyricsAnimationStyle,
-                                    textSizeSp = lyricsTextSizeSp
+                                    textSizeSp = lyricsTextSizeSp,
+                                    distanceFromActive = distanceFromActive
                                 )
+                                val translatedLine = if (lyricsShowTranslated) {
+                                    (lyricsState as? LyricsState.Ready)?.translatedLines?.getOrNull(idx)
+                                } else null
+                                if (translatedLine != null) {
+                                    Text(
+                                        text = translatedLine,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = SonaraTextSecondary.copy(alpha = 0.6f),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 14.dp),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
                             }
                         }
                     } else if (lyricsState.plain != null) {

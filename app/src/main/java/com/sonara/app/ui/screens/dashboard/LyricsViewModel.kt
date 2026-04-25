@@ -8,6 +8,7 @@ import com.sonara.app.intelligence.lyrics.LrcParser
 import com.sonara.app.intelligence.lyrics.LyricsCacheEntity
 import com.sonara.app.intelligence.lyrics.LyricsHelper
 import com.sonara.app.intelligence.lyrics.LyricsState
+import com.sonara.app.intelligence.lyrics.LyricsTranslator
 import com.sonara.app.intelligence.lyrics.ParsedLyrics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +24,7 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
 
     private var loadedKey = ""
 
-    fun load(title: String, artist: String, album: String, durationMs: Long) {
+    fun load(title: String, artist: String, album: String, durationMs: Long, showTranslated: Boolean = false, targetLang: String = "en") {
         if (title.isBlank()) { _state.value = LyricsState.Idle; return }
         val key = "${title.trim().lowercase()}|${artist.trim().lowercase()}"
         if (key == loadedKey) return
@@ -34,7 +35,7 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
             // Check DB cache first — preserves raw LRC/TTML for full-fidelity re-parse
             val cached = dao.getByKey(key)
             if (cached != null) {
-                _state.value = buildStateFromCache(cached.syncedLyrics, cached.plainLyrics)
+                _state.value = buildStateFromCache(cached.syncedLyrics, cached.plainLyrics, showTranslated, targetLang)
                 return@launch
             }
 
@@ -47,12 +48,23 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
                     plainLyrics = result.plain,
                     source = result.provider
                 ))
-                _state.value = if (result.parsed.lines.isNotEmpty()) {
+                val ready = if (result.parsed.lines.isNotEmpty()) {
                     LyricsState.Ready(result.parsed, result.plain)
                 } else if (result.plain != null) {
                     LyricsState.Ready(ParsedLyrics(emptyList(), false), result.plain)
                 } else {
-                    LyricsState.NotFound
+                    null
+                }
+                if (ready != null) {
+                    _state.value = ready
+                    if (showTranslated && targetLang.isNotBlank() && result.parsed.lines.isNotEmpty()) {
+                        val translated = LyricsTranslator.translate(result.parsed.lines.map { it.text }, targetLang)
+                        if (translated != null) {
+                            _state.value = ready.copy(translatedLines = translated, translationLanguage = targetLang)
+                        }
+                    }
+                } else {
+                    _state.value = LyricsState.NotFound
                 }
             } else {
                 _state.value = LyricsState.NotFound
@@ -69,10 +81,19 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
      * Re-parses a cached raw string — auto-detects TTML vs LRC so that
      * word-level Apple Music lyrics survive a cache round-trip.
      */
-    private fun buildStateFromCache(rawSynced: String?, plain: String?): LyricsState {
+    private suspend fun buildStateFromCache(rawSynced: String?, plain: String?, showTranslated: Boolean = false, targetLang: String = "en"): LyricsState {
         if (rawSynced != null) {
             val parsed = LyricsHelper.parseRaw(rawSynced)
-            if (parsed.lines.isNotEmpty()) return LyricsState.Ready(parsed, plain)
+            if (parsed.lines.isNotEmpty()) {
+                val ready = LyricsState.Ready(parsed, plain)
+                if (showTranslated && targetLang.isNotBlank()) {
+                    val translated = LyricsTranslator.translate(parsed.lines.map { it.text }, targetLang)
+                    if (translated != null) {
+                        return ready.copy(translatedLines = translated, translationLanguage = targetLang)
+                    }
+                }
+                return ready
+            }
         }
         return if (plain != null) LyricsState.Ready(ParsedLyrics(emptyList(), false), plain)
         else LyricsState.NotFound

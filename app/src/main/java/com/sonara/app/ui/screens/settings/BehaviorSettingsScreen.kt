@@ -55,7 +55,6 @@ fun BehaviorSettingsScreen(
             item { AdvancedCard(s, vm) }
             item { ScrobbleFilterCard(s, vm, onOpenAppPicker) }
             item { CommunityCard(s, vm) }
-            item { AutoEqImportCard() }
             item { Spacer(Modifier.height(16.dp)) }
         }
     }
