@@ -1,6 +1,7 @@
 package com.sonara.app.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
@@ -22,13 +23,20 @@ import com.sonara.app.intelligence.theaudiodb.TheAudioDbClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/**
+ * Renders overlapping circular avatars for multiple artists.
+ * Visible only when there are 2+ artists; single-artist display is left to the caller.
+ *
+ * @param onArtistClick Called with the tapped artist's name — wire to navigate to ArtistDetailScreen.
+ */
 @Composable
 fun MultiArtistAvatarRow(
     artists: List<String>,
     modifier: Modifier = Modifier,
     avatarSize: Dp = 28.dp,
     overlap: Dp = 10.dp,
-    maxVisible: Int = 3
+    maxVisible: Int = 3,
+    onArtistClick: (String) -> Unit = {}
 ) {
     val visible = artists.take(maxVisible)
     if (visible.size <= 1) return
@@ -39,6 +47,7 @@ fun MultiArtistAvatarRow(
             ArtistAvatar(
                 artistName = artistName,
                 size = avatarSize,
+                onClick = { onArtistClick(artistName) },
                 modifier = Modifier
                     .offset(x = overlap * i)
                     .align(Alignment.CenterStart)
@@ -48,7 +57,12 @@ fun MultiArtistAvatarRow(
 }
 
 @Composable
-private fun ArtistAvatar(artistName: String, size: Dp, modifier: Modifier = Modifier) {
+private fun ArtistAvatar(
+    artistName: String,
+    size: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val p = MaterialTheme.colorScheme.primary
 
     val imageUrl by produceState<String?>(initialValue = null, artistName) {
@@ -64,7 +78,8 @@ private fun ArtistAvatar(artistName: String, size: Dp, modifier: Modifier = Modi
         modifier = modifier
             .size(size)
             .clip(CircleShape)
-            .background(p.copy(alpha = 0.15f)),
+            .background(p.copy(alpha = 0.15f))
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         if (imageUrl != null) {

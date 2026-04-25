@@ -460,5 +460,9 @@ class SonaraNotificationListener : NotificationListenerService() {
         fun sendPrevious() {
             try { instance?.activeController?.transportControls?.skipToPrevious() } catch (_: Exception) {}
         }
+
+        fun seekTo(positionMs: Long) {
+            try { instance?.activeController?.transportControls?.seekTo(positionMs) } catch (_: Exception) {}
+        }
     }
 }

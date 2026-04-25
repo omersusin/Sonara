@@ -7,40 +7,37 @@ data class CleanTrackResult(
 
 object TrackTitleCleaner {
 
-    // "(feat. X)" veya "[feat. X]" parantez içi
+    // "(feat. X)" or "[feat. X]" — captures only what's inside the brackets
     private val FEAT_IN_PARENS = Regex(
         """\s*[\(\[]\s*(?:feat\.|ft\.|featuring|feat)\s+(.+?)[\)\]]""",
         RegexOption.IGNORE_CASE
     )
 
-    // "Title feat. X" — parantez dışı, sonda
+    // "Title feat. X" at the end — stops before any trailing "(" or "["
+    // so "Title feat. X (Radio Edit)" captures only "X"
     private val FEAT_BARE = Regex(
-        """\s+(?:feat\.|ft\.|featuring|feat)\s+(.+)$""",
-        RegexOption.IGNORE_CASE
-    )
-
-    // Remix/Edit/Mix açıklamaları — bunları DOKUNMA (feat içermiyorsa)
-    private val REMIX_TAG = Regex(
-        """\((?!.*(?:feat\.|ft\.|featuring)).*(?:remix|edit|mix|version|vip|extended|radio|original)\s*\)""",
+        """\s+(?:feat\.|ft\.|featuring|feat)\s+([^(\[]+?)(?:\s*[\(\[].*)?$""",
         RegexOption.IGNORE_CASE
     )
 
     fun clean(rawTitle: String): CleanTrackResult {
         if (rawTitle.isBlank()) return CleanTrackResult(rawTitle, emptyList())
 
-        // Parantez içinde feat varsa
         val parenMatch = FEAT_IN_PARENS.find(rawTitle)
         if (parenMatch != null) {
-            val cleanTitle = rawTitle.removeRange(parenMatch.range).trim()
-            val featured = ArtistNameParser.resolve(parenMatch.groupValues[1])
+            val cleanTitle = rawTitle.removeRange(parenMatch.range)
+                .replace(Regex("\\s{2,}"), " ")
+                .trim()
+            val featured = ArtistNameParser.resolve(parenMatch.groupValues[1].trim())
             return CleanTrackResult(cleanTitle, featured)
         }
 
-        // Parantez dışında feat varsa
         val bareMatch = FEAT_BARE.find(rawTitle)
         if (bareMatch != null) {
-            val cleanTitle = rawTitle.removeRange(bareMatch.range).trim()
-            val featured = ArtistNameParser.resolve(bareMatch.groupValues[1])
+            val cleanTitle = rawTitle.removeRange(bareMatch.range)
+                .replace(Regex("\\s{2,}"), " ")
+                .trim()
+            val featured = ArtistNameParser.resolve(bareMatch.groupValues[1].trim())
             return CleanTrackResult(cleanTitle, featured)
         }
 

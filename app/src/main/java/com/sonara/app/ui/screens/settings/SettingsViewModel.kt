@@ -81,6 +81,7 @@ data class SettingsUiState(
     // Last.fm direct login
     val lastFmUsernameInput: String = "",
     val lastFmPasswordInput: String = "",
+    val lastFmAuthError: String = "",
     val lyricsAnimationStyle: LyricsAnimationStyle = LyricsAnimationStyle.KARAOKE,
     val lyricsTextSize: Float = 14f,
     val lyricsSyncOffsetMs: Int = 0,
@@ -146,6 +147,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         } }
         viewModelScope.launch { app.lastFmAuth.username.collect { name ->
             _uiState.update { it.copy(lastFmUsername = name) }
+        } }
+        viewModelScope.launch { app.lastFmAuth.errorMessage.collect { err ->
+            _uiState.update { it.copy(lastFmAuthError = err) }
         } }
 
         // Community
@@ -232,6 +236,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val intent = app.lastFmAuth.startAuth()
             if (intent != null) onIntent(intent)
+        }
+    }
+
+    fun getLastFmAuthUrl(onUrl: (String?) -> Unit) {
+        viewModelScope.launch {
+            val url = app.lastFmAuth.getAuthUrl()
+            onUrl(url)
+        }
+    }
+
+    fun handleLastFmWebViewCallback(token: String) {
+        viewModelScope.launch {
+            app.lastFmAuth.handleCallback(token = token)
         }
     }
 

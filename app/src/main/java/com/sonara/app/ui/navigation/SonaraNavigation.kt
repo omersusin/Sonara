@@ -7,10 +7,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.sonara.app.SonaraApp
 import com.sonara.app.ui.components.SonaraBottomBar
 import com.sonara.app.ui.screens.dashboard.DashboardScreen
@@ -69,7 +71,11 @@ sealed class Screen(val route: String, val label: String) {
             "album_detail/${java.net.URLEncoder.encode(name, "UTF-8")}/${java.net.URLEncoder.encode(artist, "UTF-8")}/${java.net.URLEncoder.encode(plays.ifBlank { "-" }, "UTF-8")}/${java.net.URLEncoder.encode(imageUrl.ifBlank { "-" }, "UTF-8")}"
     }
     data object ArtistDetail : Screen("artist_detail/{name}", "Artist") {
-        fun createRoute(name: String) = "artist_detail/${java.net.URLEncoder.encode(name, "UTF-8")}"
+        fun createRoute(name: String) =
+            "artist_detail/${java.net.URLEncoder.encode(name, "UTF-8")}"
+        fun createRouteWithTrack(name: String, trackTitle: String) =
+            "artist_detail/${java.net.URLEncoder.encode(name, "UTF-8")}" +
+                "?trackTitle=${java.net.URLEncoder.encode(trackTitle, "UTF-8")}"
     }
     data object TrackDetail : Screen("track_detail/{title}/{artist}", "Track") {
         fun createRoute(title: String, artist: String) = "track_detail/${java.net.URLEncoder.encode(title, "UTF-8")}/${java.net.URLEncoder.encode(artist, "UTF-8")}"
@@ -184,10 +190,18 @@ fun SonaraNavigation() {
                     onArtistClick = { navController.navigate(Screen.ArtistDetail.createRoute(it)) }
                 )
             }
-            composable(Screen.ArtistDetail.route) { entry ->
+            composable(
+                route = "${Screen.ArtistDetail.route}?trackTitle={trackTitle}",
+                arguments = listOf(
+                    navArgument("name") { type = NavType.StringType },
+                    navArgument("trackTitle") { type = NavType.StringType; defaultValue = "" }
+                )
+            ) { entry ->
                 val name = java.net.URLDecoder.decode(entry.arguments?.getString("name") ?: "", "UTF-8")
+                val trackTitle = java.net.URLDecoder.decode(entry.arguments?.getString("trackTitle") ?: "", "UTF-8")
                 ArtistDetailScreen(
                     artistName = name,
+                    trackTitle = trackTitle,
                     onBack = { navController.popBackStack() },
                     onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) },
                     onAlbumClick = { albumName, artist, plays, imageUrl ->
@@ -204,7 +218,9 @@ fun SonaraNavigation() {
                 TrackDetailScreen(
                     trackTitle = title, trackArtist = artist,
                     onBack = { navController.popBackStack() },
-                    onArtistClick = { name -> navController.navigate(Screen.ArtistDetail.createRoute(name)) },
+                    onArtistClick = { name ->
+                        navController.navigate(Screen.ArtistDetail.createRouteWithTrack(name, title))
+                    },
                     onTrackClick = { t, a -> navController.navigate(Screen.TrackDetail.createRoute(t, a)) }
                 )
             }

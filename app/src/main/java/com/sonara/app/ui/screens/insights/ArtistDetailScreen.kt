@@ -43,6 +43,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -63,12 +64,17 @@ import com.sonara.app.intelligence.events.BandsintownClient
 import com.sonara.app.intelligence.events.BandsintownEvent
 import com.sonara.app.intelligence.lastfm.LastFmClient
 import com.sonara.app.intelligence.lastfm.LastFmSimilarArtist
+import com.sonara.app.intelligence.musicbrainz.MusicBrainzClient
 import com.sonara.app.intelligence.odesli.OdesliHelper
 import com.sonara.app.intelligence.theaudiodb.AudioDbAlbum
 import com.sonara.app.intelligence.theaudiodb.AudioDbArtist
 import com.sonara.app.intelligence.theaudiodb.TheAudioDbClient
+import com.sonara.app.intelligence.artist.ArtistNameParser
+import com.sonara.app.intelligence.artist.TrackTitleCleaner
 import com.sonara.app.ui.components.FluentCard
+import com.sonara.app.ui.components.MultiArtistAvatarRow
 import com.sonara.app.ui.theme.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
@@ -78,6 +84,7 @@ import java.util.Locale
 @Composable
 fun ArtistDetailScreen(
     artistName: String,
+    trackTitle: String = "",
     onBack: () -> Unit,
     onTrackClick: (String, String) -> Unit = { _, _ -> },
     onAlbumClick: (name: String, artist: String, plays: String, imageUrl: String) -> Unit = { _, _, _, _ -> },
@@ -89,6 +96,13 @@ fun ArtistDetailScreen(
     val p = MaterialTheme.colorScheme.primary
     val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
     val app = SonaraApp.instance
+
+    // Merge artists from the artist field + featured artists extracted from the track title
+    val allArtists = remember(artistName, trackTitle) {
+        val fromArtist = ArtistNameParser.resolve(artistName)
+        val fromTitle = if (trackTitle.isNotBlank()) TrackTitleCleaner.clean(trackTitle).featuredArtists else emptyList()
+        (fromArtist + fromTitle).distinct()
+    }
 
     var detail by remember { mutableStateOf<DeezerImageResolver.ArtistDetail?>(null) }
     var audioDbArtist by remember { mutableStateOf<AudioDbArtist?>(null) }
@@ -104,6 +118,8 @@ fun ArtistDetailScreen(
     var artistListeners by remember { mutableStateOf("") }
     var upcomingEvents by remember { mutableStateOf<List<BandsintownEvent>>(emptyList()) }
     var similarArtists by remember { mutableStateOf<List<LastFmSimilarArtist>>(emptyList()) }
+    var mbUrls by remember { mutableStateOf<MusicBrainzClient.MbArtistUrls?>(null) }
+    val discographyArtUrls = remember { mutableStateMapOf<String, String>() }
 
     LaunchedEffect(artistName) {
         withContext(Dispatchers.IO) {
@@ -111,6 +127,7 @@ fun ArtistDetailScreen(
             deezerTopTracks = detail?.topTracks ?: emptyList<DeezerImageResolver.TrackItem>()
 
             try { audioDbArtist = TheAudioDbClient.searchArtist(artistName) } catch (_: Exception) {}
+            try { mbUrls = MusicBrainzClient.searchArtistUrls(artistName) } catch (_: Exception) {}
             try { upcomingEvents = BandsintownClient.getUpcomingEvents(artistName) } catch (_: Exception) {}
             try {
                 discography = TheAudioDbClient.getDiscography(artistName)
@@ -172,6 +189,36 @@ fun ArtistDetailScreen(
         }
     }
 
+    // Sequential art resolution for the inline discography preview
+    LaunchedEffect(discography) {
+        if (discography.isEmpty()) return@LaunchedEffect
+        val apiKey = app.lastFmAuth.getActiveApiKey()
+        withContext(Dispatchers.IO) {
+            for (album in discography) {
+                if (discographyArtUrls.containsKey(album.idAlbum)) continue
+                try {
+                    val full = TheAudioDbClient.getAlbumById(album.idAlbum)
+                    val url = full?.strThumbHQ ?: full?.strThumb
+                    if (!url.isNullOrBlank()) {
+                        discographyArtUrls[album.idAlbum] = url
+                        delay(400L)
+                        continue
+                    }
+                } catch (_: Exception) {}
+                try {
+                    if (apiKey.isNotBlank()) {
+                        val info = LastFmClient.api.getAlbumInfo(artistName, album.strAlbum, apiKey)
+                        val url = info.album?.imageUrl
+                        if (!url.isNullOrBlank() && !url.contains("2a96cbd8b46e")) {
+                            discographyArtUrls[album.idAlbum] = url
+                        }
+                    }
+                } catch (_: Exception) {}
+                delay(400L)
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -197,36 +244,82 @@ fun ArtistDetailScreen(
                 // ── Artist header ─────────────────────────────────────────────────
                 item {
                     FluentCard {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            val imageUrl = audioDbArtist?.strThumb?.takeIf { it.isNotBlank() }
-                                ?: d?.imageUrl?.takeIf { it.isNotBlank() }
-                            if (!imageUrl.isNullOrBlank()) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(ctx).data(imageUrl).crossfade(true).build(),
-                                    contentDescription = artistName,
-                                    modifier = Modifier.size(96.dp).clip(CircleShape),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Surface(Modifier.size(96.dp), shape = CircleShape, color = p.copy(0.15f)) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(artistName.take(2).uppercase(), style = MaterialTheme.typography.headlineMedium, color = p)
+                        if (allArtists.size > 1) {
+                            // ── Multi-artist header ──────────────────────────────────────
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    MultiArtistAvatarRow(
+                                        artists = allArtists,
+                                        avatarSize = 52.dp,
+                                        overlap = 20.dp,
+                                        maxVisible = 3,
+                                        onArtistClick = onArtistClick
+                                    )
+                                    if (allArtists.size > 3) {
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            "+${allArtists.size - 3}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = SonaraTextTertiary
+                                        )
+                                    }
+                                }
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    allArtists.forEach { name ->
+                                        Text(
+                                            name,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = SonaraTextPrimary,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.clickable { onArtistClick(name) }
+                                        )
+                                    }
+                                    val adb = audioDbArtist
+                                    val meta = listOfNotNull(
+                                        adb?.strCountry?.takeIf { it.isNotBlank() },
+                                        adb?.intFormedYear?.let { "est. $it" }
+                                    ).joinToString(" · ")
+                                    if (meta.isNotBlank()) {
+                                        Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                                     }
                                 }
                             }
-                            Column(Modifier.weight(1f)) {
-                                Text(d?.name ?: artistName, style = MaterialTheme.typography.headlineSmall, color = SonaraTextPrimary, fontWeight = FontWeight.Bold)
-                                val adb = audioDbArtist
-                                val meta = listOfNotNull(
-                                    adb?.strCountry?.takeIf { it.isNotBlank() },
-                                    adb?.intFormedYear?.let { "est. $it" }
-                                ).joinToString(" · ")
-                                if (meta.isNotBlank()) {
-                                    Spacer(Modifier.height(2.dp))
-                                    Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                        } else {
+                            // ── Single-artist header (unchanged) ─────────────────────────
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                val imageUrl = audioDbArtist?.strThumb?.takeIf { it.isNotBlank() }
+                                    ?: d?.imageUrl?.takeIf { it.isNotBlank() }
+                                if (!imageUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(ctx).data(imageUrl).crossfade(true).build(),
+                                        contentDescription = artistName,
+                                        modifier = Modifier.size(96.dp).clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Surface(Modifier.size(96.dp), shape = CircleShape, color = p.copy(0.15f)) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(artistName.take(2).uppercase(), style = MaterialTheme.typography.headlineMedium, color = p)
+                                        }
+                                    }
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Text(d?.name ?: artistName, style = MaterialTheme.typography.headlineSmall, color = SonaraTextPrimary, fontWeight = FontWeight.Bold)
+                                    val adb = audioDbArtist
+                                    val meta = listOfNotNull(
+                                        adb?.strCountry?.takeIf { it.isNotBlank() },
+                                        adb?.intFormedYear?.let { "est. $it" }
+                                    ).joinToString(" · ")
+                                    if (meta.isNotBlank()) {
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                                    }
                                 }
                             }
                         }
@@ -277,36 +370,49 @@ fun ArtistDetailScreen(
                             }
                         }
 
-                        // Social links
+                        // Social links — TheAudioDB primary, MusicBrainz fallback
                         val adb = audioDbArtist
-                        if (adb != null) {
-                            val socialLinks = buildList {
-                                adb.strTwitter?.takeIf { it.isNotBlank() && it != "1" }
-                                    ?.let { add("twitter" to buildSocialUrl("twitter.com", it)) }
-                                adb.strFacebook?.takeIf { it.isNotBlank() && it != "1" }
-                                    ?.let { add("facebook" to buildSocialUrl("facebook.com", it)) }
-                                adb.strInstagram?.takeIf { it.isNotBlank() && it != "1" }
-                                    ?.let { add("instagram" to buildSocialUrl("instagram.com", it)) }
-                                adb.strWebsite?.takeIf { it.isNotBlank() && it != "1" }
-                                    ?.let { url -> add("website" to if (url.startsWith("http")) url else "https://$url") }
-                            }
-                            if (socialLinks.isNotEmpty()) {
-                                Spacer(Modifier.height(12.dp))
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    socialLinks.forEach { (key, url) ->
-                                        val displayName = key.replaceFirstChar { it.uppercase() }
-                                        AssistChip(
-                                            onClick = { OdesliHelper.openLink(ctx, OdesliHelper.PlatformLink(name = displayName, url = url, key = key)) },
-                                            label = { Text(displayName, style = MaterialTheme.typography.labelSmall) },
-                                            leadingIcon = {
-                                                val iconRes = platformIconRes(key)
-                                                if (iconRes != null) Icon(painterResource(iconRes), null, Modifier.size(14.dp), tint = p)
-                                                else Icon(Icons.Rounded.Launch, null, Modifier.size(14.dp))
-                                            },
-                                            colors = AssistChipDefaults.assistChipColors(containerColor = p.copy(0.1f), labelColor = p),
-                                            border = null
-                                        )
-                                    }
+                        val mb = mbUrls
+                        val socialLinks = buildList {
+                            val twitterUrl = adb?.strTwitter?.takeIf { it.isNotBlank() && it != "1" }
+                                ?.let { buildSocialUrl("twitter.com", it) }
+                                ?: mb?.twitter
+                            twitterUrl?.let { add("twitter" to it) }
+
+                            val fbUrl = adb?.strFacebook?.takeIf { it.isNotBlank() && it != "1" }
+                                ?.let { buildSocialUrl("facebook.com", it) }
+                                ?: mb?.facebook
+                            fbUrl?.let { add("facebook" to it) }
+
+                            val igUrl = adb?.strInstagram?.takeIf { it.isNotBlank() && it != "1" }
+                                ?.let { buildSocialUrl("instagram.com", it) }
+                                ?: mb?.instagram
+                            igUrl?.let { add("instagram" to it) }
+
+                            val webUrl = adb?.strWebsite?.takeIf { it.isNotBlank() && it != "1" }
+                                ?.let { if (it.startsWith("http")) it else "https://$it" }
+                                ?: mb?.website
+                            webUrl?.let { add("website" to it) }
+
+                            mb?.youtube?.let { add("youtube" to it) }
+                            mb?.soundcloud?.let { add("soundcloud" to it) }
+                        }
+                        if (socialLinks.isNotEmpty()) {
+                            Spacer(Modifier.height(12.dp))
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                socialLinks.forEach { (key, url) ->
+                                    val displayName = key.replaceFirstChar { it.uppercase() }
+                                    AssistChip(
+                                        onClick = { OdesliHelper.openLink(ctx, OdesliHelper.PlatformLink(name = displayName, url = url, key = key)) },
+                                        label = { Text(displayName, style = MaterialTheme.typography.labelSmall) },
+                                        leadingIcon = {
+                                            val iconRes = platformIconRes(key)
+                                            if (iconRes != null) Icon(painterResource(iconRes), null, Modifier.size(14.dp), tint = p)
+                                            else Icon(Icons.Rounded.Launch, null, Modifier.size(14.dp))
+                                        },
+                                        colors = AssistChipDefaults.assistChipColors(containerColor = p.copy(0.1f), labelColor = p),
+                                        border = null
+                                    )
                                 }
                             }
                         }
@@ -454,7 +560,7 @@ fun ArtistDetailScreen(
                             Spacer(Modifier.height(12.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(discography) { album ->
-                                    val artUrl = album.strThumbHQ ?: album.strThumb ?: ""
+                                    val artUrl = discographyArtUrls[album.idAlbum] ?: ""
                                     Column(
                                         modifier = Modifier.width(96.dp)
                                             .clickable { onAlbumClick(album.strAlbum, artistName, "", artUrl) },

@@ -21,10 +21,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.sonara.app.SonaraApp
+import com.sonara.app.intelligence.lastfm.LastFmClient
 import com.sonara.app.intelligence.theaudiodb.AudioDbAlbum
 import com.sonara.app.intelligence.theaudiodb.TheAudioDbClient
 import com.sonara.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,15 +39,53 @@ fun ArtistDiscographyScreen(
 ) {
     val ctx = LocalContext.current
     val p = MaterialTheme.colorScheme.primary
+    val app = SonaraApp.instance
     var albums by remember { mutableStateOf<List<AudioDbAlbum>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    // Screen-level art map: idAlbum → resolved URL
+    val artUrls = remember { mutableStateMapOf<String, String>() }
 
+    // Step 1: load album list
     LaunchedEffect(artistName) {
+        artUrls.clear()
         withContext(Dispatchers.IO) {
             try {
-                albums = TheAudioDbClient.getDiscography(artistName).sortedByDescending { it.intYearReleased ?: 0 }
+                albums = TheAudioDbClient.getDiscography(artistName)
+                    .sortedByDescending { it.intYearReleased ?: 0 }
             } catch (_: Exception) {}
             loading = false
+        }
+    }
+
+    // Step 2: sequentially resolve art for each album (respects rate limit)
+    LaunchedEffect(albums) {
+        if (albums.isEmpty()) return@LaunchedEffect
+        val apiKey = app.lastFmAuth.getActiveApiKey()
+        withContext(Dispatchers.IO) {
+            for (album in albums) {
+                if (artUrls.containsKey(album.idAlbum)) continue
+                // Try ID-based lookup first — no name-matching ambiguity
+                try {
+                    val full = TheAudioDbClient.getAlbumById(album.idAlbum)
+                    val url = full?.strThumbHQ ?: full?.strThumb
+                    if (!url.isNullOrBlank()) {
+                        artUrls[album.idAlbum] = url
+                        delay(400L) // respect ~2 req/s well within 30 req/min
+                        continue
+                    }
+                } catch (_: Exception) {}
+                // Last.fm fallback
+                try {
+                    if (apiKey.isNotBlank()) {
+                        val info = LastFmClient.api.getAlbumInfo(artistName, album.strAlbum, apiKey)
+                        val url = info.album?.imageUrl
+                        if (!url.isNullOrBlank() && !url.contains("2a96cbd8b46e")) {
+                            artUrls[album.idAlbum] = url
+                        }
+                    }
+                } catch (_: Exception) {}
+                delay(400L)
+            }
         }
     }
 
@@ -74,8 +115,8 @@ fun ArtistDiscographyScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(albums) { album ->
-                    val artUrl = album.strThumbHQ ?: album.strThumb ?: ""
+                items(albums, key = { it.idAlbum }) { album ->
+                    val artUrl = artUrls[album.idAlbum] ?: ""
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -91,16 +132,27 @@ fun ArtistDiscographyScreen(
                             )
                         } else {
                             Box(
-                                Modifier.fillMaxWidth().aspectRatio(1f).background(SonaraCardElevated, RoundedCornerShape(12.dp)),
+                                Modifier.fillMaxWidth().aspectRatio(1f)
+                                    .background(SonaraCardElevated, RoundedCornerShape(12.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(Icons.Rounded.Album, null, Modifier.size(40.dp), tint = p.copy(0.4f))
                             }
                         }
                         Spacer(Modifier.height(6.dp))
-                        Text(album.strAlbum, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 2, textAlign = TextAlign.Center)
+                        Text(
+                            album.strAlbum,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = SonaraTextPrimary,
+                            maxLines = 2,
+                            textAlign = TextAlign.Center
+                        )
                         if (album.intYearReleased != null) {
-                            Text("${album.intYearReleased}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                            Text(
+                                "${album.intYearReleased}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SonaraTextTertiary
+                            )
                         }
                     }
                 }

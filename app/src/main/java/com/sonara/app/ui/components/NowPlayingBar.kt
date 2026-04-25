@@ -34,12 +34,14 @@ import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +54,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sonara.app.intelligence.artist.ArtistNameParser
 import com.sonara.app.intelligence.lyrics.LrcParser
 import com.sonara.app.intelligence.lyrics.LyricsAnimationStyle
@@ -79,28 +82,32 @@ fun NowPlayingBar(
     val hasTrack = title != "No music playing" && title.isNotBlank()
     var lyricsExpanded by remember { mutableStateOf(false) }
 
-    // Reset expand when track changes
     LaunchedEffect(title) { lyricsExpanded = false }
 
-    // Ticker for live progress (250ms)
+    // Drag state: while dragging, freeze the ticker and show drag value
+    var isDragging by remember { mutableStateOf(false) }
+    var dragValue by remember { mutableFloatStateOf(0f) }
+
+    // Ticker: 100ms while playing and not dragging
     var tick by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(isPlaying) {
-        while (isPlaying) { delay(250L); tick = System.currentTimeMillis() }
+    LaunchedEffect(isPlaying, isDragging) {
+        while (isPlaying && !isDragging) {
+            delay(100L)
+            tick = System.currentTimeMillis()
+        }
     }
 
-    val estimatedPosition = if (isPlaying && positionTimestamp > 0) {
-        position + (tick - positionTimestamp)
-    } else position
+    val estimatedPosition = when {
+        isDragging -> (dragValue * duration).toLong()
+        isPlaying && positionTimestamp > 0 -> position + (tick - positionTimestamp)
+        else -> position
+    }
 
     val progress = if (duration > 0) (estimatedPosition.toFloat() / duration).coerceIn(0f, 1f) else 0f
 
-    // Multi-artist display
     val displayArtist = remember(artist) { ArtistNameParser.formatForDisplay(artist) }
-
-    // Apply sync offset only to lyrics lookup, not to the progress bar
     val lyricsPosition = estimatedPosition + lyricsSyncOffsetMs
 
-    // Synced lyrics active line
     val readyState = lyricsState as? LyricsState.Ready
     val activeLineIndex = remember(lyricsPosition, readyState) {
         readyState?.lyrics?.lines?.let { LrcParser.activeLineIndex(it, lyricsPosition) } ?: -1
@@ -115,30 +122,29 @@ fun NowPlayingBar(
     val hasLyrics = lyricsState is LyricsState.Ready || lyricsState is LyricsState.Loading
 
     FluentCard(onClick = if (hasTrack) onClick else null) {
-        // ── Main row ─────────────────────────────────────────────────────
+
+        // ── Top row: album art + title/artist ────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Album art
             if (albumArt != null) {
                 Image(
                     bitmap = albumArt.asImageBitmap(),
                     contentDescription = "Album Art",
-                    modifier = Modifier.size(72.dp).clip(RoundedCornerShape(14.dp)),
+                    modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)),
                     contentScale = ContentScale.Crop
                 )
             } else {
                 Box(
-                    modifier = Modifier.size(72.dp).background(SonaraCardElevated, RoundedCornerShape(14.dp)),
+                    modifier = Modifier.size(56.dp).background(SonaraCardElevated, RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.MusicNote, null, tint = p, modifier = Modifier.size(32.dp))
+                    Icon(Icons.Rounded.MusicNote, null, tint = p, modifier = Modifier.size(28.dp))
                 }
             }
 
-            // Track + artist + progress
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     title,
@@ -156,54 +162,96 @@ fun NowPlayingBar(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                if (hasTrack && duration > 0) {
-                    Spacer(Modifier.height(5.dp))
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier.fillMaxWidth().height(2.dp).clip(RoundedCornerShape(1.dp)),
-                        color = p,
-                        trackColor = SonaraDivider.copy(alpha = 0.3f)
-                    )
-                }
             }
 
-            // Controls
-            if (hasTrack) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Lyrics toggle
-                    if (hasLyrics) {
-                        IconButton(
-                            onClick = { lyricsExpanded = !lyricsExpanded },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                if (lyricsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.Lyrics,
-                                contentDescription = "Lyrics",
-                                tint = if (lyricsExpanded) p else SonaraTextSecondary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                    IconButton(onClick = { SonaraNotificationListener.sendPrevious() }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Rounded.SkipPrevious, "Previous", tint = SonaraTextSecondary, modifier = Modifier.size(20.dp))
-                    }
+            if (!hasTrack && isPlaying) {
+                Box(modifier = Modifier.size(8.dp).background(SonaraSuccess, CircleShape))
+            }
+        }
+
+        // ── Progress slider with elapsed / remaining times ────────────────
+        if (hasTrack && duration > 0) {
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                val displayMs = if (isDragging) (dragValue * duration).toLong() else estimatedPosition
+                Text(
+                    text = displayMs.toMmSs(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SonaraTextTertiary,
+                    fontSize = 10.sp
+                )
+                Slider(
+                    value = if (isDragging) dragValue else progress,
+                    onValueChange = { v ->
+                        if (!isDragging) isDragging = true
+                        dragValue = v
+                    },
+                    onValueChangeFinished = {
+                        SonaraNotificationListener.seekTo((dragValue * duration).toLong())
+                        isDragging = false
+                    },
+                    modifier = Modifier.weight(1f).height(24.dp),
+                    colors = SliderDefaults.colors(
+                        thumbColor = p,
+                        activeTrackColor = p,
+                        inactiveTrackColor = SonaraDivider.copy(alpha = 0.35f)
+                    )
+                )
+                val remainingMs = duration - displayMs
+                Text(
+                    text = "-${remainingMs.toMmSs()}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SonaraTextTertiary,
+                    fontSize = 10.sp
+                )
+            }
+
+            // ── Playback controls (centered below slider) ─────────────────
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                if (hasLyrics) {
                     IconButton(
-                        onClick = { SonaraNotificationListener.sendPlayPause() },
-                        modifier = Modifier.size(36.dp).background(p.copy(alpha = 0.15f), CircleShape)
+                        onClick = { lyricsExpanded = !lyricsExpanded },
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
-                            if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            if (isPlaying) "Pause" else "Play",
-                            tint = p,
-                            modifier = Modifier.size(22.dp)
+                            if (lyricsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.Lyrics,
+                            contentDescription = "Lyrics",
+                            tint = if (lyricsExpanded) p else SonaraTextSecondary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    IconButton(onClick = { SonaraNotificationListener.sendNext() }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Rounded.SkipNext, "Next", tint = SonaraTextSecondary, modifier = Modifier.size(20.dp))
-                    }
                 }
-            } else {
-                if (isPlaying) Box(modifier = Modifier.size(8.dp).background(SonaraSuccess, CircleShape))
+                IconButton(
+                    onClick = { SonaraNotificationListener.sendPrevious() },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(Icons.Rounded.SkipPrevious, "Previous", tint = SonaraTextSecondary, modifier = Modifier.size(24.dp))
+                }
+                IconButton(
+                    onClick = { SonaraNotificationListener.sendPlayPause() },
+                    modifier = Modifier.size(44.dp).background(p.copy(alpha = 0.15f), CircleShape)
+                ) {
+                    Icon(
+                        if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        if (isPlaying) "Pause" else "Play",
+                        tint = p,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                IconButton(
+                    onClick = { SonaraNotificationListener.sendNext() },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(Icons.Rounded.SkipNext, "Next", tint = SonaraTextSecondary, modifier = Modifier.size(24.dp))
+                }
             }
         }
 
@@ -270,4 +318,12 @@ fun NowPlayingBar(
             }
         }
     }
+}
+
+private fun Long.toMmSs(): String {
+    val clamped = coerceAtLeast(0L)
+    val totalSec = clamped / 1000
+    val min = totalSec / 60
+    val sec = totalSec % 60
+    return "%d:%02d".format(min, sec)
 }
