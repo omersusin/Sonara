@@ -254,11 +254,33 @@ fun EqualizerScreen() {
             Text("Effects", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Spacer(Modifier.height(12.dp))
             EffRow("Bass Boost", s.bassBoost, { vm.setBassBoost(it) }, s.isEnabled, p, 1000f) { "${(it / 10f).roundToInt()}%" }
             Spacer(Modifier.height(8.dp))
-            EffRow("Virtualizer (Surround)", s.virtualizer, { vm.setVirtualizer(it) }, s.isEnabled, p, 1000f) { "${(it / 10f).roundToInt()}%" }
-            Spacer(Modifier.height(8.dp))
-            EffRow("Reverb", s.reverb, { vm.setReverb(it) }, s.isEnabled, p, 6f) { EffectsChain.reverbName(it) }
+            EffRow("Stereo Width", s.virtualizer, { vm.setVirtualizer(it) }, s.isEnabled, p, 1000f) { "${(it / 10f).roundToInt()}%" }
             Spacer(Modifier.height(8.dp))
             EffRow("Loudness", s.loudness, { vm.setLoudness(it) }, s.isEnabled, p, 3000f) { "${"%.1f".format(it / 100f)} dB" }
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Room", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                Text(EffectsChain.reverbName(s.reverb), style = MaterialTheme.typography.labelMedium, color = if (s.reverb > 0) p else SonaraTextTertiary)
+            }
+            Spacer(Modifier.height(6.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                items((0..6).toList()) { preset ->
+                    FilterChip(
+                        selected = s.reverb == preset,
+                        enabled = s.isEnabled,
+                        onClick = { vm.setReverb(preset) },
+                        label = { Text(EffectsChain.reverbName(preset), style = MaterialTheme.typography.labelSmall) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = p.copy(0.2f), selectedLabelColor = p,
+                            containerColor = SonaraCardElevated, labelColor = SonaraTextSecondary
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = s.isEnabled, selected = s.reverb == preset,
+                            borderColor = SonaraDivider.copy(0.3f), selectedBorderColor = p.copy(0.4f)
+                        )
+                    )
+                }
+            }
         } }
 
         item { Spacer(Modifier.height(8.dp)) }
