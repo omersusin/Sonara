@@ -250,7 +250,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun handleLastFmWebViewCallback(token: String) {
         viewModelScope.launch {
-            app.lastFmAuth.handleCallback(token = token)
+            // Blank token means Last.fm didn't echo it back in the redirect — use the
+            // pending token stored during the getToken step instead.
+            app.lastFmAuth.handleCallback(token = token.ifBlank { null })
         }
     }
 

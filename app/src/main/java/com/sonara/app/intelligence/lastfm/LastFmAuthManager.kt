@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import com.sonara.app.BuildConfig
 import com.sonara.app.data.SonaraLogger
 import com.sonara.app.data.preferences.SecureSecrets
 import kotlinx.coroutines.CoroutineScope
@@ -84,13 +85,17 @@ class LastFmAuthManager(private val context: Context) {
         }
     }
 
-    // VULN-24: BuildConfig fallback removed — user keys only
+    // User key takes priority; fall back to the app-bundled keys from BuildConfig.
     private fun resolveApiKey(): String {
-        return secrets.getLastFmApiKey().ifBlank { "" }
+        val user = secrets.getLastFmApiKey()
+        if (user.isNotBlank()) return user
+        return BuildConfig.LASTFM_API_KEY.ifBlank { "" }
     }
 
     private fun resolveSharedSecret(): String {
-        return secrets.getLastFmSharedSecret().ifBlank { "" }
+        val user = secrets.getLastFmSharedSecret()
+        if (user.isNotBlank()) return user
+        return BuildConfig.LASTFM_SHARED_SECRET.ifBlank { "" }
     }
 
     fun hasApiKey(): Boolean = resolveApiKey().isNotBlank()

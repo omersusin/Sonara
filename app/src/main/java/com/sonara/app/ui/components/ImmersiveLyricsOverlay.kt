@@ -48,17 +48,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonara.app.intelligence.lyrics.LrcParser
 import com.sonara.app.intelligence.lyrics.LyricsAnimationStyle
 import com.sonara.app.intelligence.lyrics.LyricsState
 import com.sonara.app.service.SonaraNotificationListener
-import com.sonara.app.ui.theme.SonaraTextPrimary
-import com.sonara.app.ui.theme.SonaraTextSecondary
-import com.sonara.app.ui.theme.SonaraTextTertiary
 import kotlin.math.abs
 import kotlinx.coroutines.delay
 
@@ -177,23 +172,17 @@ fun ImmersiveLyricsOverlay(
                         ) {
                             itemsIndexed(lines, key = { idx, _ -> idx }) { idx, line ->
                                 val isActive = idx == activeLineIndex
-                                val alpha = when (abs(idx - activeLineIndex)) {
-                                    0    -> 1.0f
-                                    1    -> 0.55f
-                                    2    -> 0.30f
-                                    else -> 0.15f
-                                }
-                                Text(
-                                    text = line.text,
-                                    style = if (isActive)
-                                        MaterialTheme.typography.bodyLarge.copy(
-                                            fontSize = 22.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    else MaterialTheme.typography.bodyMedium,
-                                    color = if (isActive) p else Color.White.copy(alpha = alpha),
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
+                                val activeWord = if (isActive && lyricsState.lyrics.hasWordTimestamps) {
+                                    LrcParser.activeWordIndex(line, lyricsPosition)
+                                } else -1
+                                val distanceFromActive = abs(idx - activeLineIndex)
+                                SyncedLyricLine(
+                                    line = line,
+                                    isActive = isActive,
+                                    activeWordIndex = activeWord,
+                                    estimatedPositionMs = if (isActive) lyricsPosition else 0L,
+                                    animationStyle = lyricsAnimationStyle,
+                                    distanceFromActive = distanceFromActive
                                 )
                             }
                         }
