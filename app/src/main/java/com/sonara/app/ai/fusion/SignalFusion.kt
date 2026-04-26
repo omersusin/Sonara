@@ -5,7 +5,6 @@ import com.sonara.app.ai.models.*
 
 class SignalFusion {
     companion object {
-        private const val TAG = "SonaraFusion"
         private const val W_AUDIO = 0.55f; private const val W_LFM = 0.25f; private const val W_API = 0.15f; private const val W_LYR = 0.05f
     }
 

@@ -2,7 +2,6 @@ package com.sonara.app.engine.classifier
 
 
 class TextGenreClassifier {
-    companion object { private const val TAG = "TextGenreClf" }
     data class Prediction(val genre: String, val mood: String, val energy: Float, val confidence: Float)
 
     private val genreKeywords: MutableMap<String, MutableMap<String, Float>> = mutableMapOf(
