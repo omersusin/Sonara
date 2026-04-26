@@ -26,7 +26,7 @@ class PresetsViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun setFilter(f: String) { _uiState.update { it.copy(selectedFilter = f) } }
-    fun applyPreset(p: Preset) { app.applyEq(p.bandsArray(), p.name, true, p.bassBoost, p.virtualizer, p.loudness, p.preamp); viewModelScope.launch { repo.markUsed(p.id) } }
+    fun applyPreset(p: Preset) { app.applyEq(p.bandsArray(), p.name, true, p.bassBoost, p.virtualizer, p.loudness, p.preamp, reverb = p.reverb); viewModelScope.launch { repo.markUsed(p.id) } }
     fun toggleFavorite(p: Preset) { viewModelScope.launch { repo.toggleFavorite(p.id, p.isFavorite) } }
     fun duplicatePreset(p: Preset) { viewModelScope.launch { repo.duplicate(p) } }
     fun deletePreset(p: Preset) { viewModelScope.launch { repo.delete(p) } }

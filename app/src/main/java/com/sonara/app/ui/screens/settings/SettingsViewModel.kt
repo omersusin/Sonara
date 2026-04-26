@@ -85,7 +85,8 @@ data class SettingsUiState(
     val lyricsAnimationStyle: LyricsAnimationStyle = LyricsAnimationStyle.KARAOKE,
     val lyricsTextSize: Float = 14f,
     val lyricsSyncOffsetMs: Int = 0,
-    val lyricsShowTranslated: Boolean = false)
+    val lyricsShowTranslated: Boolean = false,
+    val lyricsTargetLanguage: String = "en")
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
@@ -171,6 +172,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.lyricsTextSizeFlow.collect { v -> _uiState.update { it.copy(lyricsTextSize = v) } } }
         viewModelScope.launch { prefs.lyricsSyncOffsetFlow.collect { v -> _uiState.update { it.copy(lyricsSyncOffsetMs = v) } } }
         viewModelScope.launch { prefs.lyricsShowTranslatedFlow.collect { v -> _uiState.update { it.copy(lyricsShowTranslated = v) } } }
+        viewModelScope.launch { prefs.lyricsTargetLanguageFlow.collect { v -> _uiState.update { it.copy(lyricsTargetLanguage = v) } } }
 
         refreshCacheSize(); checkNotificationListener(); refreshPendingScrobbles()
         _uiState.update { it.copy(personalSamples = app.personalization.getTotalSamples()) }
@@ -248,7 +250,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun handleLastFmWebViewCallback(token: String) {
         viewModelScope.launch {
-            app.lastFmAuth.handleCallback(token = token)
+            // Blank token means Last.fm didn't echo it back in the redirect — use the
+            // pending token stored during the getToken step instead.
+            app.lastFmAuth.handleCallback(token = token.ifBlank { null })
         }
     }
 
@@ -602,6 +606,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     fun setLyricsShowTranslated(v: Boolean) {
         viewModelScope.launch { prefs.setLyricsShowTranslated(v) }
+    }
+    fun setLyricsTargetLanguage(code: String) {
+        viewModelScope.launch { prefs.setLyricsTargetLanguage(code) }
     }
 
     fun setSyncInterval(value: Int) {

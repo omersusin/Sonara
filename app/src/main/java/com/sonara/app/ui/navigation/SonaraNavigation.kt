@@ -38,6 +38,7 @@ import com.sonara.app.ui.screens.settings.BehaviorSettingsScreen
 import com.sonara.app.ui.screens.settings.LookAndFeelSettingsScreen
 import com.sonara.app.ui.screens.settings.LyricsSettingsScreen
 import com.sonara.app.ui.screens.settings.NotificationsSettingsScreen
+import com.sonara.app.ui.screens.onboarding.HearTheDifferenceScreen
 import com.sonara.app.ui.screens.onboarding.OnboardingScreen
 import com.sonara.app.ui.screens.presets.PresetsScreen
 import com.sonara.app.ui.screens.settings.SettingsScreen
@@ -86,6 +87,7 @@ sealed class Screen(val route: String, val label: String) {
     data object SimilarArtists : Screen("similar_artists/{name}", "Similar Artists") {
         fun createRoute(name: String) = "similar_artists/${java.net.URLEncoder.encode(name, "UTF-8")}"
     }
+    data object HearTheDifference : Screen("hear_the_diff", "Hear The Difference")
 }
 
 @Composable
@@ -107,6 +109,14 @@ fun SonaraNavigation() {
                     MainScope().launch { prefs.setNotificationListenerPrompted(true) }
                     navController.navigate(Screen.Dashboard.route) { popUpTo(Screen.Onboarding.route) { inclusive = true } }
                 })
+            }
+            composable(Screen.HearTheDifference.route) {
+                HearTheDifferenceScreen(
+                    onContinue = {
+                        MainScope().launch { prefs.setHasSeenHearTheDifference(true) }
+                        navController.popBackStack()
+                    }
+                )
             }
             composable(Screen.Dashboard.route) { DashboardScreen() }
             composable(Screen.Equalizer.route) { EqualizerScreen() }

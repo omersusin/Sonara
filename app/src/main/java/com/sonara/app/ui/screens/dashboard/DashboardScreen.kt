@@ -52,6 +52,7 @@ import com.sonara.app.ui.screens.settings.SettingsViewModel
 import com.sonara.app.ui.components.ChipStatus
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.components.MoodRing
+import com.sonara.app.ui.components.ImmersiveLyricsOverlay
 import com.sonara.app.ui.components.NowPlayingBar
 import com.sonara.app.ui.components.PermissionCard
 import com.sonara.app.ui.components.SonaraVisualizer
@@ -60,22 +61,19 @@ import com.sonara.app.ui.components.VisualizerMode
 import com.sonara.app.ui.components.VisualizerStateDetector
 import com.sonara.app.ui.theme.*
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.material.icons.filled.Hearing
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.ui.draw.clip
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.foundation.layout.height
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 
@@ -91,15 +89,21 @@ fun DashboardScreen() {
     val aiState by vm.aiState.collectAsState()
     val vizData by vm.visualizerData.collectAsState()
     val lyricsState by lyricsVm.state.collectAsState()
+    val lyricsInsight by com.sonara.app.service.SonaraNotificationListener.lyricsInsight.collectAsState()
     val p = MaterialTheme.colorScheme.primary
+    var immersiveLyricsVisible by remember { mutableStateOf(false) }
     val ctx = LocalContext.current
     val lc = LocalLifecycleOwner.current
     LaunchedEffect(lc) { lc.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { vm.checkNotificationListener() } }
     LaunchedEffect(s.savedMessage) { if (s.savedMessage.isNotBlank()) Toast.makeText(ctx, s.savedMessage, Toast.LENGTH_SHORT).show() }
     // Trigger lyrics load when track changes
     LaunchedEffect(s.title, s.artist) {
-        if (s.hasTrack) lyricsVm.load(s.title, s.artist, "", s.duration)
-        else lyricsVm.reset()
+        if (s.hasTrack) {
+            val cleanArtist = com.sonara.app.intelligence.pipeline.TitleNormalizer.normalizeArtist(s.artist)
+            lyricsVm.load(s.title, cleanArtist, "", s.duration, settingsState.lyricsShowTranslated, settingsState.lyricsTargetLanguage)
+        } else {
+            lyricsVm.reset()
+        }
     }
 
     LazyColumn(
@@ -147,6 +151,12 @@ fun DashboardScreen() {
                 lyricsAnimationStyle = settingsState.lyricsAnimationStyle,
                 lyricsSyncOffsetMs = settingsState.lyricsSyncOffsetMs,
                 lyricsTextSizeSp = settingsState.lyricsTextSize,
+                lyricsShowTranslated = settingsState.lyricsShowTranslated,
+                lyricsTargetLanguage = settingsState.lyricsTargetLanguage,
+                isLoved = s.isLoved,
+                onToggleLove = { vm.toggleLove() },
+                playerPackage = s.playerPackage,
+                onImmersiveRequest = { immersiveLyricsVisible = true },
                 onClick = if (s.playerPackage.isNotBlank()) ({
                     ctx.packageManager.getLaunchIntentForPackage(s.playerPackage)
                         ?.let { ctx.startActivity(it) }
@@ -189,12 +199,31 @@ fun DashboardScreen() {
                         Spacer(Modifier.height(8.dp))
                         Text(s.geminiSummary, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
                     }
-                    val hasPills = s.bassBoost > 0 || s.virtualizer > 0
+                    lyricsInsight?.let { insight ->
+                        Spacer(Modifier.height(8.dp))
+                        androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Lyrical tone: ", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                            Text(insight.tone, style = MaterialTheme.typography.bodySmall, color = p, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { (insight.polarity + 1f) / 2f },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = when {
+                                insight.polarity > 0.3f -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                                insight.polarity < -0.3f -> androidx.compose.ui.graphics.Color(0xFF9C27B0)
+                                else -> p
+                            },
+                            trackColor = SonaraCardElevated
+                        )
+                    }
+                    val hasPills = s.bassBoost > 0 || s.virtualizer > 0 || s.reverb > 0
                     if (hasPills) {
                         Spacer(Modifier.height(10.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (s.bassBoost > 0) Pill("Bass", "${(s.bassBoost / 10f).toInt()}%", Modifier.weight(1f), p)
                             if (s.virtualizer > 0) Pill("Stereo Width", "${(s.virtualizer / 10f).toInt()}%", Modifier.weight(1f), p)
+                            if (s.reverb > 0) Pill("Room", com.sonara.app.engine.effects.EffectsChain.reverbName(s.reverb), Modifier.weight(1f), p)
                         }
                     }
                     if (aiState.isReady) {
@@ -304,6 +333,25 @@ fun DashboardScreen() {
         }
         item { Spacer(Modifier.height(8.dp)) }
     }
+
+    if (immersiveLyricsVisible) {
+        ImmersiveLyricsOverlay(
+            title = s.title,
+            artist = s.artist,
+            albumArt = art,
+            isPlaying = s.isPlaying,
+            duration = s.duration,
+            position = s.position,
+            positionTimestamp = s.positionTimestamp,
+            lyricsState = lyricsState,
+            lyricsSyncOffsetMs = settingsState.lyricsSyncOffsetMs,
+            lyricsAnimationStyle = settingsState.lyricsAnimationStyle,
+            onDismiss = { immersiveLyricsVisible = false },
+            onTogglePlayPause = { com.sonara.app.service.SonaraNotificationListener.sendPlayPause() },
+            onNext = { com.sonara.app.service.SonaraNotificationListener.sendNext() },
+            onPrevious = { com.sonara.app.service.SonaraNotificationListener.sendPrevious() }
+        )
+    }
 }
 
 @Composable
@@ -328,7 +376,7 @@ private fun HearTheDifferenceBanner(
 
     FluentCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(imageVector = Icons.Default.Hearing, contentDescription = null, tint = p, modifier = Modifier.size(20.dp))
+            Icon(imageVector = Icons.Rounded.Hearing, contentDescription = null, tint = p, modifier = Modifier.size(20.dp))
             Text("Hear the Difference", style = MaterialTheme.typography.titleSmall, color = p)
         }
         Spacer(Modifier.height(8.dp))

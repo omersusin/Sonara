@@ -25,6 +25,7 @@ import com.sonara.app.intelligence.provider.InsightProviderManager
 import com.sonara.app.intelligence.provider.InsightRequest
 import com.sonara.app.intelligence.provider.InsightResult
 import com.sonara.app.intelligence.lastfm.LastFmAuthManager
+import com.sonara.app.intelligence.lastfm.LoveStateCache
 import com.sonara.app.intelligence.lastfm.ScrobbleWorker
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.intelligence.pipeline.*
@@ -71,6 +72,7 @@ class SonaraApp : Application() {
     // transition so a fast track-change doesn't leave two coroutines fighting
     // over the same audio session.
     @Volatile private var transitionJob: Job? = null
+    @Volatile private var cachedSmoothTransitions: Boolean = true
 
     private val _eqState = MutableStateFlow(SharedEqState())
     val eqState: StateFlow<SharedEqState> = _eqState.asStateFlow()
@@ -87,6 +89,7 @@ class SonaraApp : Application() {
         super.onCreate()
         instance = this
         SonaraLogger.init(this)
+        LoveStateCache.init(this)
         preferences = SonaraPreferences(this)
         secureSecrets = SecureSecrets(this)
         database = SonaraDatabase.get(this)
@@ -105,6 +108,7 @@ class SonaraApp : Application() {
         personalization = PersonalizationEngine(this)
         appScope.launch { personalization.load() }
         ScrobbleWorker.schedule(this)
+        appScope.launch { preferences.smoothTransitionsFlow.collect { cachedSmoothTransitions = it } }
 
         // Madde 14 FIX: AutoEQ başlat
         autoEqManager = AutoEqManager()
@@ -231,7 +235,7 @@ class SonaraApp : Application() {
         val clipping = SafetyLimiter.wouldClip(correctedBands, profile.preamp)
 
         // ─── Smooth Transitions (toggle-aware) ───
-        val useSmooth = runBlocking { preferences.smoothTransitionsFlow.first() }
+        val useSmooth = cachedSmoothTransitions
         val adjustedTarget = FloatArray(finalBands.size) { (finalBands[it] + finalPreamp).coerceIn(-12f, 12f) }
 
         if (useSmooth) {
@@ -306,7 +310,7 @@ class SonaraApp : Application() {
                 bassBoost: Int = 0, virtualizer: Int = 0, loudness: Int = 0, preamp: Float = 0f,
                 instant: Boolean = false, reverb: Int = 0) {
         val adj = if (preamp != 0f) FloatArray(bands.size) { (bands[it] + preamp).coerceIn(-12f, 12f) } else bands
-        val useSmooth = !instant && runBlocking { preferences.smoothTransitionsFlow.first() }
+        val useSmooth = !instant && cachedSmoothTransitions
 
         if (useSmooth) {
             val currentState = _eqState.value

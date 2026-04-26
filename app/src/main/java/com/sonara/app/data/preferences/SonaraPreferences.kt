@@ -61,6 +61,7 @@ class SonaraPreferences(private val context: Context) {
     private val KEY_LYRICS_TEXT_SIZE = floatPreferencesKey("lyrics_text_size")
     private val KEY_LYRICS_SYNC_OFFSET = intPreferencesKey("lyrics_sync_offset_ms")
     private val KEY_LYRICS_SHOW_TRANSLATED = booleanPreferencesKey("lyrics_show_translated")
+    private val KEY_LYRICS_TARGET_LANGUAGE = stringPreferencesKey("lyrics_target_language")
 
     val accentColorFlow: Flow<AccentColor> = context.dataStore.data.map { p ->
         val name = p[ACCENT_COLOR] ?: AccentColor.Amber.name
@@ -198,6 +199,8 @@ class SonaraPreferences(private val context: Context) {
 
     val lyricsShowTranslatedFlow: Flow<Boolean> = context.dataStore.data.map { it[KEY_LYRICS_SHOW_TRANSLATED] ?: false }
     suspend fun setLyricsShowTranslated(v: Boolean) { context.dataStore.edit { it[KEY_LYRICS_SHOW_TRANSLATED] = v } }
+    val lyricsTargetLanguageFlow: Flow<String> = context.dataStore.data.map { it[KEY_LYRICS_TARGET_LANGUAGE] ?: "en" }
+    suspend fun setLyricsTargetLanguage(code: String) { context.dataStore.edit { it[KEY_LYRICS_TARGET_LANGUAGE] = code } }
 
     suspend fun setHasSeenHearTheDifference(value: Boolean) {
         context.dataStore.edit { it[KEY_HAS_SEEN_HEAR_DIFF] = value }

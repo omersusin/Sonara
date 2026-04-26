@@ -87,7 +87,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonara.app.BuildConfig
 import com.sonara.app.SonaraApp
 import com.sonara.app.data.BackupManager
-import com.sonara.app.autoeq.AutoEqImporter
 import com.sonara.app.preset.PresetExporter
 import com.sonara.app.ui.components.ChipStatus
 import com.sonara.app.ui.components.FluentCard
@@ -382,81 +381,6 @@ internal fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Cont
     }
 }
 
-
-
-@Composable
-internal fun AutoEqImportCard() {
-    var input by remember { mutableStateOf("") }
-    var result by remember { mutableStateOf<AutoEqImporter.ImportResult?>(null) }
-    val clipboard = LocalClipboardManager.current
-    val p = MaterialTheme.colorScheme.primary
-
-    FluentCard {
-        var showAutoEqHelp by remember { mutableStateOf(false) }
-        if (showAutoEqHelp) {
-            AlertDialog(
-                onDismissRequest = { showAutoEqHelp = false },
-                containerColor = SonaraCard,
-                title = { Text("How AutoEQ Works") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("AutoEQ compensates for your headphone's frequency response to deliver a flatter, more accurate sound.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                        HorizontalDivider(color = SonaraDivider.copy(0.3f))
-                        Text("How to get your profile:", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
-                        Text("1. Go to github.com/jaakkopasanen/AutoEq", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                        Text("2. Find your headphone model", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                        Text("3. Copy the GraphicEQ line from the README", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                        Text("4. Paste it here and tap Parse → Apply", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                    }
-                },
-                confirmButton = { TextButton(onClick = { showAutoEqHelp = false }) { Text("Got it") } }
-            )
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Import AutoEQ Profile", style = MaterialTheme.typography.titleMedium)
-            TextButton(onClick = { showAutoEqHelp = true }) { Text("How to?", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
-        }
-        Spacer(Modifier.height(4.dp))
-        Text("Paste AutoEQ GraphicEQ data or 10 comma-separated gain values (dB)",
-            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-        Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
-            value = input, onValueChange = { input = it; result = null },
-            placeholder = { Text("Paste EQ data here...", color = SonaraTextTertiary) },
-            modifier = Modifier.fillMaxWidth().height(120.dp), maxLines = 8, shape = MaterialTheme.shapes.small,
-            trailingIcon = { IconButton(onClick = { clipboard.getText()?.text?.let { input = it } }) { Icon(Icons.Rounded.ContentPaste, "Paste", tint = SonaraTextSecondary) } },
-            colors = tfColors()
-        )
-        Spacer(Modifier.height(10.dp))
-        if (result != null) {
-            if (result!!.success) {
-                StatusChip("Parsed successfully", ChipStatus.Active)
-                Spacer(Modifier.height(4.dp))
-                Text("Values: ${result!!.bands.joinToString(", ") { "%.1f".format(it) }}",
-                    style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-            } else {
-                StatusChip("Error: ${result!!.error}", ChipStatus.Error)
-            }
-            Spacer(Modifier.height(8.dp))
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                onClick = { result = AutoEqImporter.parseGraphicEq(input) },
-                enabled = input.isNotBlank(), modifier = Modifier.weight(1f),
-                shape = MaterialTheme.shapes.extraLarge,
-                border = BorderStroke(1.dp, if (input.isNotBlank()) p else SonaraDivider),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
-            ) { Text("Parse") }
-            OutlinedButton(
-                onClick = { result?.let { r -> if (r.success) SonaraApp.instance.applyEq(bands = r.bands, presetName = "AutoEQ Import", manual = true) } },
-                enabled = result?.success == true, modifier = Modifier.weight(1f),
-                shape = MaterialTheme.shapes.extraLarge,
-                border = BorderStroke(1.dp, if (result?.success == true) SonaraSuccess else SonaraDivider),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraSuccess)
-            ) { Text("Apply") }
-        }
-    }
-}
 
 
 

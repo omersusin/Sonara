@@ -7,11 +7,12 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.concurrent.ConcurrentHashMap
 
 object DeezerImageResolver {
     private const val TAG = "DeezerImg"
     private const val BASE = "https://api.deezer.com"
-    private val cache = mutableMapOf<String, String>()
+    private val cache = ConcurrentHashMap<String, String>()
 
     suspend fun getArtistImage(name: String): String? = withContext(Dispatchers.IO) {
         if (name.isBlank()) return@withContext null

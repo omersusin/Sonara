@@ -46,7 +46,8 @@ fun SyncedLyricLine(
     estimatedPositionMs: Long = 0L,
     animationStyle: LyricsAnimationStyle = LyricsAnimationStyle.KARAOKE,
     textSizeSp: Float = 0f,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    distanceFromActive: Int = 0
 ) {
     val primary  = MaterialTheme.colorScheme.primary
     val dimColor = SonaraTextSecondary.copy(alpha = 0.35f)
@@ -194,42 +195,70 @@ fun SyncedLyricLine(
 
         // ── APPLE ─────────────────────────────────────────────────────────────
         LyricsAnimationStyle.APPLE -> {
+            val targetScale = when {
+                isActive -> 1.20f
+                distanceFromActive == 1 -> 0.88f
+                else -> 0.78f
+            }
+            val targetAlpha = when {
+                isActive -> 1.0f
+                distanceFromActive == 1 -> 0.55f
+                else -> 0.35f
+            }
+            val targetWeight = when {
+                isActive -> FontWeight.ExtraBold
+                distanceFromActive == 1 -> FontWeight.Medium
+                else -> FontWeight.Light
+            }
             val scale by animateFloatAsState(
-                if (isActive) 1.18f else 0.86f,
+                targetScale,
                 spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow),
                 label = "apple_s"
             )
-            val alpha by animateFloatAsState(if (isActive) 1f else 0.35f, tween(420), label = "apple_a")
+            val alpha by animateFloatAsState(targetAlpha, tween(420), label = "apple_a")
             Text(
-                text      = line.text,
-                modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp)
+                text = line.text,
+                modifier = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp)
                     .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
                 textAlign = textAlign,
-                style     = effectiveStyle.copy(
-                    fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.Medium
-                ),
-                color     = if (isActive) SonaraTextPrimary else dimColor
+                style = effectiveStyle.copy(fontWeight = targetWeight),
+                color = if (isActive) SonaraTextPrimary else dimColor
             )
         }
 
         // ── APPLE_V2 ──────────────────────────────────────────────────────────
         LyricsAnimationStyle.APPLE_V2 -> {
+            val targetScale = when {
+                isActive -> 1.24f
+                distanceFromActive == 1 -> 0.88f
+                else -> 0.78f
+            }
+            val targetAlpha = when {
+                isActive -> 1.0f
+                distanceFromActive == 1 -> 0.55f
+                else -> 0.35f
+            }
+            val targetWeight = when {
+                isActive -> FontWeight.Black
+                distanceFromActive == 1 -> FontWeight.Medium
+                else -> FontWeight.Light
+            }
             val scale by animateFloatAsState(
-                if (isActive) 1.24f else 0.76f,
-                spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow),
+                targetScale,
+                spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow),
                 label = "apple2_s"
             )
-            val alpha by animateFloatAsState(if (isActive) 1f else 0.28f, tween(520), label = "apple2_a")
+            val alpha by animateFloatAsState(targetAlpha, tween(520), label = "apple2_a")
             Text(
-                text      = line.text,
-                modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp)
+                text = line.text,
+                modifier = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp)
                     .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
                 textAlign = textAlign,
-                style     = effectiveStyle.copy(
-                    fontWeight    = if (isActive) FontWeight.Black else FontWeight.Light,
+                style = effectiveStyle.copy(
+                    fontWeight = targetWeight,
                     letterSpacing = if (isActive) 0.sp else 1.2.sp
                 ),
-                color     = if (isActive) primary else dimColor
+                color = if (isActive) primary else dimColor
             )
         }
 

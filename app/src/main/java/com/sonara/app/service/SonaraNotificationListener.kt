@@ -271,6 +271,7 @@ class SonaraNotificationListener : NotificationListenerService() {
                             bassBoost = matchingPreset.bassBoost,
                             virtualizer = matchingPreset.virtualizer,
                             loudness = matchingPreset.loudness,
+                            reverb = matchingPreset.reverb,
                             preamp = matchingPreset.preamp
                         )
                         // Auto Preset uygulandı, AI EQ uygulanmasın

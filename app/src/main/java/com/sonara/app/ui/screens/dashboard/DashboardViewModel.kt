@@ -7,7 +7,9 @@ import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
 import com.sonara.app.ai.SonaraAi
 import com.sonara.app.ai.SonaraAiState
+import com.sonara.app.intelligence.lastfm.LastFmAuthManager
 import com.sonara.app.intelligence.lastfm.LoveStateCache
+import com.sonara.app.intelligence.pipeline.TitleNormalizer
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.components.DisplayLabelMapper
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +40,7 @@ data class DashboardUiState(
     val bassBoost: Int = 0,
     val virtualizer: Int = 0,
     val loudness: Int = 0,
+    val reverb: Int = 0,
     val notificationListenerEnabled: Boolean = false,
     val eqActive: Boolean = false,
     val isManualPreset: Boolean = false,
@@ -54,6 +57,8 @@ data class DashboardUiState(
         if (other !is DashboardUiState) return false
         return title == other.title && artist == other.artist &&
             isPlaying == other.isPlaying && hasTrack == other.hasTrack &&
+            duration == other.duration && position == other.position &&
+            positionTimestamp == other.positionTimestamp &&
             genre == other.genre && mood == other.mood &&
             energy == other.energy && confidence == other.confidence &&
             sourceLabel == other.sourceLabel &&
@@ -61,7 +66,7 @@ data class DashboardUiState(
             isAiEnabled == other.isAiEnabled &&
             bands.contentEquals(other.bands) &&
             bassBoost == other.bassBoost && virtualizer == other.virtualizer &&
-            loudness == other.loudness &&
+            loudness == other.loudness && reverb == other.reverb &&
             notificationListenerEnabled == other.notificationListenerEnabled &&
             eqActive == other.eqActive && isManualPreset == other.isManualPreset &&
             songsLearned == other.songsLearned &&
@@ -75,11 +80,18 @@ data class DashboardUiState(
     }
     override fun hashCode(): Int {
         var result = title.hashCode()
+        result = 31 * result + artist.hashCode()
+        result = 31 * result + isPlaying.hashCode()
+        result = 31 * result + hasTrack.hashCode()
+        result = 31 * result + duration.hashCode()
+        result = 31 * result + position.hashCode()
+        result = 31 * result + positionTimestamp.hashCode()
         result = 31 * result + genre.hashCode()
         result = 31 * result + mood.hashCode()
         result = 31 * result + route.hashCode()
         result = 31 * result + bands.contentHashCode()
         result = 31 * result + notificationListenerEnabled.hashCode()
+        result = 31 * result + reverb.hashCode()
         result = 31 * result + isLoved.hashCode()
         result = 31 * result + geminiSummary.hashCode()
         result = 31 * result + legacyAnalysis.hashCode()
@@ -119,11 +131,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
 
-        viewModelScope.launch { app.eqState.collect { eq -> _uiState.update { it.copy(bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer, loudness = eq.loudness, currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset, eqActive = eq.isEnabled) } } }
+        viewModelScope.launch { app.eqState.collect { eq -> _uiState.update { it.copy(bands = eq.bands, bassBoost = eq.bassBoost, virtualizer = eq.virtualizer, loudness = eq.loudness, reverb = eq.reverb, currentPresetName = eq.presetName, isManualPreset = eq.isManualPreset, eqActive = eq.isEnabled) } } }
         viewModelScope.launch { SonaraNotificationListener.nowPlaying.collect { np ->
             _uiState.update { it.copy(title = np.title, artist = np.artist, isPlaying = np.isPlaying, hasTrack = np.title.isNotBlank(), duration = np.duration, position = np.position, positionTimestamp = np.positionTimestamp, playerPackage = np.packageName) }
             if (np.title.isNotBlank()) {
-                val cached = LoveStateCache.isLoved(np.title, np.artist)
+                val normArtist = TitleNormalizer.normalizeArtist(np.artist)
+                val cached = LoveStateCache.isLoved(np.title, normArtist)
                 if (cached != null) _uiState.update { it.copy(isLoved = cached) }
                 else _uiState.update { it.copy(isLoved = false) }
             }
@@ -163,14 +176,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun toggleLove() {
         val s = _uiState.value
         if (s.title.isBlank()) return
+        val normArtist = TitleNormalizer.normalizeArtist(s.artist)
         val newState = !s.isLoved
         _uiState.update { it.copy(isLoved = newState) }
-        LoveStateCache.setLoved(s.title, s.artist, newState)
+        LoveStateCache.setLoved(s.title, normArtist, newState)
         viewModelScope.launch {
-            val ok = app.loveTrack(s.title, s.artist, newState)
-            if (!ok) {
+            val ok = app.loveTrack(s.title, normArtist, newState)
+            if (!ok && app.lastFmAuth.authState.value == LastFmAuthManager.AuthState.CONNECTED) {
                 _uiState.update { it.copy(isLoved = !newState) }
-                LoveStateCache.setLoved(s.title, s.artist, !newState)
+                LoveStateCache.setLoved(s.title, normArtist, !newState)
             }
         }
     }

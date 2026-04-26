@@ -13,6 +13,7 @@ import com.sonara.app.SonaraApp
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.components.DisplayLabelMapper
 import com.sonara.app.ui.theme.*
+import kotlinx.coroutines.launch
 
 /**
  * Madde 4: Debug ekranı — pipeline durumunu detaylı gösterir.
@@ -28,6 +29,8 @@ fun DebugPipelineScreen() {
     val source by SonaraNotificationListener.currentSource.collectAsState()
     val eqState by SonaraApp.instance.eqState.collectAsState()
     val route by SonaraApp.instance.currentRoute.collectAsState()
+    val scope = rememberCoroutineScope()
+    var demoResults by remember { mutableStateOf<List<String>>(emptyList()) }
 
     LazyColumn(
         Modifier.fillMaxSize().background(SonaraBackground),
@@ -37,6 +40,28 @@ fun DebugPipelineScreen() {
         item {
             Text("Pipeline Debug", style = MaterialTheme.typography.headlineMedium, color = SonaraTextPrimary)
             Spacer(Modifier.height(8.dp))
+        }
+        item {
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            Button(
+                onClick = {
+                    scope.launch {
+                        try {
+                            val db = com.sonara.app.SonaraApp.instance.database
+                            val demo = com.sonara.app.ai.demo.AiDemo(ctx, db.trainingExampleDao())
+                            demoResults = listOf("Running AI Demo…")
+                            demo.runFullDemo()
+                            demoResults = listOf("AI Demo complete — see Logcat for results")
+                        } catch (e: Exception) {
+                            demoResults = listOf("Error: ${e.message}")
+                        }
+                    }
+                },
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) { Text("Run AI Demo", color = com.sonara.app.ui.theme.SonaraBackground) }
+        }
+        for (result in demoResults) {
+            item { DebugRow("AI Demo", result) }
         }
         item { DebugRow("Detected Title", np.title.ifBlank { "—" }) }
         item { DebugRow("Detected Artist", np.artist.ifBlank { "—" }) }
