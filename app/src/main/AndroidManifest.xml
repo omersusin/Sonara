@@ -37,7 +37,8 @@
             <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
         </service>
 
-        <receiver android:name=".receiver.AudioEffectSessionReceiver" android:exported="true">
+        <receiver android:name=".receiver.AudioEffectSessionReceiver" android:exported="true"
+            android:permission="android.permission.MODIFY_AUDIO_SETTINGS">
             <intent-filter>
                 <action android:name="android.media.action.OPEN_AUDIO_EFFECT_CONTROL_SESSION" />
                 <action android:name="android.media.action.CLOSE_AUDIO_EFFECT_CONTROL_SESSION" />

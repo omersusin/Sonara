@@ -41,7 +41,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 class SonaraApp : Application() {
     lateinit var preferences: SonaraPreferences private set
@@ -73,6 +72,8 @@ class SonaraApp : Application() {
     // over the same audio session.
     @Volatile private var transitionJob: Job? = null
     @Volatile private var cachedSmoothTransitions: Boolean = true
+    @Volatile private var cachedAutoEqEnabled: Boolean = false
+    @Volatile private var cachedSafetyLimiter: Boolean = true
 
     private val _eqState = MutableStateFlow(SharedEqState())
     val eqState: StateFlow<SharedEqState> = _eqState.asStateFlow()
@@ -96,9 +97,9 @@ class SonaraApp : Application() {
         presetRepository = PresetRepository(database.presetDao())
 
         audioSessionManager = AudioSessionManager(this)
-        audioSessionManager.start()
 
         eqComposer = EqComposer()
+        audioSessionManager.start()
         adaptiveLearning = AdaptiveLearningEngine(this)
         adaptiveClassifier = AdaptiveGenreClassifier(this)
         smoothTransitionEngine = SmoothTransitionEngine()
@@ -109,6 +110,8 @@ class SonaraApp : Application() {
         appScope.launch { personalization.load() }
         ScrobbleWorker.schedule(this)
         appScope.launch { preferences.smoothTransitionsFlow.collect { cachedSmoothTransitions = it } }
+        appScope.launch { preferences.autoEqEnabledFlow.collect { cachedAutoEqEnabled = it } }
+        appScope.launch { preferences.safetyLimiterFlow.collect { cachedSafetyLimiter = it } }
 
         // Madde 14 FIX: AutoEQ başlat
         autoEqManager = AutoEqManager()
@@ -122,21 +125,18 @@ class SonaraApp : Application() {
             }
         }
 
-        // Madde 10 FIX: Gemini engine
-        val geminiKey = secureSecrets.getGeminiApiKey().ifBlank {
-            runBlocking { preferences.geminiApiKeyFlow.first() }
-        }
-        geminiEngine = GeminiInsightEngine(geminiKey)
+        // Gemini engine — key loaded from SecureSecrets; async re-config picks up DataStore value
+        geminiEngine = GeminiInsightEngine(secureSecrets.getGeminiApiKey())
         insightManager = InsightProviderManager()
         insightManager.configureGemini(geminiEngine)
 
-        // Configure OpenRouter/Groq/HuggingFace from prefs
-        runBlocking {
-            val orKey = secureSecrets.getOpenRouterApiKey().ifBlank { preferences.openRouterApiKeyFlow.first() }
+        // Configure OpenRouter/Groq/HuggingFace asynchronously — no blocking on main thread
+        appScope.launch {
+            val orKey = secureSecrets.getOpenRouterApiKey()
             val orModel = preferences.openRouterModelFlow.first()
-            val grKey = secureSecrets.getGroqApiKey().ifBlank { preferences.groqApiKeyFlow.first() }
+            val grKey = secureSecrets.getGroqApiKey()
             val grModel = preferences.groqModelFlow.first()
-            val hfKey = secureSecrets.getHuggingFaceApiKey().ifBlank { preferences.huggingFaceApiKeyFlow.first() }
+            val hfKey = secureSecrets.getHuggingFaceApiKey()
             val hfModel = preferences.huggingFaceModelFlow.first()
             val provider = preferences.aiProviderFlow.first()
             insightManager.configureOpenRouter(orKey, orModel)
@@ -211,7 +211,7 @@ class SonaraApp : Application() {
         val profile = eqComposer.compose(prediction, route, userOffset, lyricsModifier)
 
         // ─── Madde 14 FIX: AutoEQ correction ───
-        val autoEqEnabled = runBlocking { preferences.autoEqEnabledFlow.first() }
+        val autoEqEnabled = cachedAutoEqEnabled
         val autoEqState = autoEqManager.state.value
         var correctedBands = profile.bands.copyOf()
         if (autoEqEnabled && autoEqState.isActive) {
@@ -223,7 +223,7 @@ class SonaraApp : Application() {
         }
 
         // ─── Safety Limiter (toggle-aware) ───
-        val useSafety = runBlocking { preferences.safetyLimiterFlow.first() }
+        val useSafety = cachedSafetyLimiter
         val finalBands: FloatArray
         val finalPreamp: Float
         if (useSafety) {
@@ -281,7 +281,7 @@ class SonaraApp : Application() {
     }
 
     fun applyProfile(profile: FinalEqProfile) {
-        val useSafety = runBlocking { preferences.safetyLimiterFlow.first() }
+        val useSafety = cachedSafetyLimiter
         val (safeBands, safePreamp) = if (useSafety) SafetyLimiter.limit(profile.bands, profile.preamp) else profile.bands to profile.preamp
         val adjusted = FloatArray(safeBands.size) { (safeBands[it] + safePreamp).coerceIn(-12f, 12f) }
         audioSessionManager.applyBands(adjusted)

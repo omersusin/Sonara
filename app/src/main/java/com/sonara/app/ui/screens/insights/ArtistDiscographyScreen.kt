@@ -5,7 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
@@ -21,8 +21,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.sonara.app.SonaraApp
-import com.sonara.app.intelligence.lastfm.LastFmClient
 import com.sonara.app.intelligence.theaudiodb.AudioDbAlbum
 import com.sonara.app.intelligence.theaudiodb.TheAudioDbClient
 import com.sonara.app.ui.theme.*
@@ -39,10 +37,9 @@ fun ArtistDiscographyScreen(
 ) {
     val ctx = LocalContext.current
     val p = MaterialTheme.colorScheme.primary
-    val app = SonaraApp.instance
     var albums by remember { mutableStateOf<List<AudioDbAlbum>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
-    // Screen-level art map: idAlbum → resolved URL
+    // Key = strAlbum (unique per discography; idAlbum can be blank/shared across albums)
     val artUrls = remember { mutableStateMapOf<String, String>() }
 
     // Step 1: load album list
@@ -57,32 +54,28 @@ fun ArtistDiscographyScreen(
         }
     }
 
-    // Step 2: sequentially resolve art for each album (respects rate limit)
+    // Step 2: sequentially resolve art per album.
+    // getAlbumById is intentionally skipped: discography.php frequently returns
+    // the same idAlbum for every entry in a catalog (TheAudioDB data quality),
+    // causing all albums to resolve to the first album's artwork. searchAlbum
+    // performs a per-name query and returns the correct, unique result per album.
     LaunchedEffect(albums) {
         if (albums.isEmpty()) return@LaunchedEffect
-        val apiKey = app.lastFmAuth.getActiveApiKey()
         withContext(Dispatchers.IO) {
             for (album in albums) {
-                if (artUrls.containsKey(album.idAlbum)) continue
-                // Try ID-based lookup first — no name-matching ambiguity
+                val key = album.strAlbum
+                if (artUrls.containsKey(key)) continue
+                // Tier 1: inline art embedded in the discography response (often absent)
+                val inline = album.strThumbHQ ?: album.strThumb
+                if (!inline.isNullOrBlank()) {
+                    artUrls[key] = inline
+                    continue
+                }
+                // Tier 2: name-based search — unique query per album, avoids stale IDs
                 try {
-                    val full = TheAudioDbClient.getAlbumById(album.idAlbum)
-                    val url = full?.strThumbHQ ?: full?.strThumb
-                    if (!url.isNullOrBlank()) {
-                        artUrls[album.idAlbum] = url
-                        delay(400L) // respect ~2 req/s well within 30 req/min
-                        continue
-                    }
-                } catch (_: Exception) {}
-                // Last.fm fallback
-                try {
-                    if (apiKey.isNotBlank()) {
-                        val info = LastFmClient.api.getAlbumInfo(artistName, album.strAlbum, apiKey)
-                        val url = info.album?.imageUrl
-                        if (!url.isNullOrBlank() && !url.contains("2a96cbd8b46e")) {
-                            artUrls[album.idAlbum] = url
-                        }
-                    }
+                    val found = TheAudioDbClient.searchAlbum(artistName, album.strAlbum)
+                    val url = found?.strThumbHQ ?: found?.strThumb
+                    if (!url.isNullOrBlank()) artUrls[key] = url
                 } catch (_: Exception) {}
                 delay(400L)
             }
@@ -115,8 +108,8 @@ fun ArtistDiscographyScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(albums, key = { it.idAlbum }) { album ->
-                    val artUrl = artUrls[album.idAlbum] ?: ""
+                itemsIndexed(albums, key = { idx, a -> a.strAlbum.ifBlank { "idx_$idx" } }) { _, album ->
+                    val artUrl = artUrls[album.strAlbum] ?: ""
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()

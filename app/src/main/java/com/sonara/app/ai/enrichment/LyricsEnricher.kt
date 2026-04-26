@@ -1,10 +1,8 @@
 package com.sonara.app.ai.enrichment
 
-import android.util.Log
 
 class LyricsEnricher {
     companion object {
-        private const val TAG = "SonaraLyrics"
         private val POSITIVE = mapOf("love" to 0.5f, "happy" to 0.7f, "joy" to 0.6f, "smile" to 0.4f, "dance" to 0.5f, "sunshine" to 0.6f, "beautiful" to 0.4f, "dream" to 0.3f, "hope" to 0.4f, "together" to 0.3f)
         private val NEGATIVE = mapOf("hate" to -0.6f, "sad" to -0.5f, "cry" to -0.5f, "pain" to -0.5f, "die" to -0.6f, "death" to -0.7f, "alone" to -0.4f, "lonely" to -0.5f, "broken" to -0.5f, "dark" to -0.4f, "lost" to -0.3f, "tears" to -0.4f, "hurt" to -0.4f)
         private val HIGH_E = mapOf("fight" to 0.7f, "run" to 0.6f, "scream" to 0.7f, "fire" to 0.6f, "wild" to 0.6f, "power" to 0.6f, "rage" to 0.7f)

@@ -146,6 +146,19 @@ fun NowPlayingBar(
     val readyState = lyricsState as? LyricsState.Ready
     val activeLineIndex = readyState?.lyrics?.lines
         ?.let { LrcParser.activeLineIndex(it, lyricsPosition) } ?: -1
+
+    // Snap to active line when lyrics panel is first opened
+    LaunchedEffect(lyricsExpanded) {
+        if (lyricsExpanded && activeLineIndex >= 0) {
+            var h = lyricsListState.layoutInfo.viewportSize.height
+            while (h == 0) { delay(16L); h = lyricsListState.layoutInfo.viewportSize.height }
+            lyricsListState.scrollToItem(
+                index = (activeLineIndex - 1).coerceAtLeast(0),
+                scrollOffset = -(h / 2) + 40
+            )
+        }
+    }
+
     LaunchedEffect(activeLineIndex) {
         if (activeLineIndex >= 0 && lyricsExpanded) {
             val viewportCenter = lyricsListState.layoutInfo.viewportSize.height / 2

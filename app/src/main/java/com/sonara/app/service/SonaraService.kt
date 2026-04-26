@@ -10,7 +10,6 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.os.IBinder
-import android.util.Log
 import com.sonara.app.MainActivity
 import com.sonara.app.R
 import com.sonara.app.SonaraApp
@@ -57,13 +56,8 @@ class SonaraService : Service() {
         sonaraAi = SonaraAi.create(applicationContext, db.trainingExampleDao())
         aiScope.launch(Dispatchers.IO) { sonaraAi?.initialize() }
 
-        // AI → EQ bridge: AI sonuç üretince gerçek EQ engine'e uygula
-        // AI EQ Bridge disabled — verifying AI logs before enabling
-        Log.d("SonaraService", "AI EQ Bridge DISABLED to prevent pipeline conflict")
-
-        // Session tracker listener — yeni session gelince AI'a bildir
+        // Session tracker listener
         AudioSessionTracker.addListener { sessionId ->
-            Log.d("SonaraService", "Session from tracker: $sessionId")
             sonaraAi?.onSessionChanged(sessionId)
         }
 
@@ -136,12 +130,12 @@ class SonaraService : Service() {
                                 com.sonara.app.intelligence.provider.InsightRequest(
                                     title = np.title,
                                     artist = np.artist,
-                                    genre = SonaraNotificationListener._currentGenre.value,
+                                    genre = SonaraNotificationListener.currentGenre.value,
                                     subGenre = null,
                                     tags = emptyList(),
                                     lyricalTone = null,
-                                    energy = SonaraNotificationListener._currentEnergy.value,
-                                    confidence = SonaraNotificationListener._currentConfidence.value,
+                                    energy = SonaraNotificationListener.currentEnergy.value,
+                                    confidence = SonaraNotificationListener.currentConfidence.value,
                                     currentEqBands = eq.bands,
                                     userRequest = text,
                                     currentPreamp = eq.preamp,
