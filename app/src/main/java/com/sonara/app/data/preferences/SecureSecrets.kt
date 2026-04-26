@@ -91,7 +91,12 @@ class SecureSecrets(private val context: Context) {
     fun getHuggingFaceApiKey(): String = decrypt(prefs.getString("hf_api_key", "") ?: "")
     fun setHuggingFaceApiKey(value: String) { prefs.edit().putString("hf_api_key", encrypt(value)).apply() }
 
-    fun clearAll() { prefs.edit().clear().apply() }
+    fun clearAll() {
+        prefs.edit().clear().apply()
+        try {
+            KeyStore.getInstance("AndroidKeyStore").apply { load(null) }.deleteEntry(KEYSTORE_ALIAS)
+        } catch (_: Exception) {}
+    }
 
     companion object {
         /**

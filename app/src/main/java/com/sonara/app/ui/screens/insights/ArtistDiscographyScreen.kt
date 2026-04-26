@@ -5,7 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
@@ -115,7 +115,7 @@ fun ArtistDiscographyScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(albums, key = { it.idAlbum }) { album ->
+                itemsIndexed(albums, key = { idx, a -> a.idAlbum.ifBlank { "idx_$idx" } }) { _, album ->
                     val artUrl = artUrls[album.idAlbum] ?: ""
                     Column(
                         modifier = Modifier

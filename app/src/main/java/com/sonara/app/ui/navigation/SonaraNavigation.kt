@@ -1,5 +1,8 @@
 package com.sonara.app.ui.navigation
 
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -103,7 +106,15 @@ fun SonaraNavigation() {
     val hideBottomBar = currentRoute !in mainTabs
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = { if (!hideBottomBar) SonaraBottomBar(navController) }) { padding ->
-        NavHost(navController, startDestination = startDest, Modifier.padding(padding)) {
+        NavHost(
+            navController = navController,
+            startDestination = startDest,
+            modifier = Modifier.padding(padding),
+            enterTransition = { fadeIn(animationSpec = tween(200)) },
+            exitTransition = { fadeOut(animationSpec = tween(150)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(200)) },
+            popExitTransition = { fadeOut(animationSpec = tween(150)) }
+        ) {
             composable(Screen.Onboarding.route) {
                 OnboardingScreen(onComplete = {
                     MainScope().launch { prefs.setNotificationListenerPrompted(true) }
