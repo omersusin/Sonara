@@ -18,7 +18,7 @@ import com.sonara.app.service.SonaraService
 import com.sonara.app.ui.navigation.SonaraNavigation
 import com.sonara.app.ui.theme.AccentColor
 import com.sonara.app.ui.theme.SonaraTheme
-import kotlinx.coroutines.MainScope
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -57,7 +57,7 @@ class MainActivity : ComponentActivity() {
         val authState = app.lastFmAuth.authState.value
         if (authState == LastFmAuthManager.AuthState.AUTHENTICATING ||
             authState == LastFmAuthManager.AuthState.DISCONNECTED) {
-            MainScope().launch {
+            lifecycleScope.launch {
                 if (app.lastFmAuth.hasPendingAuth()) {
                     val success = app.lastFmAuth.handleCallback()
                     if (success) app.reloadPipeline()
@@ -76,7 +76,7 @@ class MainActivity : ComponentActivity() {
         if (uri.scheme == LastFmAuthManager.CALLBACK_SCHEME && uri.host == LastFmAuthManager.CALLBACK_HOST) {
             val token = uri.getQueryParameter("token")
             val app = application as SonaraApp
-            MainScope().launch {
+            lifecycleScope.launch {
                 val success = app.lastFmAuth.handleCallback(token)
                 if (success) app.reloadPipeline()
             }
