@@ -99,7 +99,7 @@ object LrcParser {
     /** Active line index for given playback position */
     fun activeLineIndex(lines: List<LyricLine>, positionMs: Long): Int {
         if (lines.isEmpty()) return -1
-        var result = 0
+        var result = -1
         for (i in lines.indices) {
             if (lines[i].startMs <= positionMs) result = i else break
         }

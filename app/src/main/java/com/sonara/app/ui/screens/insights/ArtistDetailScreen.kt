@@ -247,33 +247,25 @@ fun ArtistDetailScreen(
                 item {
                     FluentCard {
                         if (allArtists.size > 1) {
-                            // ── Multi-artist header ──────────────────────────────────────
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                MultiArtistAvatarRow(
-                                    artists = allArtists,
-                                    onArtistClick = onArtistClick
-                                )
-                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    allArtists.forEach { name ->
-                                        Text(
-                                            name,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = SonaraTextPrimary,
-                                            fontWeight = FontWeight.SemiBold,
-                                            modifier = Modifier.clickable { onArtistClick(name) }
-                                        )
-                                    }
-                                    val adb = audioDbArtist
-                                    val meta = listOfNotNull(
-                                        adb?.strCountry?.takeIf { it.isNotBlank() },
-                                        adb?.intFormedYear?.let { "est. $it" }
-                                    ).joinToString(" · ")
-                                    if (meta.isNotBlank()) {
-                                        Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
-                                    }
+                            // ── Multi-artist header: plain tappable name list ─────────────
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                allArtists.forEach { name ->
+                                    Text(
+                                        name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = p,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.clickable { onArtistClick(name) }
+                                    )
+                                }
+                                val adb = audioDbArtist
+                                val meta = listOfNotNull(
+                                    adb?.strCountry?.takeIf { it.isNotBlank() },
+                                    adb?.intFormedYear?.let { "est. $it" }
+                                ).joinToString(" · ")
+                                if (meta.isNotBlank()) {
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
                                 }
                             }
                         } else {
@@ -549,7 +541,8 @@ fun ArtistDetailScreen(
                             Spacer(Modifier.height(12.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(discography) { album ->
-                                    val artUrl = discographyArtUrls[album.idAlbum] ?: ""
+                                    val artUrl = discographyArtUrls[album.idAlbum]
+                                        ?: album.strThumbHQ ?: album.strThumb ?: ""
                                     Column(
                                         modifier = Modifier.width(96.dp)
                                             .clickable { onAlbumClick(album.strAlbum, artistName, "", artUrl) },
