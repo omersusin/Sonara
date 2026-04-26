@@ -93,17 +93,6 @@ fun EqualizerScreen() {
             }
         }
 
-        item {
-            var isOriginalMode by remember { mutableStateOf(false) }
-            com.sonara.app.ui.components.CompareToggle(
-                isOriginal = isOriginalMode,
-                onToggle = { isOriginal ->
-                    isOriginalMode = isOriginal
-                    vm.setBypass(isOriginal)
-                }
-            )
-        }
-
         // Preset dropdown
         item {
             FluentCard {

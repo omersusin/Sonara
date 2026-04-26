@@ -98,8 +98,12 @@ fun DashboardScreen() {
     LaunchedEffect(s.savedMessage) { if (s.savedMessage.isNotBlank()) Toast.makeText(ctx, s.savedMessage, Toast.LENGTH_SHORT).show() }
     // Trigger lyrics load when track changes
     LaunchedEffect(s.title, s.artist) {
-        if (s.hasTrack) lyricsVm.load(s.title, s.artist, "", s.duration, settingsState.lyricsShowTranslated, settingsState.lyricsTargetLanguage)
-        else lyricsVm.reset()
+        if (s.hasTrack) {
+            val cleanArtist = com.sonara.app.intelligence.pipeline.TitleNormalizer.normalizeArtist(s.artist)
+            lyricsVm.load(s.title, cleanArtist, "", s.duration, settingsState.lyricsShowTranslated, settingsState.lyricsTargetLanguage)
+        } else {
+            lyricsVm.reset()
+        }
     }
 
     LazyColumn(

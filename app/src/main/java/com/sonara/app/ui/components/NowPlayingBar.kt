@@ -49,7 +49,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -127,13 +126,9 @@ fun NowPlayingBar(
         else -> position
     }
 
-    val displayProgress by remember {
-        derivedStateOf {
-            if (isDragging) dragValue
-            else if (duration > 0) (estimatedPosition.toFloat() / duration).coerceIn(0f, 1f)
-            else 0f
-        }
-    }
+    val displayProgress = if (isDragging) dragValue
+        else if (duration > 0) (estimatedPosition.toFloat() / duration).coerceIn(0f, 1f)
+        else 0f
 
     val displayArtist = remember(artist) { ArtistNameParser.formatForDisplay(artist) }
     val lyricsPosition = estimatedPosition + lyricsSyncOffsetMs
@@ -149,11 +144,8 @@ fun NowPlayingBar(
     }
 
     val readyState = lyricsState as? LyricsState.Ready
-    val activeLineIndex by remember {
-        derivedStateOf {
-            readyState?.lyrics?.lines?.let { LrcParser.activeLineIndex(it, lyricsPosition) } ?: -1
-        }
-    }
+    val activeLineIndex = readyState?.lyrics?.lines
+        ?.let { LrcParser.activeLineIndex(it, lyricsPosition) } ?: -1
     LaunchedEffect(activeLineIndex) {
         if (activeLineIndex >= 0 && lyricsExpanded) {
             val viewportCenter = lyricsListState.layoutInfo.viewportSize.height / 2

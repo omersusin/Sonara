@@ -7,7 +7,9 @@ import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
 import com.sonara.app.ai.SonaraAi
 import com.sonara.app.ai.SonaraAiState
+import com.sonara.app.intelligence.lastfm.LastFmAuthManager
 import com.sonara.app.intelligence.lastfm.LoveStateCache
+import com.sonara.app.intelligence.pipeline.TitleNormalizer
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.components.DisplayLabelMapper
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -133,7 +135,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch { SonaraNotificationListener.nowPlaying.collect { np ->
             _uiState.update { it.copy(title = np.title, artist = np.artist, isPlaying = np.isPlaying, hasTrack = np.title.isNotBlank(), duration = np.duration, position = np.position, positionTimestamp = np.positionTimestamp, playerPackage = np.packageName) }
             if (np.title.isNotBlank()) {
-                val cached = LoveStateCache.isLoved(np.title, np.artist)
+                val normArtist = TitleNormalizer.normalizeArtist(np.artist)
+                val cached = LoveStateCache.isLoved(np.title, normArtist)
                 if (cached != null) _uiState.update { it.copy(isLoved = cached) }
                 else _uiState.update { it.copy(isLoved = false) }
             }
@@ -173,14 +176,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun toggleLove() {
         val s = _uiState.value
         if (s.title.isBlank()) return
+        val normArtist = TitleNormalizer.normalizeArtist(s.artist)
         val newState = !s.isLoved
         _uiState.update { it.copy(isLoved = newState) }
-        LoveStateCache.setLoved(s.title, s.artist, newState)
+        LoveStateCache.setLoved(s.title, normArtist, newState)
         viewModelScope.launch {
-            val ok = app.loveTrack(s.title, s.artist, newState)
-            if (!ok) {
+            val ok = app.loveTrack(s.title, normArtist, newState)
+            if (!ok && app.lastFmAuth.authState.value == LastFmAuthManager.AuthState.CONNECTED) {
                 _uiState.update { it.copy(isLoved = !newState) }
-                LoveStateCache.setLoved(s.title, s.artist, !newState)
+                LoveStateCache.setLoved(s.title, normArtist, !newState)
             }
         }
     }

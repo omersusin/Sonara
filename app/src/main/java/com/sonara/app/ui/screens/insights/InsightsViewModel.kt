@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 data class InsightsUiState(
@@ -135,109 +138,133 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         if (apiKey.isBlank()) return
         viewModelScope.launch(Dispatchers.IO) {
             val period = _uiState.value.selectedPeriod
-            // User info
-            try {
-                val info = LastFmClient.api.getUserInfo(username, apiKey)
-                info.user?.let { u ->
-                    val regUnix = u.registered?.unixtime?.toLongOrNull() ?: 0L
-                    val daysSince = if (regUnix > 0) ((System.currentTimeMillis() / 1000 - regUnix) / 86400).toInt().coerceAtLeast(1) else 1
-                    val totalSc = u.playcount.toLongOrNull() ?: 0
-                    val avgDaily = (totalSc / daysSince).toInt()
-                    val hours = (totalSc * 3.5 / 60).toInt()
-                    _uiState.update { it.copy(totalScrobbles = u.playcount, totalArtists = u.artist_count, trackCount = u.track_count, registeredUnix = regUnix, avgDailyScrobbles = avgDaily, listeningHours = hours) }
-                }
-            } catch (_: Exception) {}
-            // Top artists
-            try {
-                val artists = LastFmClient.api.getUserTopArtists(username, apiKey, period, 10)
-                val list = artists.topartists?.artist?.map { Triple(it.name, it.playcount, it.imageUrl ?: "") } ?: emptyList()
-                _uiState.update { it.copy(topArtists = list) }
-                val enriched = list.map { (name, plays, img) -> Triple(name, plays, if (img.isNotBlank() && !img.contains("2a96cbd8b46e")) img else DeezerImageResolver.getArtistImageWithFallback(name) ?: "") }
-                _uiState.update { it.copy(topArtists = enriched) }
-            } catch (_: Exception) {}
-            // Top tracks
-            try {
-                val tracks = LastFmClient.api.getUserTopTracks(username, apiKey, period, 10)
-                val list = tracks.toptracks?.track?.map { TopTrackItem(it.name, it.artist?.name ?: "", it.playcount, it.imageUrl ?: "") } ?: emptyList()
-                _uiState.update { it.copy(topTracks = list) }
-                val enriched = list.map { t -> t.copy(imageUrl = if (t.imageUrl.isNotBlank()) t.imageUrl else DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") }
-                _uiState.update { it.copy(topTracks = enriched) }
-            } catch (_: Exception) {}
-            // Genres from Last.fm (aggregate top artists tags)
-            try {
-                val genreMap = mutableMapOf<String, Int>()
-                val topForGenre = _uiState.value.topArtists.take(5)
-                for (artist in topForGenre) {
+            coroutineScope {
+                // Fire all top-level calls in parallel
+                val userInfoD = async {
                     try {
-                        val tagsResp = LastFmClient.api.getArtistTags(artist.first, apiKey)
-                        tagsResp.toptags?.tag?.take(3)?.forEach { tag ->
-                            val name = tag.name.lowercase().replaceFirstChar { it.uppercase() }
-                            if (name.isNotBlank() && name.lowercase() != "seen live" && name.lowercase() != "favorites") {
-                                genreMap[name] = (genreMap[name] ?: 0) + (tag.count.coerceAtLeast(1))
-                            }
+                        val info = LastFmClient.api.getUserInfo(username, apiKey)
+                        info.user?.let { u ->
+                            val regUnix = u.registered?.unixtime?.toLongOrNull() ?: 0L
+                            val daysSince = if (regUnix > 0) ((System.currentTimeMillis() / 1000 - regUnix) / 86400).toInt().coerceAtLeast(1) else 1
+                            val totalSc = u.playcount.toLongOrNull() ?: 0
+                            val avgDaily = (totalSc / daysSince).toInt()
+                            val hours = (totalSc * 3.5 / 60).toInt()
+                            _uiState.update { it.copy(totalScrobbles = u.playcount, totalArtists = u.artist_count, trackCount = u.track_count, registeredUnix = regUnix, avgDailyScrobbles = avgDaily, listeningHours = hours) }
                         }
                     } catch (_: Exception) {}
                 }
-                if (genreMap.isNotEmpty()) {
-                    _uiState.update { it.copy(genreDistribution = genreMap) }
+
+                val topArtistsD = async {
+                    try {
+                        val artists = LastFmClient.api.getUserTopArtists(username, apiKey, period, 10)
+                        val list = artists.topartists?.artist?.map { Triple(it.name, it.playcount, it.imageUrl ?: "") } ?: emptyList()
+                        _uiState.update { it.copy(topArtists = list) }
+                        val enriched = list.map { (name, plays, img) ->
+                            async { Triple(name, plays, if (img.isNotBlank() && !img.contains("2a96cbd8b46e")) img else DeezerImageResolver.getArtistImageWithFallback(name) ?: "") }
+                        }.awaitAll()
+                        _uiState.update { it.copy(topArtists = enriched) }
+                        enriched
+                    } catch (_: Exception) { emptyList() }
                 }
-            } catch (_: Exception) {}
-            // Top albums
-            try {
-                val albums = LastFmClient.api.getUserTopAlbums(username, apiKey, period, 6)
-                val list = albums.topalbums?.album?.map { TopAlbumItem(it.name, it.artist?.name ?: "", it.playcount, it.imageUrl ?: "") } ?: emptyList()
-                _uiState.update { it.copy(topAlbums = list) }
-                val enriched = list.map { a -> a.copy(imageUrl = if (a.imageUrl.isNotBlank() && !a.imageUrl.contains("2a96cbd8b46e")) a.imageUrl else DeezerImageResolver.getTrackImageWithFallback(a.name, a.artist) ?: "") }
-                _uiState.update { it.copy(topAlbums = enriched) }
-            } catch (_: Exception) {}
-            // Recent tracks + weekly activity + streak + peak hour + heatmap
-            try {
-                val recent = LastFmClient.api.getRecentTracks(username, apiKey, 200)
-                val list = recent.recenttracks?.track?.map { t -> RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "", t.imageUrl ?: "", t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L) } ?: emptyList()
-                _uiState.update { it.copy(recentTracks = list) }
-                // Derive weekly activity + heatmap + streak + peak hour from timestamps
-                val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-                val dayCounts = IntArray(7)
-                val hourBuckets = IntArray(24)
-                val heatmap = mutableMapOf<String, Int>()
-                val daySet = mutableSetOf<String>()
-                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-                recent.recenttracks?.track?.filter { it.date != null }?.forEach { t ->
-                    val uts = t.date?.uts?.toLongOrNull() ?: return@forEach
-                    val cal = java.util.Calendar.getInstance().apply { timeInMillis = uts * 1000 }
-                    val dow = (cal.get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7
-                    dayCounts[dow]++
-                    hourBuckets[cal.get(java.util.Calendar.HOUR_OF_DAY)]++
-                    val dayKey = sdf.format(cal.time)
-                    daySet.add(dayKey)
-                    heatmap[dayKey] = (heatmap[dayKey] ?: 0) + 1
+
+                val topTracksD = async {
+                    try {
+                        val tracks = LastFmClient.api.getUserTopTracks(username, apiKey, period, 10)
+                        val list = tracks.toptracks?.track?.map { TopTrackItem(it.name, it.artist?.name ?: "", it.playcount, it.imageUrl ?: "") } ?: emptyList()
+                        _uiState.update { it.copy(topTracks = list) }
+                        val enriched = list.map { t ->
+                            async { if (t.imageUrl.isNotBlank()) t else t.copy(imageUrl = DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") }
+                        }.awaitAll()
+                        _uiState.update { it.copy(topTracks = enriched) }
+                    } catch (_: Exception) {}
                 }
-                val activity = days.mapIndexed { i, d -> d to dayCounts[i] }
-                // Streak: consecutive days ending today
-                var streak = 0
-                val check = java.util.Calendar.getInstance()
-                check.set(java.util.Calendar.HOUR_OF_DAY, 0); check.set(java.util.Calendar.MINUTE, 0)
-                check.set(java.util.Calendar.SECOND, 0); check.set(java.util.Calendar.MILLISECOND, 0)
-                while (sdf.format(check.time) in daySet) {
-                    streak++
-                    check.add(java.util.Calendar.DAY_OF_YEAR, -1)
+
+                val topAlbumsD = async {
+                    try {
+                        val albums = LastFmClient.api.getUserTopAlbums(username, apiKey, period, 6)
+                        val list = albums.topalbums?.album?.map { TopAlbumItem(it.name, it.artist?.name ?: "", it.playcount, it.imageUrl ?: "") } ?: emptyList()
+                        _uiState.update { it.copy(topAlbums = list) }
+                        val enriched = list.map { a ->
+                            async { if (a.imageUrl.isNotBlank() && !a.imageUrl.contains("2a96cbd8b46e")) a else a.copy(imageUrl = DeezerImageResolver.getTrackImageWithFallback(a.name, a.artist) ?: "") }
+                        }.awaitAll()
+                        _uiState.update { it.copy(topAlbums = enriched) }
+                    } catch (_: Exception) {}
                 }
-                val peakHour = hourBuckets.indices.maxByOrNull { hourBuckets[it] }?.takeIf { hourBuckets[it] > 0 } ?: -1
-                // Discovery rate: unique artists in recent batch / total tracks
-                val scrobbledTracks = list.filter { !it.isNowPlaying }
-                val uniqueArtistCount = scrobbledTracks.map { it.artist.lowercase() }.toSet().size
-                val discoveryRate = if (scrobbledTracks.isNotEmpty()) (uniqueArtistCount * 100 / scrobbledTracks.size).coerceAtMost(100) else 0
-                _uiState.update { it.copy(weeklyActivity = activity, streakDays = streak, peakHour = peakHour, heatmap = heatmap, discoveryRate = discoveryRate) }
-                // Enrich images
-                val enrichedRecent = list.map { t -> if (t.imageUrl.isBlank() || t.imageUrl.contains("2a96cbd8b46e")) t.copy(imageUrl = DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") else t }
-                _uiState.update { it.copy(recentTracks = enrichedRecent) }
-            } catch (_: Exception) {}
-            // Weekly chart
-            try {
-                val weekly = LastFmClient.api.getWeeklyTrackChart(username, apiKey)
-                val list = weekly.weeklytrackchart?.track?.take(8)?.map { Triple(it.name, it.artist?.name ?: "", it.playcount) } ?: emptyList()
-                _uiState.update { it.copy(weeklyTracks = list) }
-            } catch (_: Exception) {}
+
+                val recentTracksD = async {
+                    try {
+                        val recent = LastFmClient.api.getRecentTracks(username, apiKey, 200)
+                        val list = recent.recenttracks?.track?.map { t -> RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "", t.imageUrl ?: "", t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L) } ?: emptyList()
+                        _uiState.update { it.copy(recentTracks = list) }
+                        val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                        val dayCounts = IntArray(7)
+                        val hourBuckets = IntArray(24)
+                        val heatmap = mutableMapOf<String, Int>()
+                        val daySet = mutableSetOf<String>()
+                        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                        recent.recenttracks?.track?.filter { it.date != null }?.forEach { t ->
+                            val uts = t.date?.uts?.toLongOrNull() ?: return@forEach
+                            val cal = java.util.Calendar.getInstance().apply { timeInMillis = uts * 1000 }
+                            val dow = (cal.get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7
+                            dayCounts[dow]++
+                            hourBuckets[cal.get(java.util.Calendar.HOUR_OF_DAY)]++
+                            val dayKey = sdf.format(cal.time)
+                            daySet.add(dayKey)
+                            heatmap[dayKey] = (heatmap[dayKey] ?: 0) + 1
+                        }
+                        val activity = days.mapIndexed { i, d -> d to dayCounts[i] }
+                        var streak = 0
+                        val check = java.util.Calendar.getInstance()
+                        check.set(java.util.Calendar.HOUR_OF_DAY, 0); check.set(java.util.Calendar.MINUTE, 0)
+                        check.set(java.util.Calendar.SECOND, 0); check.set(java.util.Calendar.MILLISECOND, 0)
+                        while (sdf.format(check.time) in daySet) {
+                            streak++
+                            check.add(java.util.Calendar.DAY_OF_YEAR, -1)
+                        }
+                        val peakHour = hourBuckets.indices.maxByOrNull { hourBuckets[it] }?.takeIf { hourBuckets[it] > 0 } ?: -1
+                        val scrobbledTracks = list.filter { !it.isNowPlaying }
+                        val uniqueArtistCount = scrobbledTracks.map { it.artist.lowercase() }.toSet().size
+                        val discoveryRate = if (scrobbledTracks.isNotEmpty()) (uniqueArtistCount * 100 / scrobbledTracks.size).coerceAtMost(100) else 0
+                        _uiState.update { it.copy(weeklyActivity = activity, streakDays = streak, peakHour = peakHour, heatmap = heatmap, discoveryRate = discoveryRate) }
+                        val enrichedRecent = list.map { t ->
+                            async { if (t.imageUrl.isBlank() || t.imageUrl.contains("2a96cbd8b46e")) t.copy(imageUrl = DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") else t }
+                        }.awaitAll()
+                        _uiState.update { it.copy(recentTracks = enrichedRecent) }
+                    } catch (_: Exception) {}
+                }
+
+                val weeklyChartD = async {
+                    try {
+                        val weekly = LastFmClient.api.getWeeklyTrackChart(username, apiKey)
+                        val list = weekly.weeklytrackchart?.track?.take(8)?.map { Triple(it.name, it.artist?.name ?: "", it.playcount) } ?: emptyList()
+                        _uiState.update { it.copy(weeklyTracks = list) }
+                    } catch (_: Exception) {}
+                }
+
+                // Wait for topArtists before fetching genre tags (depends on the artist list)
+                val topArtists = topArtistsD.await()
+                awaitAll(userInfoD, topTracksD, topAlbumsD, recentTracksD, weeklyChartD)
+
+                // Genre tags: parallel per artist
+                try {
+                    val topForGenre = topArtists.take(5)
+                    val genreMap = mutableMapOf<String, Int>()
+                    topForGenre.map { (name, _, _) ->
+                        async {
+                            try {
+                                val tagsResp = LastFmClient.api.getArtistTags(name, apiKey)
+                                tagsResp.toptags?.tag?.take(3)?.forEach { tag ->
+                                    val tagName = tag.name.lowercase().replaceFirstChar { it.uppercase() }
+                                    if (tagName.isNotBlank() && tagName.lowercase() != "seen live" && tagName.lowercase() != "favorites") {
+                                        synchronized(genreMap) { genreMap[tagName] = (genreMap[tagName] ?: 0) + tag.count.coerceAtLeast(1) }
+                                    }
+                                }
+                            } catch (_: Exception) {}
+                        }
+                    }.awaitAll()
+                    if (genreMap.isNotEmpty()) _uiState.update { it.copy(genreDistribution = genreMap) }
+                } catch (_: Exception) {}
+            }
         }
     }
 
