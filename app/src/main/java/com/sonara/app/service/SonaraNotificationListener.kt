@@ -34,9 +34,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.sonara.app.intelligence.media.MediaSourceDetector
-import android.util.Log
-import com.sonara.app.intelligence.pipeline.MediaType
 
 data class ListenerNowPlaying(
     val title: String = "", val artist: String = "", val album: String = "",
@@ -145,12 +142,6 @@ class SonaraNotificationListener : NotificationListenerService() {
     }
 
     private fun pickBest(controllers: List<MediaController>) {
-        // Detect media type from package name
-        controllers.firstOrNull()?.packageName?.let { pkg ->
-            val mediaType = MediaSourceDetector.detect(pkg)
-            Log.d("SonaraListener", "Media source: $pkg → $mediaType")
-        }
-
         // Scrobble app filter: skip controllers from non-allowed apps
         val allowedApps = cachedAllowedApps
 

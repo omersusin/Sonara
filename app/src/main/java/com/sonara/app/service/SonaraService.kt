@@ -10,7 +10,6 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.os.IBinder
-import android.util.Log
 import com.sonara.app.MainActivity
 import com.sonara.app.R
 import com.sonara.app.SonaraApp
@@ -57,13 +56,8 @@ class SonaraService : Service() {
         sonaraAi = SonaraAi.create(applicationContext, db.trainingExampleDao())
         aiScope.launch(Dispatchers.IO) { sonaraAi?.initialize() }
 
-        // AI → EQ bridge: AI sonuç üretince gerçek EQ engine'e uygula
-        // AI EQ Bridge disabled — verifying AI logs before enabling
-        Log.d("SonaraService", "AI EQ Bridge DISABLED to prevent pipeline conflict")
-
-        // Session tracker listener — yeni session gelince AI'a bildir
+        // Session tracker listener
         AudioSessionTracker.addListener { sessionId ->
-            Log.d("SonaraService", "Session from tracker: $sessionId")
             sonaraAi?.onSessionChanged(sessionId)
         }
 
