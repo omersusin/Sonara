@@ -45,7 +45,7 @@ import com.sonara.app.ui.screens.onboarding.HearTheDifferenceScreen
 import com.sonara.app.ui.screens.onboarding.OnboardingScreen
 import com.sonara.app.ui.screens.presets.PresetsScreen
 import com.sonara.app.ui.screens.settings.SettingsScreen
-import kotlinx.coroutines.MainScope
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 
 sealed class Screen(val route: String, val label: String) {
@@ -96,6 +96,7 @@ sealed class Screen(val route: String, val label: String) {
 @Composable
 fun SonaraNavigation() {
     val navController = rememberNavController()
+    val scope = rememberCoroutineScope()
     val prefs = SonaraApp.instance.preferences
     val prompted by prefs.notificationListenerPromptedFlow.collectAsState(initial = true)
     val startDest = if (!prompted) Screen.Onboarding.route else Screen.Dashboard.route
@@ -117,14 +118,14 @@ fun SonaraNavigation() {
         ) {
             composable(Screen.Onboarding.route) {
                 OnboardingScreen(onComplete = {
-                    MainScope().launch { prefs.setNotificationListenerPrompted(true) }
+                    scope.launch { prefs.setNotificationListenerPrompted(true) }
                     navController.navigate(Screen.Dashboard.route) { popUpTo(Screen.Onboarding.route) { inclusive = true } }
                 })
             }
             composable(Screen.HearTheDifference.route) {
                 HearTheDifferenceScreen(
                     onContinue = {
-                        MainScope().launch { prefs.setHasSeenHearTheDifference(true) }
+                        scope.launch { prefs.setHasSeenHearTheDifference(true) }
                         navController.popBackStack()
                     }
                 )
