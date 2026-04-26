@@ -1,6 +1,5 @@
 package com.sonara.app.intelligence
 
-import android.util.Log
 import com.sonara.app.data.SonaraLogger
 import com.sonara.app.data.models.TrackInfo
 import com.sonara.app.intelligence.cache.TrackCache

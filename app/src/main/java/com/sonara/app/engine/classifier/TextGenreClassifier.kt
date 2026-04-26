@@ -1,6 +1,5 @@
 package com.sonara.app.engine.classifier
 
-import android.util.Log
 
 class TextGenreClassifier {
     companion object { private const val TAG = "TextGenreClf" }

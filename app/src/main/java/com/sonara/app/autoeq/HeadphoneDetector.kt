@@ -11,7 +11,6 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import com.sonara.app.data.models.ConnectionType
 import com.sonara.app.data.models.HeadphoneInfo
 import kotlinx.coroutines.flow.MutableStateFlow
