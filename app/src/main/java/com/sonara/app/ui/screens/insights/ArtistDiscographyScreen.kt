@@ -54,32 +54,24 @@ fun ArtistDiscographyScreen(
         }
     }
 
-    // Step 2: sequentially resolve art — three-tier fallback, rate-limited
+    // Step 2: sequentially resolve art per album.
+    // getAlbumById is intentionally skipped: discography.php frequently returns
+    // the same idAlbum for every entry in a catalog (TheAudioDB data quality),
+    // causing all albums to resolve to the first album's artwork. searchAlbum
+    // performs a per-name query and returns the correct, unique result per album.
     LaunchedEffect(albums) {
         if (albums.isEmpty()) return@LaunchedEffect
         withContext(Dispatchers.IO) {
             for (album in albums) {
                 val key = album.strAlbum
                 if (artUrls.containsKey(key)) continue
-                // Tier 1: inline art already present in the discography response
+                // Tier 1: inline art embedded in the discography response (often absent)
                 val inline = album.strThumbHQ ?: album.strThumb
                 if (!inline.isNullOrBlank()) {
                     artUrls[key] = inline
                     continue
                 }
-                // Tier 2: full album fetch by ID (higher-res, only when ID is valid)
-                if (album.idAlbum.isNotBlank()) {
-                    try {
-                        val full = TheAudioDbClient.getAlbumById(album.idAlbum)
-                        val url = full?.strThumbHQ ?: full?.strThumb
-                        if (!url.isNullOrBlank()) {
-                            artUrls[key] = url
-                            delay(400L)
-                            continue
-                        }
-                    } catch (_: Exception) {}
-                }
-                // Tier 3: name-based search as last resort
+                // Tier 2: name-based search — unique query per album, avoids stale IDs
                 try {
                     val found = TheAudioDbClient.searchAlbum(artistName, album.strAlbum)
                     val url = found?.strThumbHQ ?: found?.strThumb
