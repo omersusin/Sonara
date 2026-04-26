@@ -96,14 +96,18 @@ object LrcParser {
         return min * 60_000L + sec * 1_000L + cents
     }
 
-    /** Active line index for given playback position */
+    /**
+     * Returns the index of the currently active lyric line for [positionMs].
+     * Uses a 300 ms forward buffer (same as vivi-music) so the highlighted line
+     * appears just before the audio reaches it, compensating for render latency.
+     * Returns -1 when playback is before the first lyric; lastIndex when past all.
+     */
     fun activeLineIndex(lines: List<LyricLine>, positionMs: Long): Int {
         if (lines.isEmpty()) return -1
-        var result = -1
         for (i in lines.indices) {
-            if (lines[i].startMs <= positionMs) result = i else break
+            if (lines[i].startMs >= positionMs + 300L) return i - 1
         }
-        return result
+        return lines.lastIndex
     }
 
     /** Active word index within a line for given position */

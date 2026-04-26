@@ -192,31 +192,40 @@ fun ArtistDetailScreen(
     }
 
     // Sequential art resolution for the inline discography preview
+    // Key = strAlbum (guaranteed unique per discography; idAlbum can be blank/shared)
     LaunchedEffect(discography) {
         if (discography.isEmpty()) return@LaunchedEffect
-        val apiKey = app.lastFmAuth.getActiveApiKey()
         withContext(Dispatchers.IO) {
             for (album in discography) {
-                if (discographyArtUrls.containsKey(album.idAlbum)) continue
-                try {
-                    val full = TheAudioDbClient.getAlbumById(album.idAlbum)
-                    val url = full?.strThumbHQ ?: full?.strThumb
-                    if (!url.isNullOrBlank()) {
-                        discographyArtUrls[album.idAlbum] = url
-                        delay(400L)
-                        continue
-                    }
-                } catch (_: Exception) {}
-                try {
-                    if (apiKey.isNotBlank()) {
-                        val info = LastFmClient.api.getAlbumInfo(artistName, album.strAlbum, apiKey)
-                        val url = info.album?.imageUrl
-                        if (!url.isNullOrBlank() && !url.contains("2a96cbd8b46e")) {
-                            discographyArtUrls[album.idAlbum] = url
+                val key = album.strAlbum
+                if (discographyArtUrls.containsKey(key)) continue
+                // 1. Immediate: use art already returned by discography endpoint
+                val inline = album.strThumbHQ ?: album.strThumb
+                if (!inline.isNullOrBlank()) {
+                    discographyArtUrls[key] = inline
+                    continue
+                }
+                // 2. Async: fetch full album by ID (has higher-res art)
+                if (album.idAlbum.isNotBlank()) {
+                    try {
+                        val full = TheAudioDbClient.getAlbumById(album.idAlbum)
+                        val url = full?.strThumbHQ ?: full?.strThumb
+                        if (!url.isNullOrBlank()) {
+                            discographyArtUrls[key] = url
+                            delay(350L)
+                            continue
                         }
+                    } catch (_: Exception) {}
+                }
+                // 3. Search by name as last resort
+                try {
+                    val found = TheAudioDbClient.searchAlbum(artistName, album.strAlbum)
+                    val url = found?.strThumbHQ ?: found?.strThumb
+                    if (!url.isNullOrBlank()) {
+                        discographyArtUrls[key] = url
                     }
                 } catch (_: Exception) {}
-                delay(400L)
+                delay(350L)
             }
         }
     }
@@ -247,25 +256,33 @@ fun ArtistDetailScreen(
                 item {
                     FluentCard {
                         if (allArtists.size > 1) {
-                            // ── Multi-artist header: plain tappable name list ─────────────
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                allArtists.forEach { name ->
-                                    Text(
-                                        name,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = p,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.clickable { onArtistClick(name) }
-                                    )
-                                }
-                                val adb = audioDbArtist
-                                val meta = listOfNotNull(
-                                    adb?.strCountry?.takeIf { it.isNotBlank() },
-                                    adb?.intFormedYear?.let { "est. $it" }
-                                ).joinToString(" · ")
-                                if (meta.isNotBlank()) {
-                                    Spacer(Modifier.height(2.dp))
-                                    Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                            // ── Multi-artist header ──────────────────────────────────────
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                MultiArtistAvatarRow(
+                                    artists = allArtists,
+                                    onArtistClick = onArtistClick
+                                )
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    allArtists.forEach { name ->
+                                        Text(
+                                            name,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = SonaraTextPrimary,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.clickable { onArtistClick(name) }
+                                        )
+                                    }
+                                    val adb = audioDbArtist
+                                    val meta = listOfNotNull(
+                                        adb?.strCountry?.takeIf { it.isNotBlank() },
+                                        adb?.intFormedYear?.let { "est. $it" }
+                                    ).joinToString(" · ")
+                                    if (meta.isNotBlank()) {
+                                        Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                                    }
                                 }
                             }
                         } else {
@@ -541,8 +558,7 @@ fun ArtistDetailScreen(
                             Spacer(Modifier.height(12.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(discography) { album ->
-                                    val artUrl = discographyArtUrls[album.idAlbum]
-                                        ?: album.strThumbHQ ?: album.strThumb ?: ""
+                                    val artUrl = discographyArtUrls[album.strAlbum] ?: ""
                                     Column(
                                         modifier = Modifier.width(96.dp)
                                             .clickable { onAlbumClick(album.strAlbum, artistName, "", artUrl) },
