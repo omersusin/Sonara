@@ -14,6 +14,8 @@ import com.sonara.app.ai.extraction.FeatureExtractor
 import com.sonara.app.ai.bridge.AudioSessionTracker
 import com.sonara.app.ai.models.*
 import com.sonara.app.ai.personalization.Personalizer
+import com.sonara.app.intelligence.local.AudioContext
+import com.sonara.app.intelligence.local.WaveformGenrePlugin
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,6 +42,7 @@ class SonaraAi private constructor(
     private val capture = AudioCapture()
     private val extractor = FeatureExtractor()
     private val classifier = KnnClassifier(dao)
+    private val waveformPlugin = WaveformGenrePlugin(context)
     private val eqGen = SmartEqGenerator()
     private val personalizer = Personalizer(context)
     val cloudManager = CloudLearningManager(context, classifier, dao)
@@ -60,6 +63,7 @@ class SonaraAi private constructor(
         if (dao.getCount() == 0) { classifier.loadPrototypes(EmbeddedPrototypes.getAll()) }
         classifier.refreshCache()
         cloudManager.scheduleSync()
+        waveformPlugin.init()
         _state.value = _state.value.copy(learnedCount = classifier.getLearnedCount(), isReady = true)
         Log.d(TAG, "Ready. ${dao.getCount()} examples")
     }
@@ -293,6 +297,17 @@ class SonaraAi private constructor(
 
 
 
+    private fun buildAudioContext(waveFrames: List<ByteArray>): AudioContext? {
+        val totalSamples = waveFrames.sumOf { it.size }
+        if (totalSamples < 100) return null
+        val pcm16 = ShortArray(totalSamples)
+        var pos = 0
+        for (frame in waveFrames) {
+            for (b in frame) { pcm16[pos++] = (b.toInt() shl 8).toShort() }
+        }
+        return AudioContext(pcm16 = pcm16, sampleRate = 44100, source = "visualizer")
+    }
+
     private suspend fun analyze(title: String, artist: String, sessionId: Int?) {
         Log.d(TAG, "analyze() start — title=$title, artist=$artist, sessionId=$sessionId")
         if (tryAttachAudio(sessionId)) {
@@ -307,15 +322,25 @@ class SonaraAi private constructor(
             }
 
             delay(LISTEN_MS); _state.value = _state.value.copy(status = AiStatus.ANALYZING)
-            val features = extractor.extract(capture.getFFTFrames(), capture.getWaveFrames())
+            val waveFrames = capture.getWaveFrames()
+            val features = extractor.extract(capture.getFFTFrames(), waveFrames)
+            val audioCtx = buildAudioContext(waveFrames)
             if (features != null) {
-                currentFeatures = features; val result = classifier.classify(features)
+                currentFeatures = features
+                var result = classifier.classify(features)
+                // Supplement KNN classification with DSP waveform signal
+                val waveResult = audioCtx?.let { waveformPlugin.resolve(title, artist, it) }
+                if (waveResult != null && waveResult.genre.isNotBlank() && waveResult.genre != "other") {
+                    val boosted = result.genres.toMutableMap()
+                    boosted[waveResult.genre] = ((boosted[waveResult.genre] ?: 0f) + waveResult.confidence * 0.25f).coerceAtMost(1f)
+                    result = result.copy(genres = boosted)
+                }
                 val eq = eqGen.generate(result, _state.value.route)
                 val pEq = personalizer.applyPersonalization(eq, result, _state.value.route)
                 val explanation = ExplanationBuilder.build(result, pEq, title, artist)
                 val finalResult = result.copy(eqBands = pEq.bands, eqPreamp = pEq.preamp, isSpectralEq = pEq.isSpectralBased, explanation = explanation)
                 _state.value = _state.value.copy(result = finalResult, status = AiStatus.COMPLETE)
-                if (features != null) cloudManager.addContribution(features, result.primaryGenre.lowercase(), result.mood, result.energy, "auto")
+                cloudManager.addContribution(features, result.primaryGenre.lowercase(), result.mood, result.energy, "auto")
                 startReAnalysis()
             } else { _state.value = _state.value.copy(status = AiStatus.LIMITED) }
         } else { _state.value = _state.value.copy(status = AiStatus.UNAVAILABLE) }
