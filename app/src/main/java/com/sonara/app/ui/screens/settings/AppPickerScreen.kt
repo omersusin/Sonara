@@ -23,7 +23,6 @@ import com.sonara.app.SonaraApp
 import com.sonara.app.ui.theme.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 data class AppItem(val pkg: String, val label: String, val isMusic: Boolean)
 
@@ -33,8 +32,9 @@ fun AppPickerScreen(onBack: () -> Unit) {
     val ctx = LocalContext.current
     val app = SonaraApp.instance
     var searchQuery by remember { mutableStateOf("") }
-    var allowedApps by remember { mutableStateOf(runBlocking { app.preferences.allowedScrobbleAppsFlow.first() }) }
+    var allowedApps by remember { mutableStateOf(emptySet<String>()) }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { allowedApps = app.preferences.allowedScrobbleAppsFlow.first() }
 
     val allApps = remember {
         val pm = ctx.packageManager

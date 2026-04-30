@@ -1,6 +1,12 @@
 -keepattributes Signature
 -keepattributes *Annotation*
 
+# Strip debug/verbose log calls from release builds
+-assumenosideeffects class android.util.Log {
+    public static int d(...);
+    public static int v(...);
+}
+
 # Retrofit / Gson
 -keep class com.sonara.app.intelligence.lastfm.** { *; }
 -keep class com.sonara.app.preset.PresetExporter$ExportablePreset { *; }

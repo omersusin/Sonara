@@ -76,7 +76,8 @@ data class DashboardUiState(
             geminiSummary == other.geminiSummary &&
             legacyAnalysis == other.legacyAnalysis &&
             hearTheDiffEnabled == other.hearTheDiffEnabled &&
-            hasSeenHearTheDifference == other.hasSeenHearTheDifference
+            hasSeenHearTheDifference == other.hasSeenHearTheDifference &&
+            playerPackage == other.playerPackage
     }
     override fun hashCode(): Int {
         var result = title.hashCode()
@@ -88,15 +89,30 @@ data class DashboardUiState(
         result = 31 * result + positionTimestamp.hashCode()
         result = 31 * result + genre.hashCode()
         result = 31 * result + mood.hashCode()
-        result = 31 * result + route.hashCode()
+        result = 31 * result + energy.hashCode()
+        result = 31 * result + confidence.hashCode()
+        result = 31 * result + sourceLabel.hashCode()
+        result = 31 * result + currentPresetName.hashCode()
+        result = 31 * result + isAiEnabled.hashCode()
         result = 31 * result + bands.contentHashCode()
-        result = 31 * result + notificationListenerEnabled.hashCode()
+        result = 31 * result + bassBoost.hashCode()
+        result = 31 * result + virtualizer.hashCode()
+        result = 31 * result + loudness.hashCode()
         result = 31 * result + reverb.hashCode()
+        result = 31 * result + notificationListenerEnabled.hashCode()
+        result = 31 * result + eqActive.hashCode()
+        result = 31 * result + isManualPreset.hashCode()
+        result = 31 * result + songsLearned.hashCode()
+        result = 31 * result + eqStrategy.hashCode()
+        result = 31 * result + route.hashCode()
+        result = 31 * result + headphoneName.hashCode()
+        result = 31 * result + savedMessage.hashCode()
         result = 31 * result + isLoved.hashCode()
         result = 31 * result + geminiSummary.hashCode()
         result = 31 * result + legacyAnalysis.hashCode()
         result = 31 * result + hearTheDiffEnabled.hashCode()
         result = 31 * result + hasSeenHearTheDifference.hashCode()
+        result = 31 * result + playerPackage.hashCode()
         return result
     }
 }

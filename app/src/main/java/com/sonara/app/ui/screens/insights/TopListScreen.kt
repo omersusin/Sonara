@@ -157,7 +157,7 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
                             Icon(if (viewMode == ViewMode.LIST) Icons.Rounded.ViewList else Icons.Rounded.GridView, "View mode", tint = p)
                         }
                         DropdownMenu(expanded = showViewMenu, onDismissRequest = { showViewMenu = false }) {
-                            ViewMode.values().forEach { mode ->
+                            ViewMode.entries.forEach { mode ->
                                 DropdownMenuItem(
                                     text = { Text(mode.label, color = if (viewMode == mode) p else SonaraTextPrimary) },
                                     onClick = { viewMode = mode; showViewMenu = false }
@@ -276,7 +276,7 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
                             Icon(if (viewMode == ViewMode.LIST) Icons.Rounded.ViewList else Icons.Rounded.GridView, "View mode", tint = p)
                         }
                         DropdownMenu(expanded = showViewMenu, onDismissRequest = { showViewMenu = false }) {
-                            ViewMode.values().forEach { mode ->
+                            ViewMode.entries.forEach { mode ->
                                 DropdownMenuItem(
                                     text = { Text(mode.label, color = if (viewMode == mode) p else SonaraTextPrimary) },
                                     onClick = { viewMode = mode; showViewMenu = false }
@@ -402,7 +402,7 @@ fun TopAlbumsListScreen(
                             Icon(if (viewMode == ViewMode.LIST) Icons.Rounded.ViewList else Icons.Rounded.GridView, "View mode", tint = p)
                         }
                         DropdownMenu(expanded = showViewMenu, onDismissRequest = { showViewMenu = false }) {
-                            ViewMode.values().forEach { mode ->
+                            ViewMode.entries.forEach { mode ->
                                 DropdownMenuItem(
                                     text = { Text(mode.label, color = if (viewMode == mode) p else SonaraTextPrimary) },
                                     onClick = { viewMode = mode; showViewMenu = false }

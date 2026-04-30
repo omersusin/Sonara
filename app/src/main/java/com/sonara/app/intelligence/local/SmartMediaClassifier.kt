@@ -1,6 +1,5 @@
 package com.sonara.app.intelligence.local
 
-import android.util.Log
 import com.sonara.app.data.SonaraLogger
 
 /**

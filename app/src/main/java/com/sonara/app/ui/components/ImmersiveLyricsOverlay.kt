@@ -103,10 +103,31 @@ fun ImmersiveLyricsOverlay(
     }
 
     val listState = rememberLazyListState()
+
+    // Snap to current line instantly when overlay opens (no animation, avoids layout-not-ready race)
+    LaunchedEffect(Unit) {
+        if (activeLineIndex >= 0) {
+            // Wait for the LazyColumn to be laid out before scrolling
+            var h = listState.layoutInfo.viewportSize.height
+            while (h == 0) { delay(16L); h = listState.layoutInfo.viewportSize.height }
+            listState.scrollToItem(
+                index = (activeLineIndex - 1).coerceAtLeast(0),
+                scrollOffset = -(h / 2) + 60
+            )
+        }
+    }
+
+    // Animated scroll to keep active line centered as song progresses
     LaunchedEffect(activeLineIndex) {
         if (activeLineIndex >= 0) {
-            val viewportCenter = listState.layoutInfo.viewportSize.height / 2
-            listState.animateScrollToItem(activeLineIndex, scrollOffset = -viewportCenter + 60)
+            // Wait until the LazyColumn is laid out — viewportSize.height is 0 on the first frame,
+            // which makes the scrollOffset positive and pushes the active line above the viewport.
+            var h = listState.layoutInfo.viewportSize.height
+            while (h == 0) { delay(16L); h = listState.layoutInfo.viewportSize.height }
+            listState.animateScrollToItem(
+                index = activeLineIndex,
+                scrollOffset = -(h / 2) + 60
+            )
         }
     }
 

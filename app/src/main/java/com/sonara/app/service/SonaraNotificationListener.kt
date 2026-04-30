@@ -32,10 +32,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.sonara.app.intelligence.media.MediaSourceDetector
-import android.util.Log
-import com.sonara.app.intelligence.pipeline.MediaType
 
 data class ListenerNowPlaying(
     val title: String = "", val artist: String = "", val album: String = "",
@@ -50,6 +48,9 @@ class SonaraNotificationListener : NotificationListenerService() {
     private var lastTrackKey = ""
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    // Cached preference: avoids runBlocking in the hot pickBest() path
+    @Volatile private var cachedAllowedApps: Set<String> = emptySet()
+
     // Scrobbling state
     private var scrobbleJob: Job? = null
     private var playStartTime: Long = 0
@@ -61,11 +62,13 @@ class SonaraNotificationListener : NotificationListenerService() {
         override fun onPlaybackStateChanged(s: PlaybackState?) {
             val playing = s?.state == PlaybackState.STATE_PLAYING
             val wasPlaying = _nowPlaying.value.isPlaying
-            _nowPlaying.value = _nowPlaying.value.copy(
-                isPlaying = playing,
-                position = s?.position ?: _nowPlaying.value.position,
-                positionTimestamp = System.currentTimeMillis()
-            )
+            _nowPlaying.update { cur ->
+                cur.copy(
+                    isPlaying = playing,
+                    position = s?.position ?: cur.position,
+                    positionTimestamp = System.currentTimeMillis()
+                )
+            }
 
             if (playing && !wasPlaying) {
                 playStartTime = System.currentTimeMillis()
@@ -94,6 +97,14 @@ class SonaraNotificationListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        // Keep cachedAllowedApps in sync without blocking
+        scope.launch {
+            try {
+                (application as SonaraApp).preferences.allowedScrobbleAppsFlow.collect {
+                    cachedAllowedApps = it
+                }
+            } catch (_: Exception) {}
+        }
         try {
             val cn = ComponentName(this, SonaraNotificationListener::class.java)
             if (!sessionListenerRegistered) {
@@ -131,17 +142,8 @@ class SonaraNotificationListener : NotificationListenerService() {
     }
 
     private fun pickBest(controllers: List<MediaController>) {
-        // Detect media type from package name
-        controllers.firstOrNull()?.packageName?.let { pkg ->
-            val mediaType = MediaSourceDetector.detect(pkg)
-            Log.d("SonaraListener", "Media source: $pkg → $mediaType")
-        }
-
         // Scrobble app filter: skip controllers from non-allowed apps
-        val allowedApps = try {
-            val app = application as SonaraApp
-            kotlinx.coroutines.runBlocking { app.preferences.allowedScrobbleAppsFlow.first() }
-        } catch (_: Exception) { emptySet<String>() }
+        val allowedApps = cachedAllowedApps
 
         val filtered = if (allowedApps.isEmpty()) controllers
         else controllers.filter { c -> c.packageName in allowedApps }
@@ -170,10 +172,10 @@ class SonaraNotificationListener : NotificationListenerService() {
         activeController = target
         target.registerCallback(controllerCb)
         target.metadata?.let { processMetadata(it) }
-        _nowPlaying.value = _nowPlaying.value.copy(
+        _nowPlaying.update { it.copy(
             isPlaying = target.playbackState?.state == PlaybackState.STATE_PLAYING,
             packageName = target.packageName ?: ""
-        )
+        ) }
     }
 
     private fun processMetadata(metadata: MediaMetadata) {
@@ -184,7 +186,7 @@ class SonaraNotificationListener : NotificationListenerService() {
             ?: metadata.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST) ?: ""
         val album = metadata.getString(MediaMetadata.METADATA_KEY_ALBUM) ?: ""
         val duration = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION)
-        _nowPlaying.value = _nowPlaying.value.copy(title = title, artist = artist, album = album, duration = duration)
+        _nowPlaying.update { it.copy(title = title, artist = artist, album = album, duration = duration) }
 
         val key = "$title::$artist"
         if (title.isBlank() || key == lastTrackKey) return
@@ -352,12 +354,9 @@ class SonaraNotificationListener : NotificationListenerService() {
             try {
                 val scrobblingEnabled = app.preferences.scrobblingEnabledFlow.first()
                 if (!scrobblingEnabled) return@launch
-                val apiKey = app.secureSecrets.getLastFmApiKey().takeIf { it.isNotBlank() }
-                    ?: app.preferences.lastFmApiKeyFlow.first()
-                val secret = app.secureSecrets.getLastFmSharedSecret().takeIf { it.isNotBlank() }
-                    ?: app.preferences.lastFmSharedSecretFlow.first()
-                val sessionKey = app.secureSecrets.getLastFmSessionKey().takeIf { it.isNotBlank() }
-                    ?: app.preferences.lastFmSessionKeyFlow.first()
+                val apiKey = app.secureSecrets.getLastFmApiKey()
+                val secret = app.secureSecrets.getLastFmSharedSecret()
+                val sessionKey = app.secureSecrets.getLastFmSessionKey()
                 if (apiKey.isBlank() || sessionKey.isBlank()) return@launch
 
                 val scrobbler = com.sonara.app.intelligence.lastfm.ScrobblingManager()
@@ -394,12 +393,9 @@ class SonaraNotificationListener : NotificationListenerService() {
             val app = application as SonaraApp
             val scrobblingEnabled = app.preferences.scrobblingEnabledFlow.first()
             if (!scrobblingEnabled) return
-            val apiKey = app.secureSecrets.getLastFmApiKey().takeIf { it.isNotBlank() }
-                ?: app.preferences.lastFmApiKeyFlow.first()
-            val secret = app.secureSecrets.getLastFmSharedSecret().takeIf { it.isNotBlank() }
-                ?: app.preferences.lastFmSharedSecretFlow.first()
-            val sessionKey = app.secureSecrets.getLastFmSessionKey().takeIf { it.isNotBlank() }
-                ?: app.preferences.lastFmSessionKeyFlow.first()
+            val apiKey = app.secureSecrets.getLastFmApiKey()
+            val secret = app.secureSecrets.getLastFmSharedSecret()
+            val sessionKey = app.secureSecrets.getLastFmSessionKey()
             if (apiKey.isBlank() || sessionKey.isBlank()) return
 
             val scrobbler = com.sonara.app.intelligence.lastfm.ScrobblingManager()
@@ -424,19 +420,19 @@ class SonaraNotificationListener : NotificationListenerService() {
         val nowPlaying: StateFlow<ListenerNowPlaying> = _nowPlaying.asStateFlow()
         private val _albumArt = MutableStateFlow<Bitmap?>(null)
         val albumArt: StateFlow<Bitmap?> = _albumArt.asStateFlow()
-        val _currentGenre = MutableStateFlow("")
+        private val _currentGenre = MutableStateFlow("")
         val currentGenre: StateFlow<String> = _currentGenre.asStateFlow()
-        val _currentMood = MutableStateFlow("")
+        private val _currentMood = MutableStateFlow("")
         val currentMood: StateFlow<String> = _currentMood.asStateFlow()
-        val _currentEnergy = MutableStateFlow(0.5f)
+        private val _currentEnergy = MutableStateFlow(0.5f)
         val currentEnergy: StateFlow<Float> = _currentEnergy.asStateFlow()
-        val _currentConfidence = MutableStateFlow(0f)
+        private val _currentConfidence = MutableStateFlow(0f)
         val currentConfidence: StateFlow<Float> = _currentConfidence.asStateFlow()
-        val _currentSource = MutableStateFlow("None")
+        private val _currentSource = MutableStateFlow("None")
         val currentSource: StateFlow<String> = _currentSource.asStateFlow()
 
-        // Madde 11: Lyrics insight state
-        val _lyricsInsight = MutableStateFlow<LyricsInsightEngine.LyricsInsight?>(null)
+        // Lyrics insight state
+        private val _lyricsInsight = MutableStateFlow<LyricsInsightEngine.LyricsInsight?>(null)
         val lyricsInsight: StateFlow<LyricsInsightEngine.LyricsInsight?> = _lyricsInsight.asStateFlow()
 
         fun isEnabled(ctx: Context): Boolean {

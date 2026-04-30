@@ -2,6 +2,7 @@ package com.sonara.app.data
 
 import android.content.Context
 import android.util.Log
+import com.sonara.app.BuildConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -105,10 +106,12 @@ object SonaraLogger {
     private fun log(level: LogLevel, tag: String, msg: String) {
         if (!_isEnabled.value) return
 
-        when (level) {
-            LogLevel.ERROR -> Log.e("Sonara.$tag", msg)
-            LogLevel.WARN -> Log.w("Sonara.$tag", msg)
-            else -> Log.d("Sonara.$tag", msg)
+        if (BuildConfig.DEBUG) {
+            when (level) {
+                LogLevel.ERROR -> Log.e("Sonara.$tag", msg)
+                LogLevel.WARN -> Log.w("Sonara.$tag", msg)
+                else -> Log.d("Sonara.$tag", msg)
+            }
         }
 
         val entry = LogEntry(level = level, tag = tag, message = msg)

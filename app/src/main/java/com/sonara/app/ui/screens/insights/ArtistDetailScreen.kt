@@ -191,39 +191,28 @@ fun ArtistDetailScreen(
         }
     }
 
-    // Sequential art resolution for the inline discography preview
-    // Key = strAlbum (guaranteed unique per discography; idAlbum can be blank/shared)
+    // Sequential art resolution for the inline discography preview.
+    // Key = strAlbum (unique per discography). We skip getAlbumById because
+    // discography.php often returns the same idAlbum for every entry in a
+    // catalog, which causes all albums to resolve to the same (wrong) artwork.
+    // searchAlbum queries by name and returns the correct per-album result.
     LaunchedEffect(discography) {
         if (discography.isEmpty()) return@LaunchedEffect
         withContext(Dispatchers.IO) {
             for (album in discography) {
                 val key = album.strAlbum
                 if (discographyArtUrls.containsKey(key)) continue
-                // 1. Immediate: use art already returned by discography endpoint
+                // Tier 1: inline art embedded in the discography response (often absent)
                 val inline = album.strThumbHQ ?: album.strThumb
                 if (!inline.isNullOrBlank()) {
                     discographyArtUrls[key] = inline
                     continue
                 }
-                // 2. Async: fetch full album by ID (has higher-res art)
-                if (album.idAlbum.isNotBlank()) {
-                    try {
-                        val full = TheAudioDbClient.getAlbumById(album.idAlbum)
-                        val url = full?.strThumbHQ ?: full?.strThumb
-                        if (!url.isNullOrBlank()) {
-                            discographyArtUrls[key] = url
-                            delay(350L)
-                            continue
-                        }
-                    } catch (_: Exception) {}
-                }
-                // 3. Search by name as last resort
+                // Tier 2: name-based search — unique query per album, avoids stale IDs
                 try {
                     val found = TheAudioDbClient.searchAlbum(artistName, album.strAlbum)
                     val url = found?.strThumbHQ ?: found?.strThumb
-                    if (!url.isNullOrBlank()) {
-                        discographyArtUrls[key] = url
-                    }
+                    if (!url.isNullOrBlank()) discographyArtUrls[key] = url
                 } catch (_: Exception) {}
                 delay(350L)
             }
