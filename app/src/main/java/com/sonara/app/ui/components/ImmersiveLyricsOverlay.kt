@@ -23,17 +23,23 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -81,11 +87,15 @@ fun ImmersiveLyricsOverlay(
     lyricsLineSpacing: Float = 1.3f,
     lyricsBlurInactive: Boolean = true,
     lyricsTextAlignment: String = "center",
-    lyricsTextSizeSp: Float = 0f
+    lyricsTextSizeSp: Float = 0f,
+    onSearchCorrection: ((String, String) -> Unit)? = null
 ) {
     val p = MaterialTheme.colorScheme.primary
     val haptic = LocalHapticFeedback.current
     var showShareScreen by remember { mutableStateOf(false) }
+    var showCorrection by remember { mutableStateOf(false) }
+    var corrTitle by remember(title) { mutableStateOf(title) }
+    var corrArtist by remember(artist) { mutableStateOf(artist) }
 
     BackHandler { if (showShareScreen) showShareScreen = false else onDismiss() }
 
@@ -112,6 +122,16 @@ fun ImmersiveLyricsOverlay(
 
     val listState = rememberLazyListState()
 
+    // CROSS-11: Scroll lock — user scroll temporarily pauses auto-scroll for 3s
+    var hasUserScrolled by remember { mutableStateOf(false) }
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            hasUserScrolled = true
+            delay(3000L)
+            hasUserScrolled = false
+        }
+    }
+
     // Snap to current line instantly when overlay opens (no animation, avoids layout-not-ready race)
     LaunchedEffect(Unit) {
         if (activeLineIndex >= 0) {
@@ -127,7 +147,7 @@ fun ImmersiveLyricsOverlay(
 
     // Animated scroll to keep active line centered as song progresses
     LaunchedEffect(activeLineIndex) {
-        if (activeLineIndex >= 0 && lyricsAutoScroll) {
+        if (activeLineIndex >= 0 && lyricsAutoScroll && !hasUserScrolled) {
             // Wait until the LazyColumn is laid out — viewportSize.height is 0 on the first frame,
             // which makes the scrollOffset positive and pushes the active line above the viewport.
             var h = listState.layoutInfo.viewportSize.height
@@ -186,6 +206,11 @@ fun ImmersiveLyricsOverlay(
                         Text(artist, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(0.7f), maxLines = 1)
                     }
                 }
+                if (onSearchCorrection != null) {
+                    IconButton(onClick = { showCorrection = true }) {
+                        Icon(Icons.Rounded.Edit, "Fix lyrics", tint = Color.White.copy(0.7f))
+                    }
+                }
                 IconButton(onClick = { showShareScreen = true }) {
                     Icon(Icons.Rounded.Share, "Share lyrics", tint = Color.White.copy(0.7f))
                 }
@@ -198,6 +223,7 @@ fun ImmersiveLyricsOverlay(
                     if (lines.isNotEmpty()) {
                         LazyColumn(
                             state = listState,
+                            userScrollEnabled = !isPlaying || hasUserScrolled,
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                             contentPadding = PaddingValues(horizontal = 28.dp, vertical = 80.dp),
                             verticalArrangement = Arrangement.spacedBy(18.dp)
@@ -208,6 +234,13 @@ fun ImmersiveLyricsOverlay(
                                     LrcParser.activeWordIndex(line, lyricsPosition)
                                 } else -1
                                 val distanceFromActive = abs(idx - activeLineIndex)
+                                // CROSS-01: Instrumental gap detection
+                                val nextLineStartMs = lines.getOrNull(idx + 1)?.startMs
+                                val gapMs = if (nextLineStartMs != null) nextLineStartMs - line.startMs else Long.MAX_VALUE
+                                val isInstrumental = line.text.isBlank() || (isActive && gapMs > 3000L && nextLineStartMs != null)
+                                val instrumentalProg = if (isInstrumental && isActive && nextLineStartMs != null && gapMs > 0) {
+                                    ((lyricsPosition - line.startMs).toFloat() / gapMs).coerceIn(0f, 1f)
+                                } else 0f
                                 SyncedLyricLine(
                                     line = line,
                                     isActive = isActive,
@@ -219,6 +252,8 @@ fun ImmersiveLyricsOverlay(
                                     lyricsBlurInactive = lyricsBlurInactive,
                                     lyricsPosition = lyricsTextAlignment,
                                     textSizeSp = lyricsTextSizeSp,
+                                    isInstrumental = isInstrumental,
+                                    instrumentalProgress = { instrumentalProg },
                                     modifier = Modifier.clickable {
                                         val seekMs = (line.startMs - lyricsSyncOffsetMs).coerceAtLeast(0L)
                                         SonaraNotificationListener.seekTo(seekMs)
@@ -292,6 +327,29 @@ fun ImmersiveLyricsOverlay(
                 }
             }
         }
+        // CROSS-02: Lyrics correction dialog
+        if (showCorrection && onSearchCorrection != null) {
+            AlertDialog(
+                onDismissRequest = { showCorrection = false },
+                title = { Text("Fix Lyrics") },
+                text = {
+                    androidx.compose.foundation.layout.Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(corrTitle, { corrTitle = it }, label = { Text("Title") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(corrArtist, { corrArtist = it }, label = { Text("Artist") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        onSearchCorrection(corrTitle, corrArtist)
+                        showCorrection = false
+                    }) { Text("Search") }
+                },
+                dismissButton = { TextButton(onClick = { showCorrection = false }) { Text("Cancel") } }
+            )
+        }
+
         // CROSS-09: Share screen overlay
         if (showShareScreen) {
             val readyLines = (lyricsState as? LyricsState.Ready)?.lyrics?.lines ?: emptyList()
