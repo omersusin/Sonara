@@ -61,6 +61,10 @@ object BuiltInPresets {
             bass = 750, virt = 400, loud = 0),
 
         // ── Mood ──
+        p("Spatial", floatArrayOf(0f,0f,0f,1f,1.5f,0f,0f,0f,0f,0f), "mood",
+            bass = 200, virt = 800, loud = 400),
+        p("Night", floatArrayOf(1f,0.5f,0f,0f,0f,0f,-1f,-2f,-3f,0f), "mood",
+            bass = 0, virt = 200, loud = 800),
         p("Late Night", floatArrayOf(1f,1.5f,1f,0f,-1f,-2f,-1f,0f,0.5f,0.5f), "mood",
             bass = 200, virt = 100, loud = 0, reverb = 1),
         p("Morning", floatArrayOf(0f,0f,1f,2f,2.5f,2f,1.5f,2f,2.5f,2f), "mood",
