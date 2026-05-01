@@ -70,6 +70,14 @@ android {
         compose = true
         buildConfig = true
     }
+
+    lint {
+        // lifecycle-lint 2.8.x was compiled against an older Kotlin Analysis API where
+        // KaCallableMemberCall was a class; it became an interface in Kotlin 2.2.x.
+        // lifecycle 2.9.0-rc01 ships the fixed lint rules; this disable is a fallback
+        // in case any transitive lifecycle-lint JAR still slips through.
+        disable += "NullSafeMutableLiveData"
+    }
 }
 
 dependencies {
