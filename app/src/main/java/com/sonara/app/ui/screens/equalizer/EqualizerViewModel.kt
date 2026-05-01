@@ -31,7 +31,8 @@ data class EqualizerUiState(
     val simpleBass: Float = 0f,
     val simpleMids: Float = 0f,
     val simpleTreble: Float = 0f,
-    val isAbComparing: Boolean = false
+    val isAbComparing: Boolean = false,
+    val perAppProfiles: Map<String, String> = emptyMap()
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -76,6 +77,11 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             app.audioSessionManager.activeStrategy.collect { s ->
                 _uiState.update { it.copy(eqStrategy = s, eqActive = s != "none") }
+            }
+        }
+        viewModelScope.launch {
+            app.preferences.perAppEqMapFlow.collect { map ->
+                _uiState.update { it.copy(perAppProfiles = map) }
             }
         }
     }

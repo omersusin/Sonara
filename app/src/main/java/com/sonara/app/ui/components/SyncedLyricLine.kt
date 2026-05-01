@@ -349,33 +349,21 @@ fun SyncedLyricLine(
         }
 
         // ── LYRICS_V2 ─────────────────────────────────────────────────────────
-        // Fluid sweep — wider feather (0.22f) gives a soft, flowing liquid edge.
-        // Fills the full line width once active, recedes instantly on deactivation.
+        // Word-level animated highlight via LyricsLineV2.
         LyricsAnimationStyle.LYRICS_V2 -> {
-            val v2Target = if (isActive) 1f else 0f
-            val v2Sweep by animateFloatAsState(
-                targetValue   = v2Target,
-                animationSpec = if (v2Target > 0f) tween(750, easing = FastOutSlowInEasing) else snap(),
-                label         = "v2_sweep"
-            )
-            val alpha  by animateFloatAsState(if (isActive) 1f else 0.4f, tween(500), label = "v2_a")
-            val offsetY by animateFloatAsState(
-                if (isActive) 0f else 12f,
-                tween(500, easing = FastOutSlowInEasing),
-                label = "v2_y"
-            )
-            val brush = sweepBrush(v2Sweep, primary, dimColor, soft = 0.22f)
-            Text(
-                text      = line.text,
-                modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
-                    .graphicsLayer { translationY = offsetY; this.alpha = alpha; scaleX = scale; scaleY = scale }
+            val isPast = !isActive && line.startMs < estimatedPositionMs
+            LyricsLineV2(
+                line               = line,
+                isActive           = isActive,
+                isPast             = isPast,
+                effectivePositionMs = estimatedPositionMs + 150L,
+                accentColor        = primary,
+                inactiveAlpha      = 0.35f,
+                baseFontSize       = if (textSizeSp > 0f) textSizeSp else 24f,
+                modifier           = modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = hPad, vertical = vPad)
                     .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
-                textAlign = textAlign,
-                style     = if (isActive) effectiveStyle.copy(
-                    brush      = brush,
-                    fontWeight = FontWeight.SemiBold
-                ) else effectiveStyle,
-                color     = if (brush == null) (if (isActive) SonaraTextPrimary else dimColor) else Color.Unspecified
             )
         }
 

@@ -171,42 +171,51 @@ fun EqualizerScreen() {
         // Sound Profiles — categorized quick presets (EQ-04)
         item {
             data class SoundProfile(val name: String, val category: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val apply: () -> Unit)
-            val profiles = listOf(
-                SoundProfile("Flat",       "General", Icons.Rounded.GraphicEq) { vm.resetBands(); vm.setBassBoost(0); vm.setVirtualizer(0); vm.setLoudness(0) },
-                SoundProfile("Bass Boost", "General", Icons.Rounded.VolumeUp)  { vm.setBand(0, 4f); vm.setBand(1, 3.5f); vm.setBand(2, 2f); vm.setBassBoost(600); vm.setVirtualizer(0) },
-                SoundProfile("Vocal",      "Music",   Icons.Rounded.MusicNote) { vm.setBand(3, 2f); vm.setBand(4, 3f); vm.setBand(5, 2.5f); vm.setBand(6, 1.5f); vm.setBassBoost(0); vm.setVirtualizer(0) },
-                SoundProfile("Treble",     "Music",   Icons.Rounded.Tune)      { vm.setBand(6, 2.5f); vm.setBand(7, 3f); vm.setBand(8, 3.5f); vm.setBand(9, 3f); vm.setBassBoost(0) },
-                SoundProfile("Spatial",    "Usage",   Icons.Rounded.SurroundSound) { vm.setVirtualizer(800); vm.setBassBoost(200); vm.setLoudness(400); vm.setBand(3, 1f); vm.setBand(4, 1.5f) },
-                SoundProfile("Night",      "Usage",   Icons.Rounded.NightlightRound) { vm.setBand(0, 1f); vm.setBand(1, 0.5f); vm.setBand(6, -1f); vm.setBand(7, -2f); vm.setBand(8, -3f); vm.setLoudness(800); vm.setVirtualizer(200) },
-                SoundProfile("Podcast",    "Usage",   Icons.Rounded.Settings)  { vm.setBand(3, 1.5f); vm.setBand(4, 2f); vm.setBand(5, 1.5f); vm.setBand(0, -2f); vm.setBand(9, 1f); vm.setBassBoost(0) },
-                // EQ-08: Tuning-reference presets
-                SoundProfile("Harman 2019","General", Icons.Rounded.AutoAwesome) { vm.setBand(0, 4f); vm.setBand(1, 3f); vm.setBand(2, 1.5f); vm.setBand(3, 0f); vm.setBand(4, -1f); vm.setBand(5, -1.5f); vm.setBand(6, 2f); vm.setBand(7, 3.5f); vm.setBand(8, 2f); vm.setBand(9, 0f) },
-                SoundProfile("Dolby Ref",  "General", Icons.Rounded.Headphones) { vm.setBandRaw(0, 250); vm.setBandRaw(1, 200); vm.setBandRaw(2, 100); vm.setBandRaw(3, 0); vm.setBandRaw(4, -100); vm.setBandRaw(5, 0); vm.setBandRaw(6, 150); vm.setBandRaw(7, 200); vm.setBandRaw(8, 100); vm.setBandRaw(9, -50) }
+            val allProfiles = listOf(
+                SoundProfile("Flat",       "General", Icons.Rounded.GraphicEq)    { vm.resetBands(); vm.setBassBoost(0); vm.setVirtualizer(0); vm.setLoudness(0) },
+                SoundProfile("Bass Boost", "General", Icons.Rounded.VolumeUp)     { vm.setBand(0, 4f); vm.setBand(1, 3.5f); vm.setBand(2, 2f); vm.setBassBoost(600); vm.setVirtualizer(0) },
+                SoundProfile("Spatial",    "General", Icons.Rounded.SurroundSound){ vm.setVirtualizer(800); vm.setBassBoost(200); vm.setLoudness(400); vm.setBand(3, 1f); vm.setBand(4, 1.5f) },
+                SoundProfile("Night",      "General", Icons.Rounded.NightlightRound){ vm.setBand(0, 1f); vm.setBand(1, 0.5f); vm.setBand(6, -1f); vm.setBand(7, -2f); vm.setBand(8, -3f); vm.setLoudness(800); vm.setVirtualizer(200) },
+                SoundProfile("Pop",        "Music",   Icons.Rounded.MusicNote)    { vm.setBand(3, 2f); vm.setBand(4, 1.5f); vm.setBand(7, 2f); vm.setBand(8, 2.5f); vm.setBassBoost(0) },
+                SoundProfile("Rock",       "Music",   Icons.Rounded.GraphicEq)    { vm.setBand(0, 3f); vm.setBand(1, 2f); vm.setBand(4, 1f); vm.setBand(7, 2f); vm.setBand(8, 2f); vm.setBassBoost(0) },
+                SoundProfile("Electronic", "Music",   Icons.Rounded.GraphicEq)    { vm.setBand(0, 4f); vm.setBand(1, 3f); vm.setBand(7, 2f); vm.setBand(8, 3f); vm.setBand(9, 2f); vm.setBassBoost(400) },
+                SoundProfile("Jazz",       "Music",   Icons.Rounded.MusicNote)    { vm.setBand(0, 2f); vm.setBand(2, 1.5f); vm.setBand(4, 1f); vm.setBand(7, 1.5f); vm.setBand(9, 2f); vm.setBassBoost(0) },
+                SoundProfile("Classical",  "Music",   Icons.Rounded.AutoAwesome)  { vm.setBand(5, 1f); vm.setBand(6, 1.5f); vm.setBand(7, 2f); vm.setBand(8, 2f); vm.setBand(9, 1.5f); vm.setBassBoost(0) },
+                SoundProfile("Hip-Hop",    "Music",   Icons.Rounded.GraphicEq)    { vm.setBand(0, 4.5f); vm.setBand(1, 3.5f); vm.setBand(4, 1f); vm.setBand(5, 1.5f); vm.setBassBoost(500) },
+                SoundProfile("Vocal",      "Usage",   Icons.Rounded.MusicNote)    { vm.setBand(4, 2f); vm.setBand(5, 3f); vm.setBand(6, 2.5f); vm.setBassBoost(0) },
+                SoundProfile("Treble",     "Usage",   Icons.Rounded.Tune)         { vm.setBand(7, 2.5f); vm.setBand(8, 3f); vm.setBand(9, 3f); vm.setBassBoost(0) },
+                SoundProfile("Podcast",    "Usage",   Icons.Rounded.Settings)     { vm.setBand(3, 1.5f); vm.setBand(4, 2f); vm.setBand(5, 1.5f); vm.setBand(0, -2f); vm.setBand(9, 1f); vm.setBassBoost(0) },
             )
+            val categories = listOf("General", "Music", "Usage")
             FluentCard {
                 Text("Sound Profiles", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
                 Spacer(Modifier.height(10.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(profiles) { profile ->
-                        FilterChip(
-                            selected = activeSoundProfile == profile.name,
-                            onClick = { activeSoundProfile = profile.name; profile.apply() },
-                            label = { Text(profile.name, style = MaterialTheme.typography.labelMedium) },
-                            leadingIcon = { Icon(profile.icon, null, Modifier.size(16.dp)) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = p.copy(0.2f),
-                                selectedLabelColor = p,
-                                selectedLeadingIconColor = p,
-                                containerColor = SonaraCardElevated,
-                                labelColor = SonaraTextSecondary,
-                                iconColor = SonaraTextTertiary
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                enabled = true, selected = activeSoundProfile == profile.name,
-                                borderColor = SonaraDivider.copy(0.3f),
-                                selectedBorderColor = p.copy(0.4f)
+                categories.forEach { cat ->
+                    val catProfiles = allProfiles.filter { it.category == cat }
+                    Text(cat, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(catProfiles) { profile ->
+                            FilterChip(
+                                selected = activeSoundProfile == profile.name,
+                                onClick = { activeSoundProfile = profile.name; profile.apply() },
+                                label = { Text(profile.name, style = MaterialTheme.typography.labelMedium) },
+                                leadingIcon = { Icon(profile.icon, null, Modifier.size(16.dp)) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = p.copy(0.2f),
+                                    selectedLabelColor = p,
+                                    selectedLeadingIconColor = p,
+                                    containerColor = SonaraCardElevated,
+                                    labelColor = SonaraTextSecondary,
+                                    iconColor = SonaraTextTertiary
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true, selected = activeSoundProfile == profile.name,
+                                    borderColor = SonaraDivider.copy(0.3f),
+                                    selectedBorderColor = p.copy(0.4f)
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }
