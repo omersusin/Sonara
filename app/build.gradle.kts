@@ -16,12 +16,12 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.sonara.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.sonara.app"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
 
@@ -100,6 +100,7 @@ dependencies {
     implementation(libs.workmanager.runtime)
     implementation(libs.coil.compose)
     implementation(libs.compose.google.fonts)
+    implementation(libs.materialkolor)
     implementation("androidx.palette:palette-ktx:1.0.0")
 
     debugImplementation(libs.compose.ui.tooling)

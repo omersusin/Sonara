@@ -2,7 +2,8 @@
 agp = "8.5.2"
 kotlin = "2.0.10"
 ksp = "2.0.10-1.0.24"
-composeBom = "2024.12.01"
+composeBom = "2025.04.01"
+materialkolor = "5.0.0-alpha01"
 coreKtx = "1.13.1"
 activityCompose = "1.9.1"
 lifecycle = "2.8.4"
@@ -26,6 +27,7 @@ androidx-navigation-compose = { module = "androidx.navigation:navigation-compose
 androidx-datastore = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+materialkolor = { module = "com.materialkolor:material-kolor", version.ref = "materialkolor" }
 compose-ui = { module = "androidx.compose.ui:ui" }
 compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }

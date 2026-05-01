@@ -586,18 +586,17 @@ internal fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
     FluentCard {
         Text("Accent Color", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
-        Text(if (s.accentColor == AccentColor.Auto) "Wallpaper colors" else s.accentColor.displayName,
+        Text(AccentSeeds.presets.find { it.seed == s.accentSeed }?.displayName ?: "Custom",
             style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
         Spacer(Modifier.height(16.dp))
-        val colors = AccentColor.entries.filter { it != AccentColor.Auto }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            colors.forEach { c ->
-                val sel = c == s.accentColor
+            AccentSeeds.presets.forEach { accent ->
+                val sel = accent.seed == s.accentSeed
                 Box(
                     Modifier.size(38.dp).clip(CircleShape)
-                        .then(if (c == AccentColor.Auto) Modifier.background(Brush.sweepGradient(listOf(SonaraInfo, SonaraSuccess, SonaraBandLow, SonaraError, SonaraWarning, SonaraInfo))) else Modifier.background(c.primary))
+                        .background(accent.seed)
                         .then(if (sel) Modifier.border(2.5.dp, SonaraTextPrimary, CircleShape) else Modifier.border(1.dp, SonaraDivider.copy(0.3f), CircleShape))
-                        .clickable { vm.setAccentColor(c) },
+                        .clickable { vm.setAccentSeed(accent.seed) },
                     contentAlignment = Alignment.Center
                 ) { if (sel) Icon(Icons.Rounded.Check, null, tint = SonaraBackground, modifier = Modifier.size(18.dp)) }
             }
