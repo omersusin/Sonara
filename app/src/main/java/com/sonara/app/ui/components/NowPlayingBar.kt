@@ -73,7 +73,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.palette.graphics.Palette
 import com.sonara.app.intelligence.artist.ArtistNameParser
 import com.sonara.app.ui.screens.share.LyricsShareScreen
@@ -346,10 +347,20 @@ fun NowPlayingBar(
                                 val distanceFromActive = abs(idx - activeLineIndex)
                                 // CROSS-01: Instrumental gap detection
                                 val nextLineStartMs = lyrics.lines.getOrNull(idx + 1)?.startMs
-                                val gapMs = if (nextLineStartMs != null) nextLineStartMs - line.startMs else Long.MAX_VALUE
-                                val isInstrumental = line.text.isBlank() || (isActive && gapMs > 3000L && nextLineStartMs != null)
-                                val instrumentalProg = if (isInstrumental && isActive && nextLineStartMs != null && gapMs > 0) {
-                                    ((lyricsPosition - line.startMs).toFloat() / gapMs).coerceIn(0f, 1f)
+                                val estimatedLineEndMs: Long = when {
+                                    line.words.isNotEmpty() -> {
+                                        val lastWordEnd = line.words.last().endMs
+                                        if (lastWordEnd > 0L) lastWordEnd else line.startMs + 2000L
+                                    }
+                                    else -> line.startMs + (line.text.length * 60L).coerceIn(1500L, 4000L)
+                                }
+                                val silenceAfterLineMs = if (nextLineStartMs != null) {
+                                    nextLineStartMs - estimatedLineEndMs
+                                } else Long.MAX_VALUE
+                                val isInstrumental = line.text.isBlank() ||
+                                    (isActive && silenceAfterLineMs > 2000L && nextLineStartMs != null)
+                                val instrumentalProg = if (isInstrumental && isActive && nextLineStartMs != null && silenceAfterLineMs > 0) {
+                                    ((lyricsPosition - estimatedLineEndMs).toFloat() / silenceAfterLineMs).coerceIn(0f, 1f)
                                 } else 0f
                                 SyncedLyricLine(
                                     line = line,
@@ -517,16 +528,28 @@ fun NowPlayingBar(
         }
     }
 
-    // CROSS-09: Lyrics share screen overlay
+    // CROSS-09: Lyrics share screen overlay — Dialog avoids unbounded height from LazyColumn parent
     if (showLyricsShare) {
         val readyLines = (lyricsState as? LyricsState.Ready)?.lyrics?.lines ?: emptyList()
-        Box(Modifier.fillMaxSize().zIndex(10f)) {
-            LyricsShareScreen(
-                title = title,
-                artist = artist,
-                lines = readyLines,
-                onBack = { showLyricsShare = false }
+        Dialog(
+            onDismissRequest = { showLyricsShare = false },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false
             )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF0A0A0A))
+            ) {
+                LyricsShareScreen(
+                    title = title,
+                    artist = artist,
+                    lines = readyLines,
+                    onBack = { showLyricsShare = false }
+                )
+            }
         }
     }
 
