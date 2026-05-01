@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.Icon
@@ -56,6 +57,7 @@ import com.sonara.app.intelligence.lyrics.LrcParser
 import com.sonara.app.intelligence.lyrics.LyricsAnimationStyle
 import com.sonara.app.intelligence.lyrics.LyricsState
 import com.sonara.app.service.SonaraNotificationListener
+import com.sonara.app.ui.screens.share.LyricsShareScreen
 import kotlin.math.abs
 import kotlinx.coroutines.delay
 
@@ -83,8 +85,9 @@ fun ImmersiveLyricsOverlay(
 ) {
     val p = MaterialTheme.colorScheme.primary
     val haptic = LocalHapticFeedback.current
+    var showShareScreen by remember { mutableStateOf(false) }
 
-    BackHandler { onDismiss() }
+    BackHandler { if (showShareScreen) showShareScreen = false else onDismiss() }
 
     // Drag-to-dismiss
     var totalDragDelta by remember { mutableFloatStateOf(0f) }
@@ -182,6 +185,9 @@ fun ImmersiveLyricsOverlay(
                     if (artist.isNotBlank()) {
                         Text(artist, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(0.7f), maxLines = 1)
                     }
+                }
+                IconButton(onClick = { showShareScreen = true }) {
+                    Icon(Icons.Rounded.Share, "Share lyrics", tint = Color.White.copy(0.7f))
                 }
             }
 
@@ -284,6 +290,18 @@ fun ImmersiveLyricsOverlay(
                         Icon(Icons.Rounded.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(28.dp))
                     }
                 }
+            }
+        }
+        // CROSS-09: Share screen overlay
+        if (showShareScreen) {
+            val readyLines = (lyricsState as? LyricsState.Ready)?.lyrics?.lines ?: emptyList()
+            Box(Modifier.fillMaxSize().background(Color(0xFF0A0A0A))) {
+                LyricsShareScreen(
+                    title = title,
+                    artist = artist,
+                    lines = readyLines,
+                    onBack = { showShareScreen = false }
+                )
             }
         }
     }

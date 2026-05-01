@@ -72,8 +72,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.zIndex
 import androidx.palette.graphics.Palette
 import com.sonara.app.intelligence.artist.ArtistNameParser
+import com.sonara.app.ui.screens.share.LyricsShareScreen
 import com.sonara.app.intelligence.lyrics.LrcParser
 import com.sonara.app.intelligence.lyrics.LyricsAnimationStyle
 import com.sonara.app.intelligence.lyrics.LyricsState
@@ -137,6 +140,8 @@ fun NowPlayingBar(
     var showLyricsCorrection by remember { mutableStateOf(false) }
     var corrTitle by remember(title) { mutableStateOf(title) }
     var corrArtist by remember(artist) { mutableStateOf(artist) }
+    // CROSS-09: Share lyrics overlay
+    var showLyricsShare by remember { mutableStateOf(false) }
 
     val lyricsListState = rememberLazyListState()
     // CROSS-11: Scroll lock — user scroll temporarily overrides auto-scroll
@@ -315,6 +320,9 @@ fun NowPlayingBar(
                             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                             horizontalArrangement = Arrangement.End
                         ) {
+                            IconButton(onClick = { showLyricsShare = true }, modifier = Modifier.size(28.dp)) {
+                                Icon(Icons.Rounded.Share, "Share lyrics", tint = SonaraTextTertiary, modifier = Modifier.size(16.dp))
+                            }
                             if (onSearchCorrection != null) {
                                 IconButton(onClick = { showLyricsCorrection = true }, modifier = Modifier.size(28.dp)) {
                                     Icon(Icons.Rounded.Edit, "Fix lyrics", tint = SonaraTextTertiary, modifier = Modifier.size(16.dp))
@@ -506,6 +514,19 @@ fun NowPlayingBar(
                     }
                 }
             }
+        }
+    }
+
+    // CROSS-09: Lyrics share screen overlay
+    if (showLyricsShare) {
+        val readyLines = (lyricsState as? LyricsState.Ready)?.lyrics?.lines ?: emptyList()
+        Box(Modifier.fillMaxSize().zIndex(10f)) {
+            LyricsShareScreen(
+                title = title,
+                artist = artist,
+                lines = readyLines,
+                onBack = { showLyricsShare = false }
+            )
         }
     }
 
