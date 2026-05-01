@@ -59,6 +59,7 @@ import com.sonara.app.engine.effects.EffectsChain
 import com.sonara.app.ui.components.BandSlider
 import com.sonara.app.ui.components.EqCurve
 import com.sonara.app.ui.components.FluentCard
+import com.sonara.app.ui.components.RadialEqWidget
 import com.sonara.app.SonaraApp
 import com.sonara.app.autoeq.WaveletAutoEqLoader
 import com.sonara.app.autoeq.AutoEqDatabase
@@ -213,15 +214,19 @@ fun EqualizerScreen() {
 
         item { FluentCard { EqCurve(bands = s.bands, interactive = !s.isSimpleMode, onBandChange = { i, v -> vm.setBand(i, v) }) } }
 
-        // EQ-02: Simple mode (3-band) or Advanced (10-band)
+        // EQ-02: Simple mode (3-band radial widget) or Advanced (10-band)
         if (s.isSimpleMode) {
         item { FluentCard {
-            Text("Simple EQ", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Spacer(Modifier.height(12.dp))
-            SimpleEqRow("Bass", s.simpleBass, { vm.setSimpleBass(it) }, s.isEnabled, p)
-            Spacer(Modifier.height(8.dp))
-            SimpleEqRow("Mids", s.simpleMids, { vm.setSimpleMids(it) }, s.isEnabled, p)
-            Spacer(Modifier.height(8.dp))
-            SimpleEqRow("Treble", s.simpleTreble, { vm.setSimpleTreble(it) }, s.isEnabled, p)
+            Text("Simple EQ", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+            Spacer(Modifier.height(12.dp))
+            RadialEqWidget(
+                bass = s.simpleBass, mids = s.simpleMids, treble = s.simpleTreble,
+                onBassChange = { vm.setSimpleBass(it) },
+                onMidsChange = { vm.setSimpleMids(it) },
+                onTrebleChange = { vm.setSimpleTreble(it) },
+                enabled = s.isEnabled, accentColor = p,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            )
         } }
         } else {
         item { FluentCard {
@@ -414,17 +419,6 @@ private fun EffRow(label: String, value: Int, onChange: (Int) -> Unit, enabled: 
     }
 }
 
-@Composable
-private fun SimpleEqRow(label: String, value: Float, onChange: (Float) -> Unit, enabled: Boolean, p: Color) {
-    Column {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
-            Text("${if (value >= 0) "+" else ""}${"%.1f".format(value)} dB", style = MaterialTheme.typography.labelMedium, color = if (value != 0f) p else SonaraTextTertiary)
-        }
-        Slider(value, onChange, valueRange = -12f..12f, enabled = enabled,
-            colors = SliderDefaults.colors(thumbColor = p, activeTrackColor = p, inactiveTrackColor = SonaraCardElevated))
-    }
-}
 
 @Composable
 private fun SaveDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
