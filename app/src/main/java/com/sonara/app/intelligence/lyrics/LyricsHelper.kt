@@ -87,6 +87,16 @@ object LyricsHelper {
                 ?.let { memCache.put(key, it); return@withContext it }
         }
 
+        // No provider found synced lyrics — fall back to LrcLib plain text if available
+        try {
+            val res = LrcLibClient.getLyrics(title, artist, album, (durationMs / 1000L).toInt())
+            if (res?.plainLyrics != null) {
+                val fallback = LyricsResult(ParsedLyrics(emptyList(), false), null, res.plainLyrics, "lrclib-plain")
+                memCache.put(key, fallback)
+                return@withContext fallback
+            }
+        } catch (_: Exception) {}
+
         null
     }
 
@@ -130,9 +140,8 @@ object LyricsHelper {
                     return LyricsResult(p, res.syncedLyrics, res.plainLyrics, "lrclib")
                 }
             }
-            if (res.plainLyrics != null) {
-                return LyricsResult(ParsedLyrics(emptyList(), false), null, res.plainLyrics, "lrclib")
-            }
+            // Plain-only: return null so other providers can attempt to find synced lyrics.
+            // Plain text is used as a last-resort fallback at the end of getLyrics().
             null
         } catch (e: Exception) {
             SonaraLogger.w(TAG, "LrcLib failed: ${e.message}")

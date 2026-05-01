@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -239,17 +240,24 @@ fun ImmersiveLyricsOverlay(
                                 val estimatedLineEndMs: Long = when {
                                     line.words.isNotEmpty() -> {
                                         val lastWordEnd = line.words.last().endMs
-                                        if (lastWordEnd > 0L) lastWordEnd else line.startMs + 2000L
+                                        if (lastWordEnd > 0L) lastWordEnd else line.startMs + 3000L
                                     }
-                                    else -> line.startMs + (line.text.length * 60L).coerceIn(1500L, 4000L)
+                                    else -> {
+                                        if (nextLineStartMs != null) {
+                                            (nextLineStartMs - 800L).coerceAtLeast(line.startMs + 1500L)
+                                        } else {
+                                            line.startMs + (line.text.length * 80L).coerceIn(2000L, 6000L)
+                                        }
+                                    }
                                 }
-                                val silenceAfterLineMs = if (nextLineStartMs != null) {
-                                    nextLineStartMs - estimatedLineEndMs
-                                } else Long.MAX_VALUE
+                                val timeToNextLine = if (nextLineStartMs != null) nextLineStartMs - lyricsPosition else Long.MAX_VALUE
+                                val lineSingingEnded = lyricsPosition > estimatedLineEndMs
                                 val isInstrumental = line.text.isBlank() ||
-                                    (isActive && silenceAfterLineMs > 2000L && nextLineStartMs != null)
-                                val instrumentalProg = if (isInstrumental && isActive && nextLineStartMs != null && silenceAfterLineMs > 0) {
-                                    ((lyricsPosition - estimatedLineEndMs).toFloat() / silenceAfterLineMs).coerceIn(0f, 1f)
+                                    (isActive && lineSingingEnded && timeToNextLine > 4000L && nextLineStartMs != null)
+                                val instrumentalProg = if (isInstrumental && isActive && nextLineStartMs != null) {
+                                    val gapStart = estimatedLineEndMs
+                                    val gapTotal = (nextLineStartMs - gapStart).coerceAtLeast(1L)
+                                    ((lyricsPosition - gapStart).toFloat() / gapTotal).coerceIn(0f, 1f)
                                 } else 0f
                                 SyncedLyricLine(
                                     line = line,
@@ -276,6 +284,37 @@ fun ImmersiveLyricsOverlay(
                         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                             Text("No synced lyrics available", color = Color.White.copy(0.5f), style = MaterialTheme.typography.bodyMedium)
                         }
+                    }
+                }
+                is LyricsState.Loading -> {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(28.dp),
+                                strokeWidth = 2.dp
+                            )
+                            val providerName = lyricsState.providerName
+                            if (providerName.isNotBlank()) {
+                                Text(
+                                    "Trying $providerName…",
+                                    color = Color.White.copy(0.6f),
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+                    }
+                }
+                is LyricsState.Error -> {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text(
+                            "Lyrics error: ${lyricsState.message}",
+                            color = Color.White.copy(0.4f),
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
                 else -> {
