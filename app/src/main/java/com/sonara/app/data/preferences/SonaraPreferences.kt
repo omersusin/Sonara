@@ -206,6 +206,46 @@ class SonaraPreferences(private val context: Context) {
         context.dataStore.edit { it[KEY_HAS_SEEN_HEAR_DIFF] = value }
     }
 
+    private val PREF_LYRICS_PROVIDER = stringPreferencesKey("preferred_lyrics_provider")
+    val preferredLyricsProviderFlow: Flow<String> = context.dataStore.data.map { it[PREF_LYRICS_PROVIDER] ?: "lrclib" }
+    suspend fun setPreferredLyricsProvider(p: String) { context.dataStore.edit { it[PREF_LYRICS_PROVIDER] = p } }
+
+    private val PREF_LYRICS_LINE_SPACING = floatPreferencesKey("lyrics_line_spacing")
+    val lyricsLineSpacingFlow: Flow<Float> = context.dataStore.data.map { it[PREF_LYRICS_LINE_SPACING] ?: 1.3f }
+    suspend fun setLyricsLineSpacing(v: Float) { context.dataStore.edit { it[PREF_LYRICS_LINE_SPACING] = v } }
+
+    private val PREF_LYRICS_BLUR_INACTIVE = booleanPreferencesKey("lyrics_blur_inactive")
+    val lyricsBlurInactiveFlow: Flow<Boolean> = context.dataStore.data.map { it[PREF_LYRICS_BLUR_INACTIVE] ?: true }
+    suspend fun setLyricsBlurInactive(v: Boolean) { context.dataStore.edit { it[PREF_LYRICS_BLUR_INACTIVE] = v } }
+
+    private val PREF_LYRICS_ROMANIZE = booleanPreferencesKey("lyrics_romanize")
+    val lyricsRomanizeFlow: Flow<Boolean> = context.dataStore.data.map { it[PREF_LYRICS_ROMANIZE] ?: false }
+    suspend fun setLyricsRomanize(v: Boolean) { context.dataStore.edit { it[PREF_LYRICS_ROMANIZE] = v } }
+
+    private val PREF_LYRICS_POSITION = stringPreferencesKey("lyrics_position")
+    val lyricsPositionFlow: Flow<String> = context.dataStore.data.map { it[PREF_LYRICS_POSITION] ?: "center" }
+    suspend fun setLyricsPosition(v: String) { context.dataStore.edit { it[PREF_LYRICS_POSITION] = v } }
+
+    private val PREF_LYRICS_AUTO_SCROLL = booleanPreferencesKey("lyrics_auto_scroll")
+    val lyricsAutoScrollFlow: Flow<Boolean> = context.dataStore.data.map { it[PREF_LYRICS_AUTO_SCROLL] ?: true }
+    suspend fun setLyricsAutoScroll(v: Boolean) { context.dataStore.edit { it[PREF_LYRICS_AUTO_SCROLL] = v } }
+
+    private val PREF_PER_APP_EQ = stringPreferencesKey("per_app_eq_map")
+    val perAppEqMapFlow: Flow<Map<String, String>> = context.dataStore.data.map {
+        it[PREF_PER_APP_EQ]?.let { j ->
+            try {
+                val obj = org.json.JSONObject(j)
+                obj.keys().asSequence().associate { k -> k to obj.getString(k) }
+            } catch (_: Exception) { emptyMap() }
+        } ?: emptyMap()
+    }
+    suspend fun setPerAppEq(pkg: String, preset: String) = context.dataStore.edit {
+        val j = it[PREF_PER_APP_EQ]?.let { s ->
+            try { org.json.JSONObject(s) } catch (_: Exception) { org.json.JSONObject() }
+        } ?: org.json.JSONObject()
+        j.put(pkg, preset); it[PREF_PER_APP_EQ] = j.toString()
+    }
+
     suspend fun resetAll() { context.dataStore.edit { it.clear() } }
 
     companion object {

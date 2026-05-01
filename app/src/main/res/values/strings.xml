@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Sonara</string>
+    <string name="notification_listener_label">Sonara Sound Engine</string>
+    <string name="notification_listener_description">Reads music session metadata (title, artist, album) from media players to power automatic EQ and lyrics. Notification content is never accessed.</string>
 </resources>

@@ -121,12 +121,16 @@ class SonaraNotificationListener : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        // PRIVACY: sbn content intentionally never accessed (no extras, no packageName logging).
+        // Only queries MediaSessionManager for active music sessions.
         try {
             pickBest(sessionManager?.getActiveSessions(
                 ComponentName(this, SonaraNotificationListener::class.java)) ?: emptyList())
         } catch (_: Exception) {}
     }
-    override fun onNotificationRemoved(sbn: StatusBarNotification?) {}
+    override fun onNotificationRemoved(sbn: StatusBarNotification?) {
+        // Intentionally empty. Music session state tracked via MediaController.Callback.
+    }
 
     override fun onDestroy() {
         super.onDestroy()
@@ -172,10 +176,27 @@ class SonaraNotificationListener : NotificationListenerService() {
         activeController = target
         target.registerCallback(controllerCb)
         target.metadata?.let { processMetadata(it) }
+        val pkg = target.packageName ?: ""
         _nowPlaying.update { it.copy(
             isPlaying = target.playbackState?.state == PlaybackState.STATE_PLAYING,
-            packageName = target.packageName ?: ""
+            packageName = pkg
         ) }
+        // EQ-07: Apply per-app EQ preset when switching apps
+        scope.launch {
+            try {
+                val app = application as SonaraApp
+                val perAppMap = app.preferences.perAppEqMapFlow.first()
+                val presetName = perAppMap[pkg]
+                if (!presetName.isNullOrBlank()) {
+                    val presets = app.presetRepository.allPresets().first()
+                    val preset = presets.firstOrNull { it.name.equals(presetName, ignoreCase = true) }
+                    if (preset != null) {
+                        app.applyEq(preset.bandsArray(), preset.name, manual = false, preset.bassBoost, preset.virtualizer, preset.loudness, preset.preamp, reverb = preset.reverb)
+                        SonaraLogger.i("NLS", "Per-app EQ: $pkg → ${preset.name}")
+                    }
+                }
+            } catch (_: Exception) {}
+        }
     }
 
     private fun processMetadata(metadata: MediaMetadata) {

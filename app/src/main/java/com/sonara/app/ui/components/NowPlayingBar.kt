@@ -3,12 +3,20 @@ package com.sonara.app.ui.components
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -57,11 +65,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.palette.graphics.Palette
 import com.sonara.app.intelligence.artist.ArtistNameParser
 import com.sonara.app.intelligence.lyrics.LrcParser
 import com.sonara.app.intelligence.lyrics.LyricsAnimationStyle
@@ -69,7 +80,9 @@ import com.sonara.app.intelligence.lyrics.LyricsState
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.theme.*
 import kotlin.math.abs
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -91,14 +104,51 @@ fun NowPlayingBar(
     lyricsShowTranslated: Boolean = false,
     lyricsTargetLanguage: String = "en",
     playerPackage: String = "",
-    onImmersiveRequest: () -> Unit = {}
+    onImmersiveRequest: () -> Unit = {},
+    lyricsAutoScroll: Boolean = true,
+    lyricsLineSpacing: Float = 1.3f,
+    lyricsBlurInactive: Boolean = true,
+    lyricsTextAlignment: String = "center",
+    onSearchCorrection: ((String, String) -> Unit)? = null
 ) {
     val p = MaterialTheme.colorScheme.primary
     val ctx = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val hasTrack = title != "No music playing" && title.isNotBlank()
     var lyricsExpanded by remember { mutableStateOf(false) }
 
+    // FEAT-10: Derive expressive accent from album art via Palette
+    var expressiveAccent by remember { mutableStateOf(Color.Unspecified) }
+    LaunchedEffect(albumArt) {
+        expressiveAccent = if (albumArt != null) {
+            withContext(Dispatchers.Default) {
+                try {
+                    val palette = Palette.from(albumArt).generate()
+                    val rgb = palette.vibrantSwatch?.rgb
+                        ?: palette.mutedSwatch?.rgb
+                        ?: palette.dominantSwatch?.rgb
+                    if (rgb != null) Color(rgb) else Color.Unspecified
+                } catch (_: Exception) { Color.Unspecified }
+            }
+        } else Color.Unspecified
+    }
+
+    // CROSS-02: Lyrics correction dialog state
+    var showLyricsCorrection by remember { mutableStateOf(false) }
+    var corrTitle by remember(title) { mutableStateOf(title) }
+    var corrArtist by remember(artist) { mutableStateOf(artist) }
+
     val lyricsListState = rememberLazyListState()
+    // CROSS-11: Scroll lock — user scroll temporarily overrides auto-scroll
+    var hasUserScrolled by remember { mutableStateOf(false) }
+    LaunchedEffect(lyricsListState.isScrollInProgress) {
+        if (lyricsListState.isScrollInProgress) {
+            hasUserScrolled = true
+            kotlinx.coroutines.delay(3000L)
+            hasUserScrolled = false
+        }
+    }
+
     LaunchedEffect(title) {
         lyricsExpanded = false
         lyricsListState.scrollToItem(0)
@@ -160,7 +210,7 @@ fun NowPlayingBar(
     }
 
     LaunchedEffect(activeLineIndex) {
-        if (activeLineIndex >= 0 && lyricsExpanded) {
+        if (activeLineIndex >= 0 && lyricsExpanded && lyricsAutoScroll && !hasUserScrolled) {
             val viewportCenter = lyricsListState.layoutInfo.viewportSize.height / 2
             lyricsListState.animateScrollToItem(
                 index = activeLineIndex,
@@ -244,15 +294,37 @@ fun NowPlayingBar(
                         Modifier.fillMaxWidth().height(80.dp).padding(top = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = p, strokeWidth = 2.dp)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = p, strokeWidth = 2.dp)
+                            val providerName = (lyricsState as? LyricsState.Loading)?.providerName
+                            if (!providerName.isNullOrBlank()) {
+                                Text(
+                                    text = "Trying $providerName…",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = SonaraTextTertiary
+                                )
+                            }
+                        }
                     }
                 }
                 is LyricsState.Ready -> {
                     val lyrics = lyricsState.lyrics
                     if (lyrics.lines.isNotEmpty()) {
+                        // Lyrics action row
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            if (onSearchCorrection != null) {
+                                IconButton(onClick = { showLyricsCorrection = true }, modifier = Modifier.size(28.dp)) {
+                                    Icon(Icons.Rounded.Edit, "Fix lyrics", tint = SonaraTextTertiary, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
                         LazyColumn(
                             state = lyricsListState,
-                            modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp).padding(top = 10.dp),
+                            userScrollEnabled = !isPlaying || hasUserScrolled,
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp).padding(top = 6.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             itemsIndexed(
@@ -264,6 +336,13 @@ fun NowPlayingBar(
                                     LrcParser.activeWordIndex(line, lyricsPosition)
                                 } else -1
                                 val distanceFromActive = abs(idx - activeLineIndex)
+                                // CROSS-01: Instrumental gap detection
+                                val nextLineStartMs = lyrics.lines.getOrNull(idx + 1)?.startMs
+                                val gapMs = if (nextLineStartMs != null) nextLineStartMs - line.startMs else Long.MAX_VALUE
+                                val isInstrumental = line.text.isBlank() || (isActive && gapMs > 3000L && nextLineStartMs != null)
+                                val instrumentalProg = if (isInstrumental && isActive && nextLineStartMs != null && gapMs > 0) {
+                                    ((lyricsPosition - line.startMs).toFloat() / gapMs).coerceIn(0f, 1f)
+                                } else 0f
                                 SyncedLyricLine(
                                     line = line,
                                     isActive = isActive,
@@ -271,7 +350,18 @@ fun NowPlayingBar(
                                     estimatedPositionMs = if (isActive) lyricsPosition else 0L,
                                     animationStyle = lyricsAnimationStyle,
                                     textSizeSp = lyricsTextSizeSp,
-                                    distanceFromActive = distanceFromActive
+                                    distanceFromActive = distanceFromActive,
+                                    lyricsLineSpacing = lyricsLineSpacing,
+                                    lyricsBlurInactive = lyricsBlurInactive,
+                                    lyricsPosition = lyricsTextAlignment,
+                                    isInstrumental = isInstrumental,
+                                    instrumentalProgress = { instrumentalProg },
+                                    accentColor = expressiveAccent,
+                                    modifier = Modifier.clickable {
+                                        val seekMs = (line.startMs - lyricsSyncOffsetMs).coerceAtLeast(0L)
+                                        SonaraNotificationListener.seekTo(seekMs)
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
                                 )
                                 val translatedLine = if (lyricsShowTranslated) {
                                     (lyricsState as? LyricsState.Ready)?.translatedLines?.getOrNull(idx)
@@ -417,6 +507,47 @@ fun NowPlayingBar(
                 }
             }
         }
+    }
+
+    // CROSS-02: Lyrics correction dialog
+    if (showLyricsCorrection) {
+        AlertDialog(
+            onDismissRequest = { showLyricsCorrection = false },
+            title = { Text("Fix Lyrics", style = MaterialTheme.typography.titleLarge, color = SonaraTextPrimary) },
+            text = {
+                androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "If lyrics are wrong, correct the title or artist and search again.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SonaraTextSecondary
+                    )
+                    OutlinedTextField(
+                        value = corrTitle, onValueChange = { corrTitle = it },
+                        label = { Text("Song title") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = corrArtist, onValueChange = { corrArtist = it },
+                        label = { Text("Artist") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLyricsCorrection = false
+                        onSearchCorrection?.invoke(corrTitle, corrArtist)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = p)
+                ) { Text("Search") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLyricsCorrection = false }) {
+                    Text("Cancel", color = SonaraTextSecondary)
+                }
+            }
+        )
     }
 }
 

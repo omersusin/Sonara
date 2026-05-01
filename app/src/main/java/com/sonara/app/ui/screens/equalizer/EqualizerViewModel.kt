@@ -26,7 +26,12 @@ data class EqualizerUiState(
     val availablePresets: List<Preset> = emptyList(),
     val eqActive: Boolean = false,
     val eqStrategy: String = "none",
-    val isClipping: Boolean = false
+    val isClipping: Boolean = false,
+    val isSimpleMode: Boolean = false,
+    val simpleBass: Float = 0f,
+    val simpleMids: Float = 0f,
+    val simpleTreble: Float = 0f,
+    val isAbComparing: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -36,8 +41,8 @@ data class EqualizerUiState(
             loudness == other.loudness && reverb == other.reverb && isEnabled == other.isEnabled &&
             currentPresetName == other.currentPresetName &&
             availablePresets.size == other.availablePresets.size &&
-            eqStrategy == other.eqStrategy && isClipping == other.isClipping
-
+            eqStrategy == other.eqStrategy && isClipping == other.isClipping &&
+            isSimpleMode == other.isSimpleMode && isAbComparing == other.isAbComparing
     }
     override fun hashCode() = bands.contentHashCode()
 }
@@ -45,6 +50,7 @@ data class EqualizerUiState(
 class EqualizerViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
     private var applyJob: Job? = null
+    private var abSnapshotBands: FloatArray? = null
 
     private val _uiState = MutableStateFlow(EqualizerUiState(
         eqActive = app.audioSessionManager.isInitialized,
@@ -94,7 +100,8 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setPreamp(v: Float) {
         val cl = TenBandEqualizer.clamp(v)
-        _uiState.update { it.copy(preamp = cl) }
+        val clipping = com.sonara.app.audio.engine.SafetyLimiter.wouldClip(c().bands, cl)
+        _uiState.update { it.copy(preamp = cl, isClipping = clipping) }
         debouncedApply(c().bands, c().currentPresetName, c().bassBoost, c().virtualizer, c().loudness, cl)
     }
 
@@ -153,6 +160,66 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
         }
+    }
+
+    // EQ-02: Simple mode toggle
+    fun setSimpleMode(on: Boolean) { _uiState.update { it.copy(isSimpleMode = on) } }
+
+    // EQ-09: Organic blend — adjacent bands receive a tapered coefficient
+    fun setSimpleBass(v: Float) {
+        val bands = c().bands.copyOf()
+        bands[0] = TenBandEqualizer.clamp(v)
+        bands[1] = TenBandEqualizer.clamp(v * 0.85f)
+        bands[2] = TenBandEqualizer.clamp(v * 0.55f)
+        bands[3] = TenBandEqualizer.clamp((bands[3] + v * 0.2f).coerceIn(TenBandEqualizer.MIN_LEVEL, TenBandEqualizer.MAX_LEVEL))
+        val clipping = com.sonara.app.audio.engine.SafetyLimiter.wouldClip(bands, c().preamp)
+        _uiState.update { it.copy(bands = bands, simpleBass = v, currentPresetName = "Custom", isClipping = clipping) }
+        debouncedApply(bands, "Custom", c().bassBoost, c().virtualizer, c().loudness, c().preamp)
+    }
+
+    fun setSimpleMids(v: Float) {
+        val bands = c().bands.copyOf()
+        bands[2] = TenBandEqualizer.clamp((bands[2] + v * 0.25f).coerceIn(TenBandEqualizer.MIN_LEVEL, TenBandEqualizer.MAX_LEVEL))
+        bands[3] = TenBandEqualizer.clamp(v * 0.8f)
+        bands[4] = TenBandEqualizer.clamp(v)
+        bands[5] = TenBandEqualizer.clamp(v * 0.8f)
+        bands[6] = TenBandEqualizer.clamp((bands[6] + v * 0.3f).coerceIn(TenBandEqualizer.MIN_LEVEL, TenBandEqualizer.MAX_LEVEL))
+        val clipping = com.sonara.app.audio.engine.SafetyLimiter.wouldClip(bands, c().preamp)
+        _uiState.update { it.copy(bands = bands, simpleMids = v, currentPresetName = "Custom", isClipping = clipping) }
+        debouncedApply(bands, "Custom", c().bassBoost, c().virtualizer, c().loudness, c().preamp)
+    }
+
+    fun setSimpleTreble(v: Float) {
+        val bands = c().bands.copyOf()
+        bands[5] = TenBandEqualizer.clamp((bands[5] + v * 0.2f).coerceIn(TenBandEqualizer.MIN_LEVEL, TenBandEqualizer.MAX_LEVEL))
+        bands[6] = TenBandEqualizer.clamp(v * 0.7f)
+        bands[7] = TenBandEqualizer.clamp(v * 0.9f)
+        bands[8] = TenBandEqualizer.clamp(v)
+        bands[9] = TenBandEqualizer.clamp(v * 0.85f)
+        val clipping = com.sonara.app.audio.engine.SafetyLimiter.wouldClip(bands, c().preamp)
+        _uiState.update { it.copy(bands = bands, simpleTreble = v, currentPresetName = "Custom", isClipping = clipping) }
+        debouncedApply(bands, "Custom", c().bassBoost, c().virtualizer, c().loudness, c().preamp)
+    }
+
+    // EQ-06: A/B compare — snapshot current bands, then restore on toggle off
+    fun setAbCompare(on: Boolean) {
+        if (on) {
+            abSnapshotBands = c().bands.copyOf()
+            app.applyEq(FloatArray(10), "A/B Flat", manual = false, 0, 0, 0, reverb = 0)
+        } else {
+            abSnapshotBands?.let { snap ->
+                val s = c()
+                app.applyEq(snap, s.currentPresetName, manual = false, s.bassBoost, s.virtualizer, s.loudness, s.preamp, reverb = s.reverb)
+            }
+            abSnapshotBands = null
+        }
+        _uiState.update { it.copy(isAbComparing = on) }
+    }
+
+    // EQ-08: Apply a single band value in milli-dB (used by Dolby/Dirac/Harman profiles)
+    fun setBandRaw(band: Int, valueMDb: Int) {
+        val dB = valueMDb / 100f
+        setBand(band, dB)
     }
 
     fun applyPreset(preset: Preset) {

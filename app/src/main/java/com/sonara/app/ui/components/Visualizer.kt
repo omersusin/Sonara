@@ -1,5 +1,6 @@
 package com.sonara.app.ui.components
 
+import android.media.audiofx.Visualizer
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -11,15 +12,63 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.dp
 import com.sonara.app.ui.theme.SonaraCardElevated
+import kotlin.math.log10
 import kotlin.math.sin
+
+/**
+ * Returns a FloatArray (0..1 per band) backed by android.media.audiofx.Visualizer on
+ * audioSessionId=0 (global output mix). Returns null when permission is unavailable.
+ */
+@Composable
+fun rememberSonaraVisualizerFft(barCount: Int = 32, enabled: Boolean = true): FloatArray? {
+    var fftBands by remember { mutableStateOf<FloatArray?>(null) }
+
+    DisposableEffect(enabled) {
+        if (!enabled) { fftBands = null; return@DisposableEffect onDispose {} }
+        val viz = try { Visualizer(0) } catch (_: Exception) { null }
+        if (viz == null) return@DisposableEffect onDispose {}
+
+        viz.captureSize = Visualizer.getCaptureSizeRange()[1]
+        viz.setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
+            override fun onWaveFormDataCapture(v: Visualizer, waveform: ByteArray, sr: Int) {}
+            override fun onFftDataCapture(v: Visualizer, fft: ByteArray, sr: Int) {
+                val bands = FloatArray(barCount)
+                val halfLen = fft.size / 2
+                for (b in 0 until barCount) {
+                    val start = (b.toFloat() / barCount * halfLen).toInt()
+                    val end = ((b + 1).toFloat() / barCount * halfLen).toInt().coerceAtMost(halfLen - 1)
+                    var mag = 0f
+                    for (k in start..end) {
+                        val re = fft[k * 2].toFloat()
+                        val im = if (k * 2 + 1 < fft.size) fft[k * 2 + 1].toFloat() else 0f
+                        mag += re * re + im * im
+                    }
+                    val db = if (mag > 0) 10f * log10(mag / (end - start + 1).coerceAtLeast(1)) else -80f
+                    bands[b] = ((db + 80f) / 80f).coerceIn(0f, 1f)
+                }
+                fftBands = bands
+            }
+        }, Visualizer.getMaxCaptureRate() / 2, false, true)
+        viz.enabled = true
+
+        onDispose {
+            try { viz.enabled = false; viz.release() } catch (_: Exception) {}
+        }
+    }
+
+    return fftBands
+}
 
 @Composable
 fun SonaraVisualizer(

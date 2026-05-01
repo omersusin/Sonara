@@ -206,6 +206,89 @@ fun LyricsSettingsScreen(onBack: () -> Unit = {}) {
                 }
             }
 
+            // FEAT-02: Preferred provider
+            item {
+                FluentCard {
+                    Text("Lyrics Provider", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                    Spacer(Modifier.height(8.dp))
+                    val providers = listOf(
+                        "lrclib" to "LrcLib",
+                        "betterlyrics" to "BetterLyrics (Apple Music TTML)",
+                        "simpmusic" to "SimpMusic (YouTube Music)",
+                        "kugou" to "KuGou (Chinese/Korean)",
+                    )
+                    Column(Modifier.selectableGroup()) {
+                        providers.forEach { (id, name) ->
+                            val selected = s.preferredLyricsProvider == id
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                                    .selectable(selected = selected, role = Role.RadioButton,
+                                        onClick = { vm.setPreferredLyricsProvider(id) })
+                                    .padding(vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                RadioButton(selected = selected, onClick = null,
+                                    colors = RadioButtonDefaults.colors(selectedColor = p))
+                                Text(name, style = MaterialTheme.typography.bodyMedium,
+                                    color = if (selected) p else SonaraTextPrimary)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // FEAT-05: Line spacing
+            item {
+                FluentCard {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("Line Spacing", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                        Text("${String.format("%.1f", s.lyricsLineSpacing)}x", style = MaterialTheme.typography.labelLarge, color = p)
+                    }
+                    Slider(value = s.lyricsLineSpacing, onValueChange = { vm.setLyricsLineSpacing(it) },
+                        valueRange = 1.0f..2.0f, steps = 9,
+                        colors = SliderDefaults.colors(thumbColor = p, activeTrackColor = p))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Compact", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                        Text("Spacious", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                    }
+                }
+            }
+
+            // FEAT-06: Inactive blur
+            item { FluentCard { SwitchRow("Inactive line blur", "Blur non-active lines", s.lyricsBlurInactive) { vm.setLyricsBlurInactive(it) } } }
+
+            // FEAT-07: Romanization
+            item { FluentCard { SwitchRow("Romanization (JP/KR)", "Convert Japanese/Korean to latin script", s.lyricsRomanize) { vm.setLyricsRomanize(it) } } }
+
+            // FEAT-08: Position
+            item {
+                FluentCard {
+                    Text("Lyrics Position", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                    Spacer(Modifier.height(8.dp))
+                    val positions = listOf("left" to "Left", "center" to "Center", "right" to "Right")
+                    Column(Modifier.selectableGroup()) {
+                        positions.forEach { (id, name) ->
+                            val selected = s.lyricsPosition == id
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                                    .selectable(selected = selected, role = Role.RadioButton, onClick = { vm.setLyricsPosition(id) })
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                RadioButton(selected = selected, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = p))
+                                Text(name, style = MaterialTheme.typography.bodyMedium, color = if (selected) p else SonaraTextPrimary)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // FEAT-09: Auto-scroll
+            item { FluentCard { SwitchRow("Auto-scroll", "Automatically scroll to active line", s.lyricsAutoScroll) { vm.setLyricsAutoScroll(it) } } }
+
             item { Spacer(Modifier.height(16.dp)) }
         }
     }

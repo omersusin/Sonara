@@ -3,6 +3,7 @@ package com.sonara.app.ui.screens.dashboard
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.sonara.app.SonaraApp
 import com.sonara.app.data.SonaraDatabase
 import com.sonara.app.intelligence.lyrics.LrcParser
 import com.sonara.app.intelligence.lyrics.LyricsCacheEntity
@@ -13,11 +14,13 @@ import com.sonara.app.intelligence.lyrics.ParsedLyrics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class LyricsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val dao = SonaraDatabase.get(application).lyricsCacheDao()
+    private val prefs = (application as SonaraApp).preferences
 
     private val _state = MutableStateFlow<LyricsState>(LyricsState.Idle)
     val state: StateFlow<LyricsState> = _state.asStateFlow()
@@ -30,7 +33,7 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
         if (key == loadedKey) return
         loadedKey = key
         _state.value = LyricsState.Idle
-        _state.value = LyricsState.Loading
+        _state.value = LyricsState.Loading()
 
         viewModelScope.launch {
             // Check DB cache first — preserves raw LRC/TTML for full-fidelity re-parse
@@ -40,8 +43,14 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
                 return@launch
             }
 
-            // Fetch via priority chain: LrcLib → BetterLyrics → KuGou → YouLyPlus
-            val result = LyricsHelper.getLyrics(title, artist, album, durationMs)
+            // Fetch via priority chain (order depends on user's preferred provider)
+            val preferred = prefs.preferredLyricsProviderFlow.first()
+            val result = LyricsHelper.getLyrics(title, artist, album, durationMs,
+                preferredProvider = preferred,
+                onProviderTrying = { providerName ->
+                    _state.value = LyricsState.Loading(providerName)
+                }
+            )
             if (result != null) {
                 dao.insert(LyricsCacheEntity(
                     cacheKey = key,
@@ -76,6 +85,44 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
     fun reset() {
         loadedKey = ""
         _state.value = LyricsState.Idle
+    }
+
+    /**
+     * Re-fetches lyrics with a corrected title/artist, bypassing the cache.
+     * Used by the lyrics correction dialog (CROSS-02).
+     */
+    fun searchLyricsWithCorrection(title: String, artist: String) {
+        if (title.isBlank()) return
+        val key = "${title.trim().lowercase()}|${artist.trim().lowercase()}"
+        loadedKey = key
+        _state.value = LyricsState.Loading()
+
+        viewModelScope.launch {
+            // Invalidate both old and new cache keys so we force a fresh fetch
+            LyricsHelper.invalidate(title, artist)
+
+            val result = LyricsHelper.getLyrics(title, artist,
+                onProviderTrying = { providerName ->
+                    _state.value = LyricsState.Loading(providerName)
+                }
+            )
+            if (result != null) {
+                dao.insert(LyricsCacheEntity(
+                    cacheKey     = key,
+                    syncedLyrics = result.rawSynced,
+                    plainLyrics  = result.plain,
+                    source       = result.provider
+                ))
+                val ready = if (result.parsed.lines.isNotEmpty()) {
+                    LyricsState.Ready(result.parsed, result.plain)
+                } else if (result.plain != null) {
+                    LyricsState.Ready(ParsedLyrics(emptyList(), false), result.plain)
+                } else null
+                _state.value = ready ?: LyricsState.NotFound
+            } else {
+                _state.value = LyricsState.NotFound
+            }
+        }
     }
 
     /**

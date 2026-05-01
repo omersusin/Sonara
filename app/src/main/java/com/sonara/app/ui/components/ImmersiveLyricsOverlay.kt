@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,7 +35,6 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -47,7 +47,9 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonara.app.intelligence.lyrics.LrcParser
@@ -72,9 +74,15 @@ fun ImmersiveLyricsOverlay(
     onDismiss: () -> Unit,
     onTogglePlayPause: () -> Unit = {},
     onNext: () -> Unit = {},
-    onPrevious: () -> Unit = {}
+    onPrevious: () -> Unit = {},
+    lyricsAutoScroll: Boolean = true,
+    lyricsLineSpacing: Float = 1.3f,
+    lyricsBlurInactive: Boolean = true,
+    lyricsTextAlignment: String = "center",
+    lyricsTextSizeSp: Float = 0f
 ) {
     val p = MaterialTheme.colorScheme.primary
+    val haptic = LocalHapticFeedback.current
 
     BackHandler { onDismiss() }
 
@@ -96,11 +104,8 @@ fun ImmersiveLyricsOverlay(
     val progress = if (duration > 0) (estimatedPosition.toFloat() / duration).coerceIn(0f, 1f) else 0f
 
     val readyState = lyricsState as? LyricsState.Ready
-    val activeLineIndex by remember {
-        derivedStateOf {
-            readyState?.lyrics?.lines?.let { LrcParser.activeLineIndex(it, lyricsPosition) } ?: -1
-        }
-    }
+    val activeLineIndex = readyState?.lyrics?.lines
+        ?.let { LrcParser.activeLineIndex(it, lyricsPosition) } ?: -1
 
     val listState = rememberLazyListState()
 
@@ -119,7 +124,7 @@ fun ImmersiveLyricsOverlay(
 
     // Animated scroll to keep active line centered as song progresses
     LaunchedEffect(activeLineIndex) {
-        if (activeLineIndex >= 0) {
+        if (activeLineIndex >= 0 && lyricsAutoScroll) {
             // Wait until the LazyColumn is laid out — viewportSize.height is 0 on the first frame,
             // which makes the scrollOffset positive and pushes the active line above the viewport.
             var h = listState.layoutInfo.viewportSize.height
@@ -203,7 +208,16 @@ fun ImmersiveLyricsOverlay(
                                     activeWordIndex = activeWord,
                                     estimatedPositionMs = if (isActive) lyricsPosition else 0L,
                                     animationStyle = lyricsAnimationStyle,
-                                    distanceFromActive = distanceFromActive
+                                    distanceFromActive = distanceFromActive,
+                                    lyricsLineSpacing = lyricsLineSpacing,
+                                    lyricsBlurInactive = lyricsBlurInactive,
+                                    lyricsPosition = lyricsTextAlignment,
+                                    textSizeSp = lyricsTextSizeSp,
+                                    modifier = Modifier.clickable {
+                                        val seekMs = (line.startMs - lyricsSyncOffsetMs).coerceAtLeast(0L)
+                                        SonaraNotificationListener.seekTo(seekMs)
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
                                 )
                             }
                         }

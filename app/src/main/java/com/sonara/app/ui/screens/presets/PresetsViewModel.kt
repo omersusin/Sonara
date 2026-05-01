@@ -31,6 +31,14 @@ class PresetsViewModel(application: Application) : AndroidViewModel(application)
     fun duplicatePreset(p: Preset) { viewModelScope.launch { repo.duplicate(p) } }
     fun deletePreset(p: Preset) { viewModelScope.launch { repo.delete(p) } }
 
+    fun sharePreset(p: Preset): String = p.toShareString()
+
+    fun importFromClipboard(text: String): Boolean {
+        val preset = Preset.fromShareString(text.trim()) ?: return false
+        viewModelScope.launch { repo.save(preset) }
+        return true
+    }
+
     fun filteredPresets(): List<Preset> {
         val all = _uiState.value.presets
         return when (_uiState.value.selectedFilter) {

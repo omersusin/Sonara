@@ -1,5 +1,8 @@
 package com.sonara.app.ui.screens.equalizer
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -42,9 +45,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.sonara.app.service.SonaraNotificationListener
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonara.app.audio.equalizer.TenBandEqualizer
@@ -58,12 +65,19 @@ import com.sonara.app.autoeq.AutoEqDatabase
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Compare
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.NightlightRound
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SurroundSound
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Warning
 import com.sonara.app.ui.theme.*
 import kotlin.math.roundToInt
 
@@ -129,26 +143,55 @@ fun EqualizerScreen() {
             }
         }
 
-        // Sound Profiles — quick presets
+        // Simple / Advanced mode toggle + A/B compare
         item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Simple", style = MaterialTheme.typography.labelMedium, color = if (s.isSimpleMode) p else SonaraTextTertiary)
+                    Switch(checked = !s.isSimpleMode, onCheckedChange = { vm.setSimpleMode(!it) },
+                        colors = SwitchDefaults.colors(checkedTrackColor = p.copy(0.3f), checkedThumbColor = p, uncheckedTrackColor = p.copy(0.3f), uncheckedThumbColor = p))
+                    Text("Advanced", style = MaterialTheme.typography.labelMedium, color = if (!s.isSimpleMode) p else SonaraTextTertiary)
+                }
+                val abColor by animateColorAsState(if (s.isAbComparing) SonaraWarning else SonaraTextTertiary, tween(300))
+                Surface(
+                    onClick = { vm.setAbCompare(!s.isAbComparing) },
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (s.isAbComparing) SonaraWarning.copy(0.15f) else SonaraCardElevated,
+                    border = BorderStroke(1.dp, abColor.copy(0.4f))
+                ) {
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Icon(Icons.Rounded.Compare, null, tint = abColor, modifier = Modifier.size(14.dp))
+                        Text(if (s.isAbComparing) "A/B On" else "A/B", style = MaterialTheme.typography.labelSmall, color = abColor)
+                    }
+                }
+            }
+        }
+
+        // Sound Profiles — categorized quick presets (EQ-04)
+        item {
+            data class SoundProfile(val name: String, val category: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val apply: () -> Unit)
             val profiles = listOf(
-                Triple("Flat",     Icons.Rounded.GraphicEq,    { vm.resetBands(); vm.setBassBoost(0); vm.setVirtualizer(0); vm.setLoudness(0) }),
-                Triple("Bass Boost", Icons.Rounded.GraphicEq,  { vm.setBand(0, 4f); vm.setBand(1, 3.5f); vm.setBand(2, 2f); vm.setBassBoost(600); vm.setVirtualizer(0) }),
-                Triple("Spatial",  Icons.Rounded.SurroundSound, { vm.setVirtualizer(800); vm.setBassBoost(200); vm.setLoudness(400); vm.setBand(3, 1f); vm.setBand(4, 1.5f) }),
-                Triple("Vocal",    Icons.Rounded.GraphicEq,    { vm.setBand(3, 2f); vm.setBand(4, 3f); vm.setBand(5, 2.5f); vm.setBand(6, 1.5f); vm.setBassBoost(0); vm.setVirtualizer(0) }),
-                Triple("Treble",   Icons.Rounded.GraphicEq,    { vm.setBand(6, 2.5f); vm.setBand(7, 3f); vm.setBand(8, 3.5f); vm.setBand(9, 3f); vm.setBassBoost(0) }),
-                Triple("Night",    Icons.Rounded.AutoAwesome,  { vm.setBand(0, 1f); vm.setBand(1, 0.5f); vm.setBand(6, -1f); vm.setBand(7, -2f); vm.setBand(8, -3f); vm.setLoudness(800); vm.setVirtualizer(200) })
+                SoundProfile("Flat",       "General", Icons.Rounded.GraphicEq) { vm.resetBands(); vm.setBassBoost(0); vm.setVirtualizer(0); vm.setLoudness(0) },
+                SoundProfile("Bass Boost", "General", Icons.Rounded.VolumeUp)  { vm.setBand(0, 4f); vm.setBand(1, 3.5f); vm.setBand(2, 2f); vm.setBassBoost(600); vm.setVirtualizer(0) },
+                SoundProfile("Vocal",      "Music",   Icons.Rounded.MusicNote) { vm.setBand(3, 2f); vm.setBand(4, 3f); vm.setBand(5, 2.5f); vm.setBand(6, 1.5f); vm.setBassBoost(0); vm.setVirtualizer(0) },
+                SoundProfile("Treble",     "Music",   Icons.Rounded.Tune)      { vm.setBand(6, 2.5f); vm.setBand(7, 3f); vm.setBand(8, 3.5f); vm.setBand(9, 3f); vm.setBassBoost(0) },
+                SoundProfile("Spatial",    "Usage",   Icons.Rounded.SurroundSound) { vm.setVirtualizer(800); vm.setBassBoost(200); vm.setLoudness(400); vm.setBand(3, 1f); vm.setBand(4, 1.5f) },
+                SoundProfile("Night",      "Usage",   Icons.Rounded.NightlightRound) { vm.setBand(0, 1f); vm.setBand(1, 0.5f); vm.setBand(6, -1f); vm.setBand(7, -2f); vm.setBand(8, -3f); vm.setLoudness(800); vm.setVirtualizer(200) },
+                SoundProfile("Podcast",    "Usage",   Icons.Rounded.Settings)  { vm.setBand(3, 1.5f); vm.setBand(4, 2f); vm.setBand(5, 1.5f); vm.setBand(0, -2f); vm.setBand(9, 1f); vm.setBassBoost(0) },
+                // EQ-08: Tuning-reference presets
+                SoundProfile("Harman 2019","General", Icons.Rounded.AutoAwesome) { vm.setBand(0, 4f); vm.setBand(1, 3f); vm.setBand(2, 1.5f); vm.setBand(3, 0f); vm.setBand(4, -1f); vm.setBand(5, -1.5f); vm.setBand(6, 2f); vm.setBand(7, 3.5f); vm.setBand(8, 2f); vm.setBand(9, 0f) },
+                SoundProfile("Dolby Ref",  "General", Icons.Rounded.Headphones) { vm.setBandRaw(0, 250); vm.setBandRaw(1, 200); vm.setBandRaw(2, 100); vm.setBandRaw(3, 0); vm.setBandRaw(4, -100); vm.setBandRaw(5, 0); vm.setBandRaw(6, 150); vm.setBandRaw(7, 200); vm.setBandRaw(8, 100); vm.setBandRaw(9, -50) }
             )
             FluentCard {
                 Text("Sound Profiles", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
                 Spacer(Modifier.height(10.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(profiles) { (name, icon, apply) ->
+                    items(profiles) { profile ->
                         FilterChip(
-                            selected = activeSoundProfile == name,
-                            onClick = { activeSoundProfile = name; apply() },
-                            label = { Text(name, style = MaterialTheme.typography.labelMedium) },
-                            leadingIcon = { Icon(icon, null, Modifier.size(16.dp)) },
+                            selected = activeSoundProfile == profile.name,
+                            onClick = { activeSoundProfile = profile.name; profile.apply() },
+                            label = { Text(profile.name, style = MaterialTheme.typography.labelMedium) },
+                            leadingIcon = { Icon(profile.icon, null, Modifier.size(16.dp)) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = p.copy(0.2f),
                                 selectedLabelColor = p,
@@ -158,7 +201,7 @@ fun EqualizerScreen() {
                                 iconColor = SonaraTextTertiary
                             ),
                             border = FilterChipDefaults.filterChipBorder(
-                                enabled = true, selected = activeSoundProfile == name,
+                                enabled = true, selected = activeSoundProfile == profile.name,
                                 borderColor = SonaraDivider.copy(0.3f),
                                 selectedBorderColor = p.copy(0.4f)
                             )
@@ -168,14 +211,26 @@ fun EqualizerScreen() {
             }
         }
 
-        item { FluentCard { EqCurve(bands = s.bands) } }
+        item { FluentCard { EqCurve(bands = s.bands, interactive = !s.isSimpleMode, onBandChange = { i, v -> vm.setBand(i, v) }) } }
 
+        // EQ-02: Simple mode (3-band) or Advanced (10-band)
+        if (s.isSimpleMode) {
+        item { FluentCard {
+            Text("Simple EQ", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Spacer(Modifier.height(12.dp))
+            SimpleEqRow("Bass", s.simpleBass, { vm.setSimpleBass(it) }, s.isEnabled, p)
+            Spacer(Modifier.height(8.dp))
+            SimpleEqRow("Mids", s.simpleMids, { vm.setSimpleMids(it) }, s.isEnabled, p)
+            Spacer(Modifier.height(8.dp))
+            SimpleEqRow("Treble", s.simpleTreble, { vm.setSimpleTreble(it) }, s.isEnabled, p)
+        } }
+        } else {
         item { FluentCard {
             Text("Bands", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary); Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 s.bands.take(10).forEachIndexed { i, v -> BandSlider(v, { vm.setBand(i, it) }, TenBandEqualizer.LABELS[i], enabled = s.isEnabled) }
             }
         } }
+        }
 
         item { FluentCard {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -184,6 +239,20 @@ fun EqualizerScreen() {
             }; Spacer(Modifier.height(4.dp))
             Slider(s.preamp, { vm.setPreamp(it) }, valueRange = -6f..6f, enabled = s.isEnabled,
                 colors = SliderDefaults.colors(thumbColor = p, activeTrackColor = p, inactiveTrackColor = SonaraCardElevated))
+            // EQ-01: Clipping warning
+            AnimatedVisibility(visible = s.isClipping) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = SonaraError.copy(0.15f),
+                    border = BorderStroke(1.dp, SonaraError.copy(0.5f)),
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+                ) {
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Warning, null, tint = SonaraError, modifier = Modifier.size(16.dp))
+                        Text("Gain may cause clipping — reduce preamp or bands", style = MaterialTheme.typography.labelSmall, color = SonaraError)
+                    }
+                }
+            }
         } }
 
         // ═══ AutoEQ Headphone Correction (only when headphones connected) ═══
@@ -281,6 +350,52 @@ fun EqualizerScreen() {
             }
         } }
 
+        // EQ-07: Per-app EQ card
+        item {
+            val np = com.sonara.app.service.SonaraNotificationListener.nowPlaying.collectAsState().value
+            val currentPkg = np.packageName
+            val prefs = SonaraApp.instance.preferences
+            val perAppMap by prefs.perAppEqMapFlow.collectAsState(initial = emptyMap())
+            val currentMapping = perAppMap[currentPkg] ?: ""
+            var showPerAppMenu by remember { mutableStateOf(false) }
+
+            if (currentPkg.isNotBlank()) {
+                FluentCard {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Per-App EQ", style = MaterialTheme.typography.titleSmall, color = SonaraTextSecondary)
+                            Text(currentPkg.substringAfterLast('.'), style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                        }
+                        Box {
+                            Surface(
+                                onClick = { showPerAppMenu = true },
+                                shape = MaterialTheme.shapes.small,
+                                color = SonaraCardElevated,
+                                border = BorderStroke(1.dp, SonaraDivider.copy(0.3f))
+                            ) {
+                                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(if (currentMapping.isBlank()) "None" else currentMapping, style = MaterialTheme.typography.bodySmall, color = p)
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(Icons.Rounded.ArrowDropDown, null, tint = p, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                            val scope = rememberCoroutineScope()
+                            DropdownMenu(expanded = showPerAppMenu, onDismissRequest = { showPerAppMenu = false }) {
+                                DropdownMenuItem(text = { Text("None") }, onClick = { scope.launch { prefs.setPerAppEq(currentPkg, "") }; showPerAppMenu = false })
+                                HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                                s.availablePresets.forEach { preset ->
+                                    DropdownMenuItem(
+                                        text = { Text(preset.name, color = if (preset.name == currentMapping) p else SonaraTextPrimary) },
+                                        onClick = { scope.launch { prefs.setPerAppEq(currentPkg, preset.name) }; showPerAppMenu = false }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         item { Spacer(Modifier.height(8.dp)) }
     }
 
@@ -295,6 +410,18 @@ private fun EffRow(label: String, value: Int, onChange: (Int) -> Unit, enabled: 
             Text(format(value), style = MaterialTheme.typography.labelMedium, color = if (value > 0) p else SonaraTextTertiary)
         }
         Slider(value.toFloat(), { onChange(it.toInt()) }, valueRange = 0f..max, enabled = enabled,
+            colors = SliderDefaults.colors(thumbColor = p, activeTrackColor = p, inactiveTrackColor = SonaraCardElevated))
+    }
+}
+
+@Composable
+private fun SimpleEqRow(label: String, value: Float, onChange: (Float) -> Unit, enabled: Boolean, p: Color) {
+    Column {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+            Text("${if (value >= 0) "+" else ""}${"%.1f".format(value)} dB", style = MaterialTheme.typography.labelMedium, color = if (value != 0f) p else SonaraTextTertiary)
+        }
+        Slider(value, onChange, valueRange = -12f..12f, enabled = enabled,
             colors = SliderDefaults.colors(thumbColor = p, activeTrackColor = p, inactiveTrackColor = SonaraCardElevated))
     }
 }

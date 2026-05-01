@@ -11,8 +11,9 @@ import kotlinx.coroutines.withContext
  * Provider order (first non-empty result wins):
  *   1. LrcLib     — broadest coverage, synced + plain
  *   2. BetterLyrics — Apple Music TTML (word-level when available)
- *   3. KuGou      — Mandarin / Cantonese specialization
- *   4. YouLyPlus  — multi-server fallback
+ *   3. SimpMusic  — YouTube Music TTML/LRC
+ *   4. KuGou      — Mandarin / Cantonese specialization
+ *   5. YouLyPlus  — multi-server fallback
  *
  * Raw format strings (LRC or TTML) are preserved inside [LyricsResult.rawSynced]
  * so the calling layer can persist them to Room and re-parse with full fidelity.
@@ -36,41 +37,55 @@ object LyricsHelper {
         title: String,
         artist: String,
         album: String = "",
-        durationMs: Long = 0L
+        durationMs: Long = 0L,
+        preferredProvider: String = "lrclib",
+        onProviderTrying: ((String) -> Unit)? = null
     ): LyricsResult? = withContext(Dispatchers.IO) {
         if (title.isBlank()) return@withContext null
 
         val key = cacheKey(title, artist)
         memCache.get(key)?.let { return@withContext it }
 
-        // 1. LrcLib — best coverage worldwide, returns LRC + optional plain text
-        tryLrcLib(title, artist, album, durationMs)?.let {
-            memCache.put(key, it); return@withContext it
+        data class ProviderDef(val name: String, val id: String, val fetch: suspend () -> LyricsResult?)
+
+        val allProviders = listOf(
+            ProviderDef("LrcLib", "lrclib") { tryLrcLib(title, artist, album, durationMs) },
+            ProviderDef("BetterLyrics", "betterlyrics") {
+                BetterLyricsClient.getRawLyrics(title, artist)?.let { raw ->
+                    val p = parseRaw(raw)
+                    if (p.lines.isNotEmpty() && isMeaningfulLyrics(raw)) LyricsResult(p, raw, null, "betterlyrics") else null
+                }
+            },
+            ProviderDef("SimpMusic", "simpmusic") {
+                SimpMusicClient.getRawLyrics(title, artist)?.let { raw ->
+                    val p = parseRaw(raw)
+                    if (p.lines.isNotEmpty() && isMeaningfulLyrics(raw)) LyricsResult(p, raw, null, "simpmusic") else null
+                }
+            },
+            ProviderDef("KuGou", "kugou") {
+                KuGouClient.getRawLyrics(title, artist)?.let { raw ->
+                    val p = LrcParser.parse(raw)
+                    if (p.lines.isNotEmpty() && isMeaningfulLyrics(raw)) LyricsResult(p, raw, null, "kugou") else null
+                }
+            },
+            ProviderDef("YouLyPlus", "youlyplus") {
+                YouLyPlusClient.getRawLyrics(title, artist)?.let { raw ->
+                    val p = LrcParser.parse(raw)
+                    if (p.lines.isNotEmpty() && isMeaningfulLyrics(raw)) LyricsResult(p, raw, null, "youlyplus") else null
+                }
+            }
+        )
+
+        val preferred = allProviders.firstOrNull { it.id == preferredProvider }
+        val ordered = if (preferred != null)
+            listOf(preferred) + allProviders.filter { it.id != preferredProvider }
+        else allProviders
+
+        for (provider in ordered) {
+            onProviderTrying?.invoke(provider.name)
+            tryProvider(provider.name) { provider.fetch() }
+                ?.let { memCache.put(key, it); return@withContext it }
         }
-
-        // 2. BetterLyrics — Apple Music TTML with word-level sync
-        tryProvider("BetterLyrics") {
-            BetterLyricsClient.getRawLyrics(title, artist)?.let { raw ->
-                val p = parseRaw(raw)
-                if (p.lines.isNotEmpty()) LyricsResult(p, raw, null, "betterlyrics") else null
-            }
-        }?.let { memCache.put(key, it); return@withContext it }
-
-        // 3. KuGou — Chinese lyrics specialization
-        tryProvider("KuGou") {
-            KuGouClient.getRawLyrics(title, artist)?.let { raw ->
-                val p = LrcParser.parse(raw)
-                if (p.lines.isNotEmpty()) LyricsResult(p, raw, null, "kugou") else null
-            }
-        }?.let { memCache.put(key, it); return@withContext it }
-
-        // 4. YouLyPlus — multi-server fallback
-        tryProvider("YouLyPlus") {
-            YouLyPlusClient.getRawLyrics(title, artist)?.let { raw ->
-                val p = LrcParser.parse(raw)
-                if (p.lines.isNotEmpty()) LyricsResult(p, raw, null, "youlyplus") else null
-            }
-        }?.let { memCache.put(key, it); return@withContext it }
 
         null
     }
@@ -90,6 +105,15 @@ object LyricsHelper {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private fun isMeaningfulLyrics(raw: String): Boolean {
+        val invisibleRe = Regex("""[​‌‍⁠­]""")
+        val timestampRe = Regex("""\[\d{1,2}:\d{2}(?:\.\d{1,3})?]""")
+        val normalized  = raw.replace("﻿", "").replace(invisibleRe, "").trim()
+        if (normalized.isEmpty()) return false
+        val noTs = timestampRe.replace(normalized, "").replace(invisibleRe, "").trim()
+        return noTs.any { !it.isWhitespace() && it != ' ' }
+    }
 
     private suspend fun tryLrcLib(
         title: String,

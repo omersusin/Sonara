@@ -86,7 +86,13 @@ data class SettingsUiState(
     val lyricsTextSize: Float = 14f,
     val lyricsSyncOffsetMs: Int = 0,
     val lyricsShowTranslated: Boolean = false,
-    val lyricsTargetLanguage: String = "en")
+    val lyricsTargetLanguage: String = "en",
+    val preferredLyricsProvider: String = "lrclib",
+    val lyricsLineSpacing: Float = 1.3f,
+    val lyricsBlurInactive: Boolean = true,
+    val lyricsRomanize: Boolean = false,
+    val lyricsPosition: String = "center",
+    val lyricsAutoScroll: Boolean = true)
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
@@ -173,6 +179,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.lyricsSyncOffsetFlow.collect { v -> _uiState.update { it.copy(lyricsSyncOffsetMs = v) } } }
         viewModelScope.launch { prefs.lyricsShowTranslatedFlow.collect { v -> _uiState.update { it.copy(lyricsShowTranslated = v) } } }
         viewModelScope.launch { prefs.lyricsTargetLanguageFlow.collect { v -> _uiState.update { it.copy(lyricsTargetLanguage = v) } } }
+        viewModelScope.launch { prefs.preferredLyricsProviderFlow.collect { v -> _uiState.update { it.copy(preferredLyricsProvider = v) } } }
+        viewModelScope.launch { prefs.lyricsLineSpacingFlow.collect { v -> _uiState.update { it.copy(lyricsLineSpacing = v) } } }
+        viewModelScope.launch { prefs.lyricsBlurInactiveFlow.collect { v -> _uiState.update { it.copy(lyricsBlurInactive = v) } } }
+        viewModelScope.launch { prefs.lyricsRomanizeFlow.collect { v -> _uiState.update { it.copy(lyricsRomanize = v) } } }
+        viewModelScope.launch { prefs.lyricsPositionFlow.collect { v -> _uiState.update { it.copy(lyricsPosition = v) } } }
+        viewModelScope.launch { prefs.lyricsAutoScrollFlow.collect { v -> _uiState.update { it.copy(lyricsAutoScroll = v) } } }
 
         refreshCacheSize(); checkNotificationListener(); refreshPendingScrobbles()
         _uiState.update { it.copy(personalSamples = app.personalization.getTotalSamples()) }
@@ -610,6 +622,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setLyricsTargetLanguage(code: String) {
         viewModelScope.launch { prefs.setLyricsTargetLanguage(code) }
     }
+    fun setPreferredLyricsProvider(p: String) { viewModelScope.launch { prefs.setPreferredLyricsProvider(p) } }
+    fun setLyricsLineSpacing(v: Float) { viewModelScope.launch { prefs.setLyricsLineSpacing(v) } }
+    fun setLyricsBlurInactive(v: Boolean) { viewModelScope.launch { prefs.setLyricsBlurInactive(v) } }
+    fun setLyricsRomanize(v: Boolean) { viewModelScope.launch { prefs.setLyricsRomanize(v) } }
+    fun setLyricsPosition(v: String) { viewModelScope.launch { prefs.setLyricsPosition(v) } }
+    fun setLyricsAutoScroll(v: Boolean) { viewModelScope.launch { prefs.setLyricsAutoScroll(v) } }
 
     fun setSyncInterval(value: Int) {
         viewModelScope.launch {
