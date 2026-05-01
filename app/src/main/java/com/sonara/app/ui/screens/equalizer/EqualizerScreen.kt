@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -115,17 +116,26 @@ fun EqualizerScreen() {
                                 Icon(Icons.Rounded.ArrowDropDown, null, tint = p)
                             }
                         }
-                        DropdownMenu(expanded = showPresetMenu, onDismissRequest = { showPresetMenu = false }) {
+                        DropdownMenu(
+                            expanded = showPresetMenu,
+                            onDismissRequest = { showPresetMenu = false },
+                            modifier = Modifier.heightIn(max = 320.dp)
+                        ) {
                             DropdownMenuItem(
-                                text = { Text("AI Auto", color = if (s.currentPresetName.startsWith("AI")) p else SonaraTextPrimary) },
+                                text = { Text("AI Auto", style = MaterialTheme.typography.bodyMedium, color = if (s.currentPresetName.startsWith("AI")) p else SonaraTextPrimary) },
                                 onClick = { vm.resetToAi(); showPresetMenu = false }
                             )
-                            HorizontalDivider(color = SonaraDivider.copy(0.3f))
-                            s.availablePresets.forEach { preset ->
-                                DropdownMenuItem(
-                                    text = { Text(preset.name, color = if (preset.name == s.currentPresetName) p else SonaraTextPrimary) },
-                                    onClick = { vm.applyPreset(preset); showPresetMenu = false }
-                                )
+                            if (s.availablePresets.isNotEmpty()) {
+                                HorizontalDivider(color = SonaraDivider.copy(0.3f))
+                                s.availablePresets.forEach { preset ->
+                                    DropdownMenuItem(
+                                        text = { Text(preset.name, style = MaterialTheme.typography.bodyMedium, color = if (preset.name == s.currentPresetName) p else SonaraTextPrimary) },
+                                        trailingIcon = if (preset.name == s.currentPresetName) ({
+                                            Icon(Icons.Rounded.GraphicEq, null, tint = p, modifier = Modifier.size(16.dp))
+                                        }) else null,
+                                        onClick = { vm.applyPreset(preset); showPresetMenu = false }
+                                    )
+                                }
                             }
                         }
                     }
