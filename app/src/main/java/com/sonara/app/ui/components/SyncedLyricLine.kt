@@ -3,11 +3,13 @@ package com.sonara.app.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,8 +19,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ShaderBrush
@@ -28,6 +32,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonara.app.intelligence.lyrics.LyricLine
@@ -47,23 +52,65 @@ fun SyncedLyricLine(
     animationStyle: LyricsAnimationStyle = LyricsAnimationStyle.KARAOKE,
     textSizeSp: Float = 0f,
     modifier: Modifier = Modifier,
-    distanceFromActive: Int = 0
+    distanceFromActive: Int = 0,
+    lyricsLineSpacing: Float = 1.3f,
+    lyricsBlurInactive: Boolean = true,
+    lyricsPosition: String = "center",
+    blurEnabled: Boolean = true,
+    isInstrumental: Boolean = false,
+    instrumentalProgress: () -> Float = { 0f },
+    accentColor: Color = Color.Unspecified,
+    lyricsGlowEnabled: Boolean = false
 ) {
-    val primary  = MaterialTheme.colorScheme.primary
+    val primary  = if (accentColor != Color.Unspecified) accentColor else MaterialTheme.colorScheme.primary
     val dimColor = SonaraTextSecondary.copy(alpha = 0.35f)
 
-    // Multi-singer alignment: v1 = left, v2 = right, v1000/null/bg = center
+    // Multi-singer alignment: v1 = left, v2 = right, lyricsPosition for non-agent lines
     val textAlign = when {
-        line.isBackground   -> TextAlign.Center
-        line.agent == "v1"  -> TextAlign.Start
-        line.agent == "v2"  -> TextAlign.End
-        else                -> TextAlign.Center
+        line.isBackground  -> TextAlign.Center
+        line.agent == "v1" -> TextAlign.Start
+        line.agent == "v2" -> TextAlign.End
+        lyricsPosition == "left"  -> TextAlign.Start
+        lyricsPosition == "right" -> TextAlign.End
+        else               -> TextAlign.Center
     }
     val hPad      = if (line.isBackground) 28.dp else 14.dp
     val vPad      = if (line.isBackground) 2.dp  else 3.dp
     val baseStyle = if (line.isBackground) MaterialTheme.typography.bodySmall
                    else MaterialTheme.typography.bodyLarge
-    val effectiveStyle = if (textSizeSp > 0f) baseStyle.copy(fontSize = textSizeSp.sp) else baseStyle
+    val effectiveStyle = if (textSizeSp > 0f)
+        baseStyle.copy(fontSize = textSizeSp.sp, lineHeight = (textSizeSp * lyricsLineSpacing).sp)
+    else baseStyle
+
+    // CROSS-04: Scale animation
+    val scale by animateFloatAsState(
+        targetValue  = if (isActive) 1f else 0.85f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label        = "lineScale"
+    )
+
+    // CROSS-05: Blur for inactive lines
+    val shouldBlur = lyricsBlurInactive && blurEnabled
+    val blur by animateDpAsState(
+        targetValue  = if (!shouldBlur || distanceFromActive == 0) 0.dp
+                       else (distanceFromActive * 2).coerceIn(0, 8).dp,
+        animationSpec = tween(200),
+        label        = "lineBlur"
+    )
+
+    // If this is an instrumental gap, show dots instead of text
+    if (isInstrumental && isActive) {
+        Box(
+            modifier = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad),
+            contentAlignment = Alignment.Center
+        ) {
+            DotLoadingProgress(
+                color    = primary,
+                progress = instrumentalProgress()
+            )
+        }
+        return
+    }
 
     // ── Shared sweep progress [0..1] for VIVIMUSIC / LYRICS_V2 ───────────────
     val sweepTarget = sweepTarget(line, isActive, estimatedPositionMs)
@@ -80,7 +127,9 @@ fun SyncedLyricLine(
         LyricsAnimationStyle.NONE -> {
             Text(
                 text      = line.text,
-                modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad),
+                modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
+                    .graphicsLayer { scaleX = scale; scaleY = scale }
+                    .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,
                 style     = if (isActive) effectiveStyle.copy(fontWeight = FontWeight.Bold) else effectiveStyle,
                 color     = if (isActive) SonaraTextPrimary else dimColor
@@ -97,7 +146,9 @@ fun SyncedLyricLine(
             )
             Text(
                 text      = line.text,
-                modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad).alpha(alpha),
+                modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad).alpha(alpha)
+                    .graphicsLayer { scaleX = scale; scaleY = scale }
+                    .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,
                 style     = if (isActive) effectiveStyle.copy(fontWeight = FontWeight.Bold) else effectiveStyle,
                 color     = color
@@ -106,7 +157,7 @@ fun SyncedLyricLine(
 
         // ── GLOW ─────────────────────────────────────────────────────────────
         LyricsAnimationStyle.GLOW -> {
-            val scale by animateFloatAsState(
+            val glowScale by animateFloatAsState(
                 if (isActive) 1.10f else 1f,
                 spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium),
                 label = "glow_s"
@@ -115,7 +166,8 @@ fun SyncedLyricLine(
             Text(
                 text      = line.text,
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
-                    .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
+                    .graphicsLayer { scaleX = glowScale; scaleY = glowScale; this.alpha = alpha }
+                    .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,
                 style     = if (isActive) effectiveStyle.copy(fontWeight = FontWeight.Bold) else effectiveStyle,
                 color     = if (isActive) primary else dimColor
@@ -133,7 +185,8 @@ fun SyncedLyricLine(
             Text(
                 text      = line.text,
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
-                    .graphicsLayer { translationY = offsetY; this.alpha = alpha },
+                    .graphicsLayer { translationY = offsetY; this.alpha = alpha; scaleX = scale; scaleY = scale }
+                    .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,
                 style     = if (isActive) effectiveStyle.copy(fontWeight = FontWeight.Bold) else effectiveStyle,
                 color     = if (isActive) SonaraTextPrimary else dimColor
@@ -175,7 +228,9 @@ fun SyncedLyricLine(
                 }
                 Text(
                     text      = annotated,
-                    modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad),
+                    modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
+                        .graphicsLayer { scaleX = scale; scaleY = scale }
+                        .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                     textAlign = textAlign,
                     style     = effectiveStyle
                 )
@@ -185,7 +240,9 @@ fun SyncedLyricLine(
                 )
                 Text(
                     text      = line.text,
-                    modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad),
+                    modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
+                        .graphicsLayer { scaleX = scale; scaleY = scale }
+                        .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                     textAlign = textAlign,
                     style     = if (isActive) effectiveStyle.copy(fontWeight = FontWeight.Bold) else effectiveStyle,
                     color     = color
@@ -210,7 +267,7 @@ fun SyncedLyricLine(
                 distanceFromActive == 1 -> FontWeight.Medium
                 else -> FontWeight.Light
             }
-            val scale by animateFloatAsState(
+            val appleScale by animateFloatAsState(
                 targetScale,
                 spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow),
                 label = "apple_s"
@@ -219,7 +276,8 @@ fun SyncedLyricLine(
             Text(
                 text = line.text,
                 modifier = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp)
-                    .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
+                    .graphicsLayer { scaleX = appleScale; scaleY = appleScale; this.alpha = alpha }
+                    .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,
                 style = effectiveStyle.copy(fontWeight = targetWeight),
                 color = if (isActive) SonaraTextPrimary else dimColor
@@ -243,7 +301,7 @@ fun SyncedLyricLine(
                 distanceFromActive == 1 -> FontWeight.Medium
                 else -> FontWeight.Light
             }
-            val scale by animateFloatAsState(
+            val apple2Scale by animateFloatAsState(
                 targetScale,
                 spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow),
                 label = "apple2_s"
@@ -252,7 +310,8 @@ fun SyncedLyricLine(
             Text(
                 text = line.text,
                 modifier = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp)
-                    .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
+                    .graphicsLayer { scaleX = apple2Scale; scaleY = apple2Scale; this.alpha = alpha }
+                    .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,
                 style = effectiveStyle.copy(
                     fontWeight = targetWeight,
@@ -270,14 +329,15 @@ fun SyncedLyricLine(
             val alpha by animateFloatAsState(
                 if (isActive) 1f else 0.45f, tween(400), label = "vivi_a"
             )
-            val scale by animateFloatAsState(
+            val viviScale by animateFloatAsState(
                 if (isActive) 1.05f else 1f, tween(400), label = "vivi_s"
             )
             val brush = sweepBrush(sweep, primary, dimColor, soft = 0.03f)
             Text(
                 text      = line.text,
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp)
-                    .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
+                    .graphicsLayer { scaleX = viviScale; scaleY = viviScale; this.alpha = alpha }
+                    .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,
                 style     = effectiveStyle.copy(
                     brush      = brush,
@@ -308,7 +368,8 @@ fun SyncedLyricLine(
             Text(
                 text      = line.text,
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
-                    .graphicsLayer { translationY = offsetY; this.alpha = alpha },
+                    .graphicsLayer { translationY = offsetY; this.alpha = alpha; scaleX = scale; scaleY = scale }
+                    .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,
                 style     = if (isActive) effectiveStyle.copy(
                     brush      = brush,
@@ -321,7 +382,7 @@ fun SyncedLyricLine(
         // ── METRO ─────────────────────────────────────────────────────────────
         // Metro tile: pulsing background swatch + FontWeight.Black + fast scale pop.
         LyricsAnimationStyle.METRO -> {
-            val scale by animateFloatAsState(
+            val metroScale by animateFloatAsState(
                 if (isActive) 1.07f else 1f, tween(140), label = "metro_s"
             )
             val bgAlpha by animateFloatAsState(
@@ -333,11 +394,12 @@ fun SyncedLyricLine(
                     .padding(horizontal = 6.dp, vertical = 2.dp)
                     .background(primary.copy(alpha = bgAlpha), RoundedCornerShape(6.dp))
                     .padding(horizontal = hPad - 6.dp, vertical = 5.dp)
+                    .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier)
             ) {
                 Text(
                     text      = line.text,
                     modifier  = Modifier.fillMaxWidth()
-                        .graphicsLayer { scaleX = scale; scaleY = scale },
+                        .graphicsLayer { scaleX = metroScale; scaleY = metroScale },
                     textAlign = textAlign,
                     style     = effectiveStyle.copy(
                         fontWeight    = if (isActive) FontWeight.Black else FontWeight.Normal,

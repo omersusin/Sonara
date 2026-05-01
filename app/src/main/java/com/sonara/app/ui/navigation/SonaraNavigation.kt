@@ -35,6 +35,7 @@ import com.sonara.app.ui.screens.insights.TopArtistsListScreen
 import com.sonara.app.ui.screens.insights.TopTracksListScreen
 import com.sonara.app.ui.screens.insights.TopAlbumsListScreen
 import com.sonara.app.ui.screens.settings.AboutSettingsScreen
+import com.sonara.app.ui.screens.settings.PrivacyScreen
 import com.sonara.app.ui.screens.settings.AppPickerScreen
 import com.sonara.app.ui.screens.settings.BackupSettingsScreen
 import com.sonara.app.ui.screens.settings.BehaviorSettingsScreen
@@ -91,6 +92,7 @@ sealed class Screen(val route: String, val label: String) {
         fun createRoute(name: String) = "similar_artists/${java.net.URLEncoder.encode(name, "UTF-8")}"
     }
     data object HearTheDifference : Screen("hear_the_diff", "Hear The Difference")
+    data object SettingsPrivacy : Screen("settings_privacy", "Privacy & Permissions")
 }
 
 @Composable
@@ -157,11 +159,13 @@ fun SonaraNavigation() {
                     onNavigateBackup = { navController.navigate(Screen.SettingsBackup.route) },
                     onNavigateAbout = { navController.navigate(Screen.SettingsAbout.route) },
                     onNavigateLyrics = { navController.navigate(Screen.SettingsLyrics.route) },
+                    onNavigatePrivacy = { navController.navigate(Screen.SettingsPrivacy.route) },
                     onOpenDebugLog = { navController.navigate(Screen.DebugLog.route) },
                     onOpenPipelineDebug = { navController.navigate(Screen.DebugPipeline.route) },
                     onOpenAppPicker = { navController.navigate(Screen.AppPicker.route) }
                 )
             }
+            composable(Screen.SettingsPrivacy.route) { PrivacyScreen(onBack = { navController.popBackStack() }) }
             composable(Screen.AppPicker.route) { AppPickerScreen(onBack = { navController.popBackStack() }) }
             composable(Screen.SettingsLookAndFeel.route) { LookAndFeelSettingsScreen(onBack = { navController.popBackStack() }) }
             composable(Screen.SettingsBehavior.route) {

@@ -132,8 +132,32 @@ private fun PermissionsPage(
                 notifGranted = SonaraNotificationListener.isEnabled(ctx)
             }
         }
+        var showPrivacyDialog by remember { mutableStateOf(false) }
+        if (showPrivacyDialog) {
+            AlertDialog(
+                onDismissRequest = { showPrivacyDialog = false },
+                containerColor = SonaraCard,
+                title = { Text("What Sonara reads") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Sonara only reads music session metadata:", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                        Text("• Song title, artist, album\n• Playback state (playing/paused)\n• Track duration & position", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        Text("Sonara never reads notification content, message text, or any non-music data.", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        showPrivacyDialog = false
+                        ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    }) { Text("Understood, Continue") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPrivacyDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
         OutlinedButton(
-            onClick = { if (!notifGranted) ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+            onClick = { if (!notifGranted) showPrivacyDialog = true },
             modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
             colors = ButtonDefaults.outlinedButtonColors(contentColor = if (notifGranted) SonaraSuccess else p)
         ) {

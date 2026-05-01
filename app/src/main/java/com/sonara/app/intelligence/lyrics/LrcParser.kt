@@ -104,10 +104,13 @@ object LrcParser {
      */
     fun activeLineIndex(lines: List<LyricLine>, positionMs: Long): Int {
         if (lines.isEmpty()) return -1
-        for (i in lines.indices) {
-            if (lines[i].startMs >= positionMs + 300L) return i - 1
+        val target = positionMs + 300L
+        var low = 0; var high = lines.lastIndex
+        while (low <= high) {
+            val mid = (low + high).ushr(1)
+            if (lines[mid].startMs < target) low = mid + 1 else high = mid - 1
         }
-        return lines.lastIndex
+        return high.coerceIn(0, lines.lastIndex)
     }
 
     /** Active word index within a line for given position */

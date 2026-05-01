@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Tune
@@ -101,6 +102,7 @@ fun SettingsScreen(
     onNavigateBackup: () -> Unit = {},
     onNavigateAbout: () -> Unit = {},
     onNavigateLyrics: () -> Unit = {},
+    onNavigatePrivacy: () -> Unit = {},
     // Legacy params kept for backward compat (unused)
     onOpenDebugLog: () -> Unit = {},
     onOpenPipelineDebug: () -> Unit = {},
@@ -123,6 +125,7 @@ fun SettingsScreen(
         item { SettingsCategoryCard(Icons.Rounded.Notifications, "Notifications", "Persistent notification settings", onNavigateNotifications) }
         item { SettingsCategoryCard(Icons.Rounded.History, "Backup & Restore", "Export presets, clear cache", onNavigateBackup) }
         item { SettingsCategoryCard(Icons.Rounded.Info, "About", "Version, developer tools", onNavigateAbout) }
+        item { SettingsCategoryCard(Icons.Rounded.Key, "Privacy & Permissions", "What Sonara reads, data storage", onNavigatePrivacy) }
         item { Spacer(Modifier.height(16.dp)) }
     }
 }
