@@ -72,7 +72,14 @@ data class InsightsUiState(
     val trackListeners: String = "",
     val trackPlaycount: String = "",
     val trackDuration: String = "",
-    val trackTags: List<String> = emptyList()
+    val trackTags: List<String> = emptyList(),
+    // PANO-03: Surprise discovery
+    val surpriseTrack: TopTrackItem? = null,
+    val surpriseArtist: Triple<String, String, String>? = null,
+    val surpriseType: String = "",
+    // PANO-05: Monthly timeline
+    val monthlyTimeline: List<Pair<String, Int>> = emptyList(),
+    val monthlyTimelineLoading: Boolean = false
 )
 
 data class TopTrackItem(val title: String, val artist: String, val plays: String, val imageUrl: String = "")
@@ -290,6 +297,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 loadWeeklyCharts()
                 loadDailyChart()
                 loadFriends()
+                loadMonthlyTimeline()
             }
         }
     }
@@ -505,6 +513,62 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 } ?: emptyList()
                 _uiState.update { it.copy(friends = items) }
             } catch (_: Exception) {}
+        }
+    }
+
+    fun rollSurprise() {
+        val st = _uiState.value
+        val useTrack = (0..1).random() == 0
+        if (useTrack && st.topTracks.isNotEmpty()) {
+            _uiState.update { it.copy(
+                surpriseTrack = st.topTracks.random(),
+                surpriseArtist = null,
+                surpriseType = "track"
+            ) }
+        } else if (st.topArtists.isNotEmpty()) {
+            _uiState.update { it.copy(
+                surpriseArtist = st.topArtists.random(),
+                surpriseTrack = null,
+                surpriseType = "artist"
+            ) }
+        }
+    }
+
+    fun loadMonthlyTimeline() {
+        val user = _uiState.value.lastFmUsername
+        val key = app.lastFmAuth.getActiveApiKey()
+        val regUnix = _uiState.value.registeredUnix
+        if (user.isBlank() || key.isBlank() || regUnix <= 0) return
+
+        _uiState.update { it.copy(monthlyTimelineLoading = true) }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val sdf = java.text.SimpleDateFormat("MMM yy", java.util.Locale.getDefault())
+                val iterCal = java.util.Calendar.getInstance()
+                val months = mutableListOf<Triple<Long, Long, String>>()
+                repeat(12) {
+                    val end = iterCal.timeInMillis / 1000
+                    iterCal.set(java.util.Calendar.DAY_OF_MONTH, 1)
+                    iterCal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                    iterCal.set(java.util.Calendar.MINUTE, 0)
+                    iterCal.set(java.util.Calendar.SECOND, 0)
+                    val start = iterCal.timeInMillis / 1000
+                    val label = sdf.format(iterCal.time)
+                    months.add(0, Triple(start, end, label))
+                    iterCal.add(java.util.Calendar.MONTH, -1)
+                }
+                val timeline = months.map { (from, to, label) ->
+                    val count = runCatching {
+                        LastFmClient.api.getRecentTracksRange(user, key, from = from, to = to, limit = 1)
+                            .recenttracks?.attr?.total?.toIntOrNull() ?: 0
+                    }.getOrDefault(0)
+                    label to count
+                }
+                _uiState.update { it.copy(monthlyTimeline = timeline, monthlyTimelineLoading = false) }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(monthlyTimelineLoading = false) }
+            }
         }
     }
 }

@@ -32,6 +32,7 @@ import com.sonara.app.ui.screens.insights.RecentTracksScreen
 import com.sonara.app.ui.screens.insights.TrackDetailScreen
 import com.sonara.app.ui.screens.insights.CollageScreen
 import com.sonara.app.ui.screens.insights.InsightsScreen
+import com.sonara.app.ui.screens.insights.TrackScrobbleHistoryScreen
 import com.sonara.app.ui.screens.insights.TopArtistsListScreen
 import com.sonara.app.ui.screens.insights.TopTracksListScreen
 import com.sonara.app.ui.screens.insights.TopAlbumsListScreen
@@ -96,6 +97,10 @@ sealed class Screen(val route: String, val label: String) {
     data object HearTheDifference : Screen("hear_the_diff", "Hear The Difference")
     data object SettingsPrivacy : Screen("settings_privacy", "Privacy & Permissions")
     data object LovedTracksList : Screen("loved_tracks_list", "Loved Tracks")
+    data object TrackScrobbleHistory : Screen("track_scrobble_history/{title}/{artist}", "Scrobble History") {
+        fun createRoute(title: String, artist: String) =
+            "track_scrobble_history/${java.net.URLEncoder.encode(title, "UTF-8")}/${java.net.URLEncoder.encode(artist, "UTF-8")}"
+    }
 }
 
 @Composable
@@ -257,7 +262,17 @@ fun SonaraNavigation() {
                     onArtistClick = { name ->
                         navController.navigate(Screen.ArtistDetail.createRouteWithTrack(name, title))
                     },
-                    onTrackClick = { t, a -> navController.navigate(Screen.TrackDetail.createRoute(t, a)) }
+                    onTrackClick = { t, a -> navController.navigate(Screen.TrackDetail.createRoute(t, a)) },
+                    onSeeAllScrobbles = { navController.navigate(Screen.TrackScrobbleHistory.createRoute(title, artist)) }
+                )
+            }
+            composable(Screen.TrackScrobbleHistory.route) { entry ->
+                val title = java.net.URLDecoder.decode(entry.arguments?.getString("title") ?: "", "UTF-8")
+                val artist = java.net.URLDecoder.decode(entry.arguments?.getString("artist") ?: "", "UTF-8")
+                TrackScrobbleHistoryScreen(
+                    trackTitle = title,
+                    trackArtist = artist,
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.ArtistDiscography.route) { entry ->

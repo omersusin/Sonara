@@ -74,7 +74,8 @@ fun TrackDetailScreen(
     trackArtist: String,
     onBack: () -> Unit,
     onArtistClick: (String) -> Unit = {},
-    onTrackClick: (String, String) -> Unit = { _, _ -> }
+    onTrackClick: (String, String) -> Unit = { _, _ -> },
+    onSeeAllScrobbles: () -> Unit = {}
 ) {
     val ctx = LocalContext.current
     val p = MaterialTheme.colorScheme.primary
@@ -258,6 +259,22 @@ fun TrackDetailScreen(
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+
+                // ── Scrobble history button ───────────────────────────────────────
+                if (userPlaycount.isNotBlank()) {
+                    item {
+                        androidx.compose.material3.TextButton(
+                            onClick = onSeeAllScrobbles,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                "View all my scrobbles →",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = p
+                            )
                         }
                     }
                 }

@@ -28,6 +28,7 @@ import com.sonara.app.intelligence.lastfm.LastFmAuthManager
 import com.sonara.app.intelligence.lastfm.LoveStateCache
 import com.sonara.app.intelligence.lastfm.PendingLoveQueue
 import com.sonara.app.intelligence.lastfm.ScrobbleWorker
+import com.sonara.app.intelligence.lastfm.SonaraDigestWorker
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.intelligence.pipeline.*
 import com.sonara.app.media.NextTrackPreloader
@@ -111,6 +112,8 @@ class SonaraApp : Application() {
         personalization = PersonalizationEngine(this)
         appScope.launch { personalization.load() }
         ScrobbleWorker.schedule(this)
+        SonaraDigestWorker.createChannel(this)
+        SonaraDigestWorker.schedule(this)
         appScope.launch { preferences.smoothTransitionsFlow.collect { cachedSmoothTransitions = it } }
         appScope.launch { preferences.autoEqEnabledFlow.collect { cachedAutoEqEnabled = it } }
         appScope.launch { preferences.safetyLimiterFlow.collect { cachedSafetyLimiter = it } }
