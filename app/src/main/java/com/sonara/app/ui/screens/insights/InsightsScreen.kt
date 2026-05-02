@@ -60,9 +60,11 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.theme.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import java.text.NumberFormat
 import java.util.Locale
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun InsightsScreen(
     onArtistClick: (String) -> Unit = {},
@@ -475,7 +477,7 @@ fun InsightsScreen(
                         s.dailyScrobbleChart.forEach { (day, count) ->
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 val fraction = count.toFloat() / maxVal
-                                Box(Modifier.width(28.dp).fillMaxHeight(fraction)
+                                Box(Modifier.width(28.dp).height(120.dp * fraction)
                                     .background(MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)))
                                 Spacer(Modifier.height(4.dp))
                                 Text(day, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

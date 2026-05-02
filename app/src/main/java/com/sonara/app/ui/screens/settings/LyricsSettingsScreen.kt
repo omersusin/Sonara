@@ -313,11 +313,11 @@ fun LyricsSettingsScreen(onBack: () -> Unit = {}) {
                             .forEach { (id, label) ->
                                 val selected = s.lyricsBackground == id
                                 Row(
-                                    Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth()
                                         .selectable(selected, role = Role.RadioButton) { vm.setLyricsBackground(id) }
                                         .padding(vertical = 8.dp),
-                                    Alignment.CenterVertically,
-                                    Arrangement.spacedBy(12.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     RadioButton(selected, null, colors = RadioButtonDefaults.colors(selectedColor = p))
                                     Text(label, style = MaterialTheme.typography.bodyMedium, color = if (selected) p else SonaraTextPrimary)
