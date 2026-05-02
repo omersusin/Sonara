@@ -1,6 +1,8 @@
 package com.sonara.app.ui.screens.insights
 
 import android.graphics.Bitmap
+import android.graphics.Paint
+import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -66,6 +68,7 @@ import coil.request.ImageRequest
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.theme.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.ui.graphics.nativeCanvas
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -715,11 +718,11 @@ internal fun TagCloudCard(genres: Map<String, Int>, p: Color) {
                             drawIntoCanvas { c ->
                                 c.nativeCanvas.drawText(
                                     genre, tx, ty + textHeight * 0.85f,
-                                    android.graphics.Paint().apply {
+                                    Paint().apply {
                                         this.color = color.toArgb()
                                         textSize = textPx
                                         isAntiAlias = true
-                                        typeface = if (fraction > 0.5f) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+                                        typeface = if (fraction > 0.5f) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
                                     }
                                 )
                             }
