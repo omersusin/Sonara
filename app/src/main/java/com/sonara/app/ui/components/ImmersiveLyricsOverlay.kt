@@ -52,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -66,7 +67,10 @@ import com.sonara.app.intelligence.lyrics.LyricsState
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.screens.share.LyricsShareScreen
 import kotlin.math.abs
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun ImmersiveLyricsOverlay(
@@ -89,7 +93,8 @@ fun ImmersiveLyricsOverlay(
     lyricsBlurInactive: Boolean = true,
     lyricsTextAlignment: String = "center",
     lyricsTextSizeSp: Float = 0f,
-    onSearchCorrection: ((String, String) -> Unit)? = null
+    onSearchCorrection: ((String, String) -> Unit)? = null,
+    lyricsBackground: String = "solid"
 ) {
     val p = MaterialTheme.colorScheme.primary
     val haptic = LocalHapticFeedback.current
@@ -136,9 +141,7 @@ fun ImmersiveLyricsOverlay(
     // Snap to current line instantly when overlay opens (no animation, avoids layout-not-ready race)
     LaunchedEffect(Unit) {
         if (activeLineIndex >= 0) {
-            // Wait for the LazyColumn to be laid out before scrolling
-            var h = listState.layoutInfo.viewportSize.height
-            while (h == 0) { delay(16L); h = listState.layoutInfo.viewportSize.height }
+            val h = snapshotFlow { listState.layoutInfo.viewportSize.height }.filter { it > 0 }.first()
             listState.scrollToItem(
                 index = (activeLineIndex - 1).coerceAtLeast(0),
                 scrollOffset = -(h / 2) + 60
@@ -149,10 +152,7 @@ fun ImmersiveLyricsOverlay(
     // Animated scroll to keep active line centered as song progresses
     LaunchedEffect(activeLineIndex) {
         if (activeLineIndex >= 0 && lyricsAutoScroll && !hasUserScrolled) {
-            // Wait until the LazyColumn is laid out — viewportSize.height is 0 on the first frame,
-            // which makes the scrollOffset positive and pushes the active line above the viewport.
-            var h = listState.layoutInfo.viewportSize.height
-            while (h == 0) { delay(16L); h = listState.layoutInfo.viewportSize.height }
+            val h = snapshotFlow { listState.layoutInfo.viewportSize.height }.filter { it > 0 }.first()
             listState.animateScrollToItem(
                 index = activeLineIndex,
                 scrollOffset = -(h / 2) + 60
@@ -174,16 +174,44 @@ fun ImmersiveLyricsOverlay(
                 )
             }
     ) {
-        // Blurred album art background
-        if (albumArt != null) {
-            Image(
-                bitmap = albumArt.asImageBitmap(),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize().blur(24.dp),
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            Box(Modifier.fillMaxSize().background(Color(0xFF0A0A0A)))
+        // Background based on style setting
+        when (lyricsBackground) {
+            "gradient" -> {
+                val bgColor = if (albumArt != null) {
+                    // Use a dark base with accent tint
+                    Color(0xFF0A0A0A)
+                } else Color(0xFF0A0A0A)
+                Box(Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(listOf(bgColor.copy(0.4f), Color.Black))
+                ))
+            }
+            "album_art_blur" -> {
+                if (albumArt != null) {
+                    Image(
+                        bitmap = albumArt.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize().blur(25.dp),
+                        contentScale = ContentScale.Crop,
+                        alpha = 0.35f
+                    )
+                    Box(Modifier.fillMaxSize().background(Color.Black.copy(0.55f)))
+                } else {
+                    Box(Modifier.fillMaxSize().background(Color(0xFF0A0A0A)))
+                }
+            }
+            else -> {
+                // "solid" (default) — keep existing behavior
+                if (albumArt != null) {
+                    Image(
+                        bitmap = albumArt.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize().blur(24.dp),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(Modifier.fillMaxSize().background(Color(0xFF0A0A0A)))
+                }
+            }
         }
 
         // Dark overlay

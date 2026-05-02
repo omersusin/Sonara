@@ -39,6 +39,7 @@ import com.sonara.app.intelligence.lyrics.LyricLine
 import com.sonara.app.intelligence.lyrics.LyricsAnimationStyle
 import com.sonara.app.ui.theme.SonaraTextPrimary
 import com.sonara.app.ui.theme.SonaraTextSecondary
+import com.sonara.app.ui.theme.glow
 
 // Duration for the timed sweep fallback when no word timestamps are available
 private const val LINE_SWEEP_MS = 3500f
@@ -64,6 +65,10 @@ fun SyncedLyricLine(
 ) {
     val primary  = if (accentColor != Color.Unspecified) accentColor else MaterialTheme.colorScheme.primary
     val dimColor = SonaraTextSecondary.copy(alpha = 0.35f)
+
+    val glowMod = if (isActive && lyricsGlowEnabled && accentColor != Color.Unspecified)
+        Modifier.glow(color = accentColor.copy(alpha = 0.35f), radius = 12.dp)
+    else Modifier
 
     // Multi-singer alignment: v1 = left, v2 = right, lyricsPosition for non-agent lines
     val textAlign = when {
@@ -128,6 +133,7 @@ fun SyncedLyricLine(
             Text(
                 text      = line.text,
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
+                    .then(glowMod)
                     .graphicsLayer { scaleX = scale; scaleY = scale }
                     .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,
@@ -147,6 +153,7 @@ fun SyncedLyricLine(
             Text(
                 text      = line.text,
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad).alpha(alpha)
+                    .then(glowMod)
                     .graphicsLayer { scaleX = scale; scaleY = scale }
                     .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,
@@ -185,6 +192,7 @@ fun SyncedLyricLine(
             Text(
                 text      = line.text,
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
+                    .then(glowMod)
                     .graphicsLayer { translationY = offsetY; this.alpha = alpha; scaleX = scale; scaleY = scale }
                     .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,

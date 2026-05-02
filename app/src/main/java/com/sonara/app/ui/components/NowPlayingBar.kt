@@ -85,7 +85,10 @@ import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.theme.*
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -206,8 +209,7 @@ fun NowPlayingBar(
     // Snap to active line when lyrics panel is first opened
     LaunchedEffect(lyricsExpanded) {
         if (lyricsExpanded && activeLineIndex >= 0) {
-            var h = lyricsListState.layoutInfo.viewportSize.height
-            while (h == 0) { delay(16L); h = lyricsListState.layoutInfo.viewportSize.height }
+            val h = snapshotFlow { lyricsListState.layoutInfo.viewportSize.height }.filter { it > 0 }.first()
             lyricsListState.scrollToItem(
                 index = (activeLineIndex - 1).coerceAtLeast(0),
                 scrollOffset = -(h / 2) + 40

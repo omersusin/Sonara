@@ -30,6 +30,7 @@ import com.sonara.app.ui.screens.insights.ListeningActivityScreen
 import com.sonara.app.ui.screens.insights.SimilarArtistsScreen
 import com.sonara.app.ui.screens.insights.RecentTracksScreen
 import com.sonara.app.ui.screens.insights.TrackDetailScreen
+import com.sonara.app.ui.screens.insights.CollageScreen
 import com.sonara.app.ui.screens.insights.InsightsScreen
 import com.sonara.app.ui.screens.insights.TopArtistsListScreen
 import com.sonara.app.ui.screens.insights.TopTracksListScreen
@@ -278,6 +279,14 @@ fun SonaraNavigation() {
             composable(Screen.ListeningActivity.route) { ListeningActivityScreen(onBack = { navController.popBackStack() }) }
             composable(Screen.DebugLog.route) { DebugLogScreen(onBack = { navController.popBackStack() }) }
             composable(Screen.DebugPipeline.route) { DebugPipelineScreen() }
+            composable("collage") {
+                val vm: com.sonara.app.ui.screens.insights.InsightsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val s by vm.uiState.collectAsState()
+                CollageScreen(
+                    albums = s.topAlbums.map { Triple(it.name, it.artist, it.imageUrl) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }

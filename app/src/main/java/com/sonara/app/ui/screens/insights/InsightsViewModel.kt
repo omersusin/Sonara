@@ -55,12 +55,31 @@ data class InsightsUiState(
     val peakHour: Int = -1,
     val heatmap: Map<String, Int> = emptyMap(),
     val selectedPeriodLabel: String = "All Time",
-    val discoveryRate: Int = 0
+    val discoveryRate: Int = 0,
+    // INSIGHT-01: Loved tracks
+    val lovedTracks: List<LovedTrackDisplayItem> = emptyList(),
+    val lovedTracksLoading: Boolean = false,
+    // INSIGHT-02: Top genres/tags
+    val topGenres: List<Pair<String, Int>> = emptyList(),
+    // INSIGHT-03: Weekly charts
+    val weeklyArtists: List<Triple<String, String, String>> = emptyList(),
+    val weeklyAlbums: List<Triple<String, String, String>> = emptyList(),
+    // INSIGHT-04: Daily activity chart
+    val dailyScrobbleChart: List<Pair<String, Int>> = emptyList(),
+    // INSIGHT-05: Friends
+    val friends: List<FriendItem> = emptyList(),
+    // INSIGHT-07: Track details
+    val trackListeners: String = "",
+    val trackPlaycount: String = "",
+    val trackDuration: String = "",
+    val trackTags: List<String> = emptyList()
 )
 
 data class TopTrackItem(val title: String, val artist: String, val plays: String, val imageUrl: String = "")
 data class TopAlbumItem(val name: String, val artist: String, val plays: String, val imageUrl: String = "")
 data class RecentTrackItem(val title: String, val artist: String, val album: String, val imageUrl: String, val isNowPlaying: Boolean, val date: String, val uts: Long = 0L)
+data class LovedTrackDisplayItem(val title: String, val artist: String, val date: String, val url: String)
+data class FriendItem(val name: String, val realname: String, val playcount: String, val imageUrl: String)
 
 class InsightsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
@@ -264,6 +283,13 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                     }.awaitAll()
                     if (genreMap.isNotEmpty()) _uiState.update { it.copy(genreDistribution = genreMap) }
                 } catch (_: Exception) {}
+
+                // Load new insight data
+                loadLovedTracks()
+                loadTopGenres()
+                loadWeeklyCharts()
+                loadDailyChart()
+                loadFriends()
             }
         }
     }
@@ -389,6 +415,95 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                     } catch (_: Exception) {}
                 }
                 if (genreMap.isNotEmpty()) _uiState.update { it.copy(genreDistribution = genreMap) }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun loadLovedTracks() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(lovedTracksLoading = true) }
+            try {
+                val username = _uiState.value.lastFmUsername
+                if (username.isBlank()) { _uiState.update { it.copy(lovedTracksLoading = false) }; return@launch }
+                val apiKey = app.lastFmAuth.getActiveApiKey()
+                if (apiKey.isBlank()) { _uiState.update { it.copy(lovedTracksLoading = false) }; return@launch }
+                val resp = LastFmClient.api.getLovedTracks(username, apiKey)
+                val sdf = java.text.SimpleDateFormat("MMM d", java.util.Locale.US)
+                val items = resp.lovedtracks?.track?.map { t ->
+                    LovedTrackDisplayItem(t.name ?: "", t.artist?.name ?: "",
+                        t.date?.uts?.toLongOrNull()?.let { ts -> sdf.format(java.util.Date(ts * 1000)) } ?: "",
+                        t.url ?: "")
+                } ?: emptyList()
+                _uiState.update { it.copy(lovedTracks = items, lovedTracksLoading = false) }
+            } catch (_: Exception) { _uiState.update { it.copy(lovedTracksLoading = false) } }
+        }
+    }
+
+    fun loadTopGenres() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val username = _uiState.value.lastFmUsername
+                val apiKey = app.lastFmAuth.getActiveApiKey()
+                if (username.isBlank() || apiKey.isBlank()) return@launch
+                val resp = LastFmClient.api.getUserTopTags(username, apiKey)
+                val tags = resp.toptags?.tag?.map { (it.name ?: "") to (it.count?.toIntOrNull() ?: 0) }
+                    ?.filter { it.first.isNotBlank() } ?: emptyList()
+                _uiState.update { it.copy(topGenres = tags) }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun loadWeeklyCharts() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val user = _uiState.value.lastFmUsername
+                val key = app.lastFmAuth.getActiveApiKey()
+                if (user.isBlank() || key.isBlank()) return@launch
+                val artists = LastFmClient.api.getWeeklyArtistChart(user, key)
+                    .weeklyartistchart?.artist?.map { Triple(it.name ?: "", it.playcount ?: "0", "") } ?: emptyList()
+                val albums = LastFmClient.api.getWeeklyAlbumChart(user, key)
+                    .weeklyalbumchart?.album?.map { Triple(it.name ?: "", it.playcount ?: "0", it.artist?.text ?: "") } ?: emptyList()
+                _uiState.update { it.copy(weeklyArtists = artists, weeklyAlbums = albums) }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun loadDailyChart() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val user = _uiState.value.lastFmUsername
+                val key = app.lastFmAuth.getActiveApiKey()
+                if (user.isBlank() || key.isBlank()) return@launch
+                val now = System.currentTimeMillis() / 1000
+                val weekAgo = now - 7 * 86400
+                val resp = LastFmClient.api.getRecentTracksRange(user, key, from = weekAgo, to = now, limit = 200)
+                val tracks = resp.recenttracks?.track ?: emptyList()
+                val dayNames = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+                val cal = java.util.Calendar.getInstance()
+                val counts = IntArray(7)
+                tracks.forEach { t ->
+                    val uts = t.date?.uts?.toLongOrNull() ?: return@forEach
+                    cal.timeInMillis = uts * 1000
+                    counts[cal.get(java.util.Calendar.DAY_OF_WEEK) - 1]++
+                }
+                val chart = dayNames.mapIndexed { i, name -> name to counts[i] }
+                _uiState.update { it.copy(dailyScrobbleChart = chart) }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun loadFriends() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val user = _uiState.value.lastFmUsername
+                val key = app.lastFmAuth.getActiveApiKey()
+                if (user.isBlank() || key.isBlank()) return@launch
+                val resp = LastFmClient.api.getFriends(user, key)
+                val items = resp.friends?.user?.map { u ->
+                    FriendItem(u.name ?: "", u.realname ?: "", u.playcount ?: "0",
+                        u.image?.lastOrNull()?.text ?: "")
+                } ?: emptyList()
+                _uiState.update { it.copy(friends = items) }
             } catch (_: Exception) {}
         }
     }

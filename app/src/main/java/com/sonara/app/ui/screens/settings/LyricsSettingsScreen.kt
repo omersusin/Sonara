@@ -289,6 +289,44 @@ fun LyricsSettingsScreen(onBack: () -> Unit = {}) {
             // FEAT-09: Auto-scroll
             item { FluentCard { SwitchRow("Auto-scroll", "Automatically scroll to active line", s.lyricsAutoScroll) { vm.setLyricsAutoScroll(it) } } }
 
+            item {
+                FluentCard {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text("Glow Effect", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                            Text("Add glow behind active line", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        }
+                        androidx.compose.material3.Switch(
+                            checked = s.lyricsGlowEnabled,
+                            onCheckedChange = { vm.setLyricsGlowEnabled(it) }
+                        )
+                    }
+                }
+            }
+
+            item {
+                FluentCard {
+                    Text("Lyrics Background", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                    Spacer(Modifier.height(8.dp))
+                    Column(Modifier.selectableGroup()) {
+                        listOf("solid" to "Solid black", "gradient" to "Album color gradient", "album_art_blur" to "Blurred album art")
+                            .forEach { (id, label) ->
+                                val selected = s.lyricsBackground == id
+                                Row(
+                                    Modifier.fillMaxWidth()
+                                        .selectable(selected, role = Role.RadioButton) { vm.setLyricsBackground(id) }
+                                        .padding(vertical = 8.dp),
+                                    Alignment.CenterVertically,
+                                    Arrangement.spacedBy(12.dp)
+                                ) {
+                                    RadioButton(selected, null, colors = RadioButtonDefaults.colors(selectedColor = p))
+                                    Text(label, style = MaterialTheme.typography.bodyMedium, color = if (selected) p else SonaraTextPrimary)
+                                }
+                            }
+                    }
+                }
+            }
+
             item { Spacer(Modifier.height(16.dp)) }
         }
     }

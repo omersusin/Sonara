@@ -246,6 +246,14 @@ class SonaraPreferences(private val context: Context) {
         j.put(pkg, preset); it[PREF_PER_APP_EQ] = j.toString()
     }
 
+    private val PREF_LYRICS_GLOW = booleanPreferencesKey("lyrics_glow_enabled")
+    val lyricsGlowEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[PREF_LYRICS_GLOW] ?: false }
+    suspend fun setLyricsGlowEnabled(v: Boolean) { context.dataStore.edit { it[PREF_LYRICS_GLOW] = v } }
+
+    private val PREF_LYRICS_BG = stringPreferencesKey("lyrics_background")
+    val lyricsBackgroundFlow: Flow<String> = context.dataStore.data.map { it[PREF_LYRICS_BG] ?: "solid" }
+    suspend fun setLyricsBackground(v: String) { context.dataStore.edit { it[PREF_LYRICS_BG] = v } }
+
     suspend fun resetAll() { context.dataStore.edit { it.clear() } }
 
     companion object {
