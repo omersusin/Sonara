@@ -711,15 +711,17 @@ internal fun TagCloudCard(genres: Map<String, Int>, p: Color) {
                         val inCircle = kotlin.math.sqrt(farX * farX + farY * farY) + textWidth / 2f < radius * 0.88f
                         val overlaps = placed.any { it.overlaps(candidate) }
                         if (inCircle && !overlaps) {
-                            drawContext.canvas.nativeCanvas.drawText(
-                                genre, tx, ty + textHeight * 0.85f,
-                                android.graphics.Paint().apply {
-                                    this.color = color.toArgb()
-                                    textSize = textPx
-                                    isAntiAlias = true
-                                    typeface = if (fraction > 0.5f) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
-                                }
-                            )
+                            drawIntoCanvas { c ->
+                                c.nativeCanvas.drawText(
+                                    genre, tx, ty + textHeight * 0.85f,
+                                    android.graphics.Paint().apply {
+                                        this.color = color.toArgb()
+                                        textSize = textPx
+                                        isAntiAlias = true
+                                        typeface = if (fraction > 0.5f) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+                                    }
+                                )
+                            }
                             placed.add(candidate)
                             placedOk = true
                         }

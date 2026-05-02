@@ -12,6 +12,7 @@ import com.sonara.app.SonaraApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -68,7 +69,7 @@ class SonaraDigestWorker(
         }
 
         val digestEnabled = runCatching {
-            kotlinx.coroutines.flow.first(app.preferences.digestEnabledFlow)
+            app.preferences.digestEnabledFlow.first()
         }.getOrDefault(true)
         if (!digestEnabled) {
             schedule(ctx)
