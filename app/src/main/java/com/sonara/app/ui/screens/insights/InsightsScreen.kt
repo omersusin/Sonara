@@ -75,6 +75,7 @@ fun InsightsScreen(
     onSeeAllRecentTracks: () -> Unit = {},
     onSeeAllGenres: () -> Unit = {},
     onSeeAllListeningActivity: () -> Unit = {},
+    onSeeAllLovedTracks: () -> Unit = {},
     onAlbumClick: (name: String, artist: String, plays: String, imageUrl: String) -> Unit = { _, _, _, _ -> },
     onConnectLastFm: () -> Unit = {}
 ) {
@@ -400,7 +401,7 @@ fun InsightsScreen(
                 FluentCard {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("Loved Tracks", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                        if (s.lovedTracks.isNotEmpty()) TextButton(onClick = {}) { Text("See All") }
+                        if (s.lovedTracks.isNotEmpty()) TextButton(onClick = onSeeAllLovedTracks) { Text("See All") }
                     }
                     Spacer(Modifier.height(8.dp))
                     if (s.lovedTracksLoading) {

@@ -35,6 +35,7 @@ import com.sonara.app.ui.screens.insights.InsightsScreen
 import com.sonara.app.ui.screens.insights.TopArtistsListScreen
 import com.sonara.app.ui.screens.insights.TopTracksListScreen
 import com.sonara.app.ui.screens.insights.TopAlbumsListScreen
+import com.sonara.app.ui.screens.insights.LovedTracksListScreen
 import com.sonara.app.ui.screens.settings.AboutSettingsScreen
 import com.sonara.app.ui.screens.settings.PrivacyScreen
 import com.sonara.app.ui.screens.settings.AppPickerScreen
@@ -94,6 +95,7 @@ sealed class Screen(val route: String, val label: String) {
     }
     data object HearTheDifference : Screen("hear_the_diff", "Hear The Difference")
     data object SettingsPrivacy : Screen("settings_privacy", "Privacy & Permissions")
+    data object LovedTracksList : Screen("loved_tracks_list", "Loved Tracks")
 }
 
 @Composable
@@ -146,6 +148,7 @@ fun SonaraNavigation() {
                     onSeeAllRecentTracks = { navController.navigate(Screen.RecentTracks.route) },
                     onSeeAllGenres = { navController.navigate(Screen.AllGenres.route) },
                     onSeeAllListeningActivity = { navController.navigate(Screen.ListeningActivity.route) },
+                    onSeeAllLovedTracks = { navController.navigate(Screen.LovedTracksList.route) },
                     onConnectLastFm = { navController.navigate(Screen.SettingsBehavior.route) },
                     onAlbumClick = { name, artist, plays, imageUrl ->
                         navController.navigate(Screen.AlbumDetail.createRoute(name, artist, plays, imageUrl))
@@ -203,6 +206,12 @@ fun SonaraNavigation() {
                     onAlbumClick = { name, artist, plays, imageUrl ->
                         navController.navigate(Screen.AlbumDetail.createRoute(name, artist, plays, imageUrl))
                     }
+                )
+            }
+            composable(Screen.LovedTracksList.route) {
+                LovedTracksListScreen(
+                    onBack = { navController.popBackStack() },
+                    onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) }
                 )
             }
             composable(Screen.AlbumDetail.route) { entry ->
