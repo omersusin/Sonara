@@ -26,6 +26,7 @@ import com.sonara.app.intelligence.provider.InsightRequest
 import com.sonara.app.intelligence.provider.InsightResult
 import com.sonara.app.intelligence.lastfm.LastFmAuthManager
 import com.sonara.app.intelligence.lastfm.LoveStateCache
+import com.sonara.app.intelligence.lastfm.PendingLoveQueue
 import com.sonara.app.intelligence.lastfm.ScrobbleWorker
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.intelligence.pipeline.*
@@ -91,6 +92,7 @@ class SonaraApp : Application() {
         instance = this
         SonaraLogger.init(this)
         LoveStateCache.init(this)
+        PendingLoveQueue.init(this)
         preferences = SonaraPreferences(this)
         secureSecrets = SecureSecrets(this)
         database = SonaraDatabase.get(this)

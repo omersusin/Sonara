@@ -15,6 +15,7 @@ import com.sonara.app.SonaraApp
 import com.sonara.app.intelligence.provider.InsightRequest
 import com.sonara.app.data.SonaraLogger
 import com.sonara.app.intelligence.lyrics.LyricsInsightEngine
+import com.sonara.app.intelligence.lyrics.LyricsPreloadManager
 import com.sonara.app.intelligence.lyrics.LyricsResolver
 import com.sonara.app.intelligence.pipeline.PredictionSourceMapper
 import com.sonara.app.intelligence.pipeline.SonaraTrackInfo
@@ -313,6 +314,21 @@ class SonaraNotificationListener : NotificationListenerService() {
 
                 // ═══ Preload NEXT track ═══
                 app.nextTrackPreloader.tryPreload(activeController)
+
+                // ═══ Preload lyrics for next track ═══
+                scope.launch {
+                    try {
+                        val queue = activeController?.queue
+                        if (queue != null) {
+                            val nextItem = queue.getOrNull(1) ?: queue.getOrNull(0)
+                            val nextTitle = nextItem?.description?.title?.toString() ?: ""
+                            val nextArtist = nextItem?.description?.subtitle?.toString() ?: ""
+                            if (nextTitle.isNotBlank()) {
+                                LyricsPreloadManager.preload(nextTitle, nextArtist)
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
 
                 // ═══ Scrobbling: updateNowPlaying ═══
                 sendNowPlaying(app, title, artist)

@@ -2,115 +2,163 @@ package com.sonara.app.ui.components
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ShaderBrush
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonara.app.intelligence.lyrics.LyricLine
+import com.sonara.app.intelligence.lyrics.LyricWord
 import com.sonara.app.ui.theme.SonaraTextSecondary
+import kotlin.math.PI
+import kotlin.math.sin
 
-/**
- * LyricsLineV2 — BUG-01 fixed version of the flowing sweep lyric renderer.
- *
- * Differences from the LYRICS_V2 branch in SyncedLyricLine:
- * - Correct sweep anchor: sweep goes from 0→1 over 750 ms while active,
- *   and snaps back to 0 instantly when deactivated.
- * - Separate alpha and vertical-offset animations for a smooth entrance.
- * - accentColor param allows album-art-derived tinting.
- * - lyricsLineSpacing and lyricsPosition params for layout customisation.
- */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LyricsLineV2(
     line: LyricLine,
     isActive: Boolean,
-    textSizeSp: Float = 0f,
-    lyricsLineSpacing: Float = 1.3f,
-    lyricsPosition: String = "center",
-    accentColor: Color = Color.Unspecified,
-    modifier: Modifier = Modifier
+    isPast: Boolean,
+    effectivePositionMs: Long,
+    accentColor: Color,
+    inactiveAlpha: Float = 0.35f,
+    baseFontSize: Float = 24f,
+    modifier: Modifier = Modifier,
 ) {
-    val primary = if (accentColor != Color.Unspecified) accentColor
-                  else MaterialTheme.colorScheme.primary
-    val dimColor = SonaraTextSecondary.copy(alpha = 0.35f)
-
-    val textAlign = when {
-        line.isBackground  -> TextAlign.Center
-        line.agent == "v1" -> TextAlign.Start
-        line.agent == "v2" -> TextAlign.End
-        lyricsPosition == "left"  -> TextAlign.Start
-        lyricsPosition == "right" -> TextAlign.End
-        else               -> TextAlign.Center
+    val words = line.words
+    if (words.isNotEmpty()) {
+        FlowRow(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = when {
+                line.isBackground -> Arrangement.Center
+                line.agent == "v1" -> Arrangement.Start
+                line.agent == "v2" -> Arrangement.End
+                else -> Arrangement.Center
+            },
+        ) {
+            words.forEachIndexed { idx, word ->
+                AnimatedWordV2(
+                    word = word,
+                    isLineActive = isActive,
+                    isLinePast = isPast,
+                    effectivePositionMs = effectivePositionMs,
+                    accentColor = accentColor,
+                    inactiveAlpha = inactiveAlpha,
+                    fontSize = if (line.isBackground) baseFontSize * 0.85f else baseFontSize,
+                    isBackground = line.isBackground,
+                )
+                if (idx < words.lastIndex) {
+                    Text(" ", fontSize = baseFontSize.sp)
+                }
+            }
+        }
+    } else {
+        Text(
+            text = line.text,
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontSize = (if (line.isBackground) baseFontSize * 0.85f else baseFontSize).sp,
+                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                fontStyle = if (line.isBackground) FontStyle.Italic else FontStyle.Normal,
+            ),
+            color = accentColor.copy(alpha = if (isActive) 1f else inactiveAlpha),
+            textAlign = when {
+                line.isBackground -> TextAlign.Center
+                line.agent == "v1" -> TextAlign.Start
+                line.agent == "v2" -> TextAlign.End
+                else -> TextAlign.Center
+            },
+            modifier = modifier.fillMaxWidth(),
+        )
     }
-
-    val hPad = if (line.isBackground) 28.dp else 14.dp
-    val vPad = if (line.isBackground) 2.dp  else 3.dp
-    val baseStyle = if (line.isBackground) MaterialTheme.typography.bodySmall
-                    else MaterialTheme.typography.bodyLarge
-    val effectiveStyle = if (textSizeSp > 0f)
-        baseStyle.copy(fontSize = textSizeSp.sp, lineHeight = (textSizeSp * lyricsLineSpacing).sp)
-    else baseStyle
-
-    // Sweep: 0→1 over 750 ms when active, snap to 0 when inactive
-    val v2Target = if (isActive) 1f else 0f
-    val sweep by animateFloatAsState(
-        targetValue   = v2Target,
-        animationSpec = if (v2Target > 0f) tween(750, easing = FastOutSlowInEasing) else snap(),
-        label         = "v2_sweep"
-    )
-
-    val alpha by animateFloatAsState(
-        targetValue   = if (isActive) 1f else 0.4f,
-        animationSpec = tween(500),
-        label         = "v2_alpha"
-    )
-
-    val offsetY by animateFloatAsState(
-        targetValue   = if (isActive) 0f else 12f,
-        animationSpec = tween(500, easing = FastOutSlowInEasing),
-        label         = "v2_offset"
-    )
-
-    val brush = buildSweepBrush(sweep, primary, dimColor, soft = 0.22f)
-
-    Text(
-        text      = line.text,
-        modifier  = modifier
-            .fillMaxWidth()
-            .padding(horizontal = hPad, vertical = vPad)
-            .graphicsLayer { translationY = offsetY; this.alpha = alpha },
-        textAlign = textAlign,
-        style = if (isActive) effectiveStyle.copy(
-            brush      = brush,
-            fontWeight = FontWeight.SemiBold
-        ) else effectiveStyle,
-        color = if (brush == null) (if (isActive) MaterialTheme.colorScheme.onSurface else dimColor)
-                else Color.Unspecified
-    )
 }
 
-/**
- * Builds a horizontal-gradient sweep brush for the V2 flowing highlight.
- * Returns null when sweep ≤ 0 (nothing filled yet).
- */
-private fun buildSweepBrush(sweep: Float, fill: Color, dim: Color, soft: Float): ShaderBrush? {
-    if (sweep <= 0f) return null
-    if (sweep >= 1f) return Brush.horizontalGradient(listOf(fill, fill)) as ShaderBrush
-    val lo = maxOf(0.001f, sweep - soft)
-    val hi = minOf(0.999f, sweep + soft)
-    return Brush.horizontalGradient(
-        colorStops = arrayOf(0f to fill, lo to fill, hi to dim, 1f to dim)
-    ) as ShaderBrush
+@Composable
+fun AnimatedWordV2(
+    word: LyricWord,
+    isLineActive: Boolean,
+    isLinePast: Boolean,
+    effectivePositionMs: Long,
+    accentColor: Color,
+    inactiveAlpha: Float,
+    fontSize: Float,
+    isBackground: Boolean,
+) {
+    val wordStartMs = word.startMs
+    val wordEndMs = word.endMs.takeIf { it > wordStartMs } ?: (wordStartMs + 500L)
+    val wordDuration = wordEndMs - wordStartMs
+    val isComplete = isLinePast || effectivePositionMs >= wordEndMs
+    val isWordActive = isLineActive && effectivePositionMs in wordStartMs until wordEndMs
+    val progress = when {
+        isComplete -> 1f
+        !isLineActive || effectivePositionMs <= wordStartMs -> 0f
+        else -> ((effectivePositionMs - wordStartMs).toFloat() / wordDuration).coerceIn(0f, 1f)
+    }
+
+    val sinProg = sin(progress * PI).toFloat()
+    val wordScale = 1f + 0.015f * sinProg
+    val targetFloat = if (isWordActive) -4f * sinProg else 0f
+    val floatOffset by animateFloatAsState(
+        targetValue = targetFloat,
+        animationSpec = tween(if (isWordActive) 50 else 350, easing = FastOutSlowInEasing),
+        label = "wordFloat"
+    )
+    val glowAlpha = if (isWordActive) (progress * 2f).coerceAtMost(1f) * 0.45f else 0f
+    val glowRadius = if (isWordActive) (progress * 2f).coerceAtMost(1f) * 12f else 0f
+    val weight = if (isLineActive) FontWeight.Bold else FontWeight.SemiBold
+
+    Box(modifier = Modifier.graphicsLayer {
+        translationY = floatOffset * density
+        scaleX = wordScale; scaleY = wordScale
+    }) {
+        // Layer 1 — dim base
+        Text(
+            text = word.text,
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontSize = fontSize.sp,
+                fontWeight = weight,
+                fontStyle = if (isBackground) FontStyle.Italic else FontStyle.Normal,
+            ),
+            color = accentColor.copy(alpha = if (isBackground) inactiveAlpha * 0.7f else inactiveAlpha),
+        )
+        // Layer 2 — filled overlay with liquid mask
+        if (isComplete || isWordActive) {
+            Text(
+                text = word.text,
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontSize = fontSize.sp,
+                    fontWeight = weight,
+                    fontStyle = if (isBackground) FontStyle.Italic else FontStyle.Normal,
+                    shadow = if (glowAlpha > 0f) Shadow(
+                        color = accentColor.copy(alpha = glowAlpha),
+                        offset = Offset.Zero,
+                        blurRadius = glowRadius.coerceAtLeast(1f)
+                    ) else null
+                ),
+                color = accentColor.copy(alpha = if (isBackground) 0.75f else 1f),
+                modifier = if (isWordActive) Modifier
+                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        drawContent()
+                        val edgePx = 8.dp.toPx()
+                        val center = (size.width + edgePx * 2) * progress - edgePx
+                        drawRect(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(Color.Black, Color.Transparent),
+                                startX = center - edgePx,
+                                endX = center + edgePx,
+                            ),
+                            blendMode = BlendMode.DstIn,
+                        )
+                    } else Modifier
+            )
+        }
+    }
 }

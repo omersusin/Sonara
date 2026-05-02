@@ -24,8 +24,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -52,9 +60,11 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.theme.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import java.text.NumberFormat
 import java.util.Locale
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun InsightsScreen(
     onArtistClick: (String) -> Unit = {},
@@ -65,6 +75,7 @@ fun InsightsScreen(
     onSeeAllRecentTracks: () -> Unit = {},
     onSeeAllGenres: () -> Unit = {},
     onSeeAllListeningActivity: () -> Unit = {},
+    onSeeAllLovedTracks: () -> Unit = {},
     onAlbumClick: (name: String, artist: String, plays: String, imageUrl: String) -> Unit = { _, _, _, _ -> },
     onConnectLastFm: () -> Unit = {}
 ) {
@@ -379,6 +390,151 @@ fun InsightsScreen(
                     if (s.dataSource != "None") {
                         Spacer(Modifier.height(6.dp))
                         Text("Source: ${s.dataSource}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                    }
+                }
+            }
+        }
+
+        // INSIGHT-01: Loved Tracks
+        if (s.lastFmConnected) {
+            item {
+                FluentCard {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Loved Tracks", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                        if (s.lovedTracks.isNotEmpty()) TextButton(onClick = onSeeAllLovedTracks) { Text("See All") }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    if (s.lovedTracksLoading) {
+                        CircularProgressIndicator(Modifier.size(24.dp))
+                    } else {
+                        s.lovedTracks.take(5).forEach { t ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Rounded.Favorite, null, tint = Color(0xFFE57373), modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(t.title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                                    Text(t.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                                }
+                                Text(t.date, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // INSIGHT-02: Top Genres
+        if (s.topGenres.isNotEmpty()) {
+            item {
+                FluentCard {
+                    Text("Top Genres", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.height(12.dp))
+                    val maxCount = s.topGenres.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
+                    s.topGenres.take(8).forEach { (name, count) ->
+                        Column(Modifier.padding(vertical = 4.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(name.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                                Text("$count", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress = { count.toFloat() / maxCount },
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(3.dp)),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.primary.copy(0.12f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // INSIGHT-03: Weekly Artist Chart
+        if (s.weeklyArtists.isNotEmpty()) {
+            item {
+                FluentCard {
+                    Text("This Week's Top Artists", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.height(8.dp))
+                    s.weeklyArtists.take(5).forEachIndexed { i, (name, plays, _) ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("#${i + 1}", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.width(28.dp))
+                            Text(name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, modifier = Modifier.weight(1f))
+                            Text("$plays plays", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (i < 4) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(0.3f))
+                    }
+                }
+            }
+        }
+
+        // INSIGHT-04: Weekly Activity Bar Chart
+        if (s.dailyScrobbleChart.isNotEmpty() && s.dailyScrobbleChart.any { it.second > 0 }) {
+            item {
+                FluentCard {
+                    Text("Weekly Activity", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.height(16.dp))
+                    val maxVal = s.dailyScrobbleChart.maxOf { it.second }.coerceAtLeast(1)
+                    Row(Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Bottom) {
+                        s.dailyScrobbleChart.forEach { (day, count) ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                val fraction = count.toFloat() / maxVal
+                                Box(Modifier.width(28.dp).height(120.dp * fraction)
+                                    .background(MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)))
+                                Spacer(Modifier.height(4.dp))
+                                Text(day, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("$count", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // INSIGHT-05: Friends
+        if (s.friends.isNotEmpty()) {
+            item {
+                FluentCard {
+                    Text("Friends", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.height(8.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(s.friends.take(10)) { f ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(72.dp)) {
+                                AsyncImage(model = f.imageUrl, contentDescription = f.name,
+                                    modifier = Modifier.size(48.dp).clip(CircleShape),
+                                    contentScale = ContentScale.Crop)
+                                Spacer(Modifier.height(4.dp))
+                                Text(f.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${f.playcount} plays", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // INSIGHT-07: Track Details
+        if (s.trackListeners.isNotBlank() || s.trackPlaycount.isNotBlank()) {
+            item {
+                FluentCard {
+                    Text("Track Details", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        listOf("Listeners" to s.trackListeners, "Plays" to s.trackPlaycount, "Duration" to s.trackDuration)
+                            .filter { it.second.isNotBlank() }
+                            .forEach { (label, value) ->
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(value, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                    Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                    }
+                    if (s.trackTags.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            s.trackTags.take(6).forEach { tag ->
+                                SuggestionChip(onClick = {}, label = { Text(tag, style = MaterialTheme.typography.labelSmall) })
+                            }
+                        }
                     }
                 }
             }

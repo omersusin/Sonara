@@ -558,3 +558,77 @@ fun TabPeriodRow(
 
 @Composable
 fun PeriodRow(current: String, p: Color, onSelect: (String) -> Unit) = TabPeriodRow(current, p, onSelect)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LovedTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Unit = { _, _ -> }) {
+    val app = SonaraApp.instance
+    val p = MaterialTheme.colorScheme.primary
+    val ctx = LocalContext.current
+    data class Loved(val title: String, val artist: String, val date: String, val imageUrl: String)
+    var tracks by remember { mutableStateOf<List<Loved>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            val apiKey = app.lastFmAuth.getActiveApiKey()
+            val username = app.lastFmAuth.getConnectionInfo().username
+            if (apiKey.isNotBlank() && username.isNotBlank()) {
+                try {
+                    val resp = LastFmClient.api.getLovedTracks(username, apiKey, limit = 1000)
+                    tracks = resp.lovedtracks?.track?.map {
+                        Loved(it.name ?: "", it.artist?.name ?: "", it.date?.text ?: "", "")
+                    } ?: emptyList()
+                } catch (_: Exception) {}
+            }
+            loading = false
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Loved Tracks") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { pad ->
+        val filtered = remember(searchQuery, tracks) {
+            if (searchQuery.isBlank()) tracks
+            else tracks.filter { it.title.contains(searchQuery, ignoreCase = true) || it.artist.contains(searchQuery, ignoreCase = true) }
+        }
+        Column(Modifier.fillMaxSize().padding(pad)) {
+            ListSearchBar(searchQuery, { searchQuery = it })
+            if (loading) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p) }
+            } else {
+                LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+                    itemsIndexed(filtered) { i, track ->
+                        var imgUrl by remember(track.title, track.artist) { mutableStateOf("") }
+                        LaunchedEffect(track.title, track.artist) {
+                            val r = withContext(Dispatchers.IO) { DeezerImageResolver.getTrackImageWithFallback(track.title, track.artist) ?: "" }
+                            if (r.isNotBlank()) imgUrl = r
+                        }
+                        Row(
+                            Modifier.fillMaxWidth().clickable { onTrackClick(track.title, track.artist) }.padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            if (imgUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(imgUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.size(46.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+                            else Box(Modifier.size(46.dp).background(SonaraCardElevated, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MusicNote, null, tint = p.copy(0.4f), modifier = Modifier.size(18.dp)) }
+                            Column(Modifier.weight(1f)) {
+                                Text(track.title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
+                                Text(track.artist, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, maxLines = 1)
+                            }
+                            if (track.date.isNotBlank()) Text(track.date, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                        }
+                        if (i < filtered.lastIndex) Box(Modifier.fillMaxWidth().padding(start = 56.dp).height(0.5.dp).background(SonaraDivider.copy(0.12f)))
+                    }
+                }
+            }
+        }
+    }
+}

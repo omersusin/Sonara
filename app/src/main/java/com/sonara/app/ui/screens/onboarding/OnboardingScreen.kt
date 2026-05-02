@@ -19,8 +19,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.LaunchedEffect
@@ -137,22 +140,62 @@ private fun PermissionsPage(
             AlertDialog(
                 onDismissRequest = { showPrivacyDialog = false },
                 containerColor = SonaraCard,
-                title = { Text("What Sonara reads") },
+                icon = {
+                    Icon(Icons.Rounded.Security, null, tint = p, modifier = Modifier.size(32.dp))
+                },
+                title = {
+                    Text("What is this permission for?",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = SonaraTextPrimary,
+                        textAlign = TextAlign.Center)
+                },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Sonara only reads music session metadata:", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
-                        Text("• Song title, artist, album\n• Playback state (playing/paused)\n• Track duration & position", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-                        Text("Sonara never reads notification content, message text, or any non-music data.", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Surface(color = p.copy(alpha = 0.08f), shape = MaterialTheme.shapes.medium) {
+                            Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Icon(Icons.Rounded.MusicNote, null, tint = p, modifier = Modifier.size(18.dp))
+                                Text("Sonara uses this only to detect which song is playing and adjust your EQ automatically.",
+                                    style = MaterialTheme.typography.bodySmall, color = SonaraTextPrimary)
+                            }
+                        }
+                        HorizontalDivider(color = SonaraDivider.copy(alpha = 0.3f))
+                        Text("What Sonara NEVER does:",
+                            style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf(
+                                "💬 WhatsApp, SMS or messaging notifications",
+                                "🏦 Banking OTPs or financial alerts",
+                                "📧 Email content",
+                                "🔐 2FA codes or passwords",
+                                "📱 Any notification unrelated to music"
+                            ).forEach { item ->
+                                Text(item, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                            }
+                        }
+                        HorizontalDivider(color = SonaraDivider.copy(alpha = 0.3f))
+                        Surface(color = SonaraCardElevated, shape = MaterialTheme.shapes.small) {
+                            Text(
+                                "Technical note: Android grants this permission all-or-nothing. Sonara queries only active music sessions via MediaSessionManager. The notification object (StatusBarNotification) is never read.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SonaraTextTertiary,
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
                     }
                 },
                 confirmButton = {
-                    Button(onClick = {
-                        showPrivacyDialog = false
-                        ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                    }) { Text("Understood, Continue") }
+                    Button(
+                        onClick = {
+                            showPrivacyDialog = false
+                            ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = p)
+                    ) { Text("Got it, continue") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showPrivacyDialog = false }) { Text("Cancel") }
+                    TextButton(onClick = { showPrivacyDialog = false }) {
+                        Text("Cancel", color = SonaraTextSecondary)
+                    }
                 }
             )
         }

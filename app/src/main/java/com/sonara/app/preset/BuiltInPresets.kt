@@ -17,6 +17,8 @@ object BuiltInPresets {
             bass = 550, virt = 0, loud = 0),
 
         // ── Treble ──
+        p("Treble", floatArrayOf(0f,0f,0f,0f,0f,0f,0f,2.5f,3f,3f), "treble",
+            bass = 0, virt = 150, loud = 0),
         p("Treble Boost", floatArrayOf(0f,0f,0f,0f,0.5f,1.5f,3f,4f,5f,5.5f), "treble",
             bass = 0, virt = 150, loud = 0),
         p("Clarity", floatArrayOf(4.5f,6.5f,8.8f,6.5f,3f,1.3f,6f,9f,10.5f,9f), "treble",
@@ -61,6 +63,10 @@ object BuiltInPresets {
             bass = 750, virt = 400, loud = 0),
 
         // ── Mood ──
+        p("Spatial", floatArrayOf(0f,0f,0f,1f,1.5f,0f,0f,0f,0f,0f), "mood",
+            bass = 200, virt = 800, loud = 400),
+        p("Night", floatArrayOf(1f,0.5f,0f,0f,0f,0f,-1f,-2f,-3f,0f), "mood",
+            bass = 0, virt = 200, loud = 800),
         p("Late Night", floatArrayOf(1f,1.5f,1f,0f,-1f,-2f,-1f,0f,0.5f,0.5f), "mood",
             bass = 200, virt = 100, loud = 0, reverb = 1),
         p("Morning", floatArrayOf(0f,0f,1f,2f,2.5f,2f,1.5f,2f,2.5f,2f), "mood",
@@ -82,7 +88,15 @@ object BuiltInPresets {
         p("Headphone", floatArrayOf(2f,1f,0f,0f,-0.5f,0f,0.5f,1f,2f,2.5f), "device",
             bass = 100, virt = 400, loud = 0),
         p("Earbud Fix", floatArrayOf(3f,2.5f,1f,0f,-1f,0f,1f,0f,-1f,-2f), "device",
-            bass = 300, virt = 500, loud = 0)
+            bass = 300, virt = 500, loud = 0),
+
+        // ── Reference ──
+        // Harman 2019 over-ear target: bass shelf ~+5dB <200Hz, presence peak at 4kHz
+        p("Harman 2019", floatArrayOf(5.5f,5f,4f,1.5f,-0.5f,-1.5f,0.5f,3f,-1.5f,-2f), "reference",
+            bass = 0, virt = 0, loud = 0),
+        // Dolby Reference: warm bass shelf, neutral mids, slight presence lift
+        p("Dolby Ref", floatArrayOf(3f,2.5f,2f,1f,0f,0f,1.5f,2.5f,1f,0f), "reference",
+            bass = 0, virt = 100, loud = 0)
     )
 
     private fun p(
@@ -115,6 +129,7 @@ object BuiltInPresets {
         "mood" to "Mood",
         "fun" to "Fun",
         "device" to "Device",
+        "reference" to "Reference",
         "custom" to "Custom"
     )
 }
