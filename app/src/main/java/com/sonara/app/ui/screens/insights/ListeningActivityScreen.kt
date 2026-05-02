@@ -15,10 +15,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.activity.ComponentActivity
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.theme.SonaraCardElevated
@@ -156,6 +160,55 @@ fun ListeningActivityScreen(onBack: () -> Unit) {
             // Full heatmap
             if (s.heatmap.isNotEmpty()) {
                 item { ListeningHeatmapCard(s.heatmap, p) }
+            }
+
+            // Monthly timeline bar chart
+            if (s.monthlyTimeline.isNotEmpty() || s.monthlyTimelineLoading) {
+                item {
+                    FluentCard {
+                        Text("Last 12 Months", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                        Spacer(Modifier.height(12.dp))
+                        if (s.monthlyTimelineLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        } else {
+                            val maxVal = s.monthlyTimeline.maxOfOrNull { it.second }?.toFloat()?.coerceAtLeast(1f) ?: 1f
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                contentPadding = PaddingValues(horizontal = 2.dp)
+                            ) {
+                                items(s.monthlyTimeline) { (month, count) ->
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Bottom,
+                                        modifier = Modifier.width(38.dp)
+                                    ) {
+                                        Text(
+                                            count.toString(),
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
+                                            color = SonaraTextTertiary
+                                        )
+                                        Spacer(Modifier.height(2.dp))
+                                        val barH = (count / maxVal * 80).dp.coerceAtLeast(4.dp)
+                                        Box(
+                                            Modifier
+                                                .width(22.dp)
+                                                .height(barH)
+                                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                                .background(p.copy(alpha = 0.3f + 0.7f * (count / maxVal)))
+                                        )
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            month,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
+                                            color = SonaraTextTertiary,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             item { Spacer(Modifier.height(16.dp)) }

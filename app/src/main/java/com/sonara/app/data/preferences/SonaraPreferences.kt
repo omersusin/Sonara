@@ -268,6 +268,10 @@ class SonaraPreferences(private val context: Context) {
     val lyricsBackgroundFlow: Flow<String> = context.dataStore.data.map { it[PREF_LYRICS_BG] ?: "solid" }
     suspend fun setLyricsBackground(v: String) { context.dataStore.edit { it[PREF_LYRICS_BG] = v } }
 
+    private val DIGEST_ENABLED = booleanPreferencesKey("digest_enabled")
+    val digestEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[DIGEST_ENABLED] ?: true }
+    suspend fun setDigestEnabled(e: Boolean) { context.dataStore.edit { it[DIGEST_ENABLED] = e } }
+
     suspend fun resetAll() { context.dataStore.edit { it.clear() } }
 
     companion object {

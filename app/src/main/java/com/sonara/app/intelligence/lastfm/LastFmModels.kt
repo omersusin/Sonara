@@ -83,7 +83,16 @@ data class LastFmTopAlbum(
 }
 
 data class LastFmRecentTracksResponse(val recenttracks: LastFmRecentTracks? = null)
-data class LastFmRecentTracks(val track: List<LastFmRecentTrack> = emptyList())
+data class LastFmRecentTracks(
+    val track: List<LastFmRecentTrack> = emptyList(),
+    @SerializedName("@attr") val attr: LastFmRecentTracksAttr? = null
+)
+data class LastFmRecentTracksAttr(
+    val total: String = "0",
+    val totalPages: String = "0",
+    val page: String = "1",
+    val user: String = ""
+)
 data class LastFmRecentTrack(val name: String = "", val artist: LastFmRecentArtist? = null, val album: LastFmRecentAlbum? = null, val image: List<LastFmImage> = emptyList(), val date: LastFmDate? = null, @SerializedName("@attr") val attr: LastFmNowPlaying? = null) { val imageUrl: String? get() = image.lastOrNull { it.text.isNotBlank() }?.text; val isNowPlaying: Boolean get() = attr?.nowplaying == "true" }
 data class LastFmRecentArtist(@SerializedName("#text") val text: String = "")
 data class LastFmRecentAlbum(@SerializedName("#text") val text: String = "")

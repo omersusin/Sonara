@@ -95,7 +95,9 @@ data class SettingsUiState(
     val lyricsPosition: String = "center",
     val lyricsAutoScroll: Boolean = true,
     val lyricsGlowEnabled: Boolean = false,
-    val lyricsBackground: String = "solid")
+    val lyricsBackground: String = "solid",
+    val digestEnabled: Boolean = true
+)
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SonaraApp
@@ -190,6 +192,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.lyricsAutoScrollFlow.collect { v -> _uiState.update { it.copy(lyricsAutoScroll = v) } } }
         viewModelScope.launch { prefs.lyricsGlowEnabledFlow.collect { v -> _uiState.update { it.copy(lyricsGlowEnabled = v) } } }
         viewModelScope.launch { prefs.lyricsBackgroundFlow.collect { v -> _uiState.update { it.copy(lyricsBackground = v) } } }
+        viewModelScope.launch { prefs.digestEnabledFlow.collect { v -> _uiState.update { it.copy(digestEnabled = v) } } }
 
         refreshCacheSize(); checkNotificationListener(); refreshPendingScrobbles()
         _uiState.update { it.copy(personalSamples = app.personalization.getTotalSamples()) }
@@ -635,6 +638,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setLyricsAutoScroll(v: Boolean) { viewModelScope.launch { prefs.setLyricsAutoScroll(v) } }
     fun setLyricsGlowEnabled(v: Boolean) { viewModelScope.launch { prefs.setLyricsGlowEnabled(v) } }
     fun setLyricsBackground(v: String) { viewModelScope.launch { prefs.setLyricsBackground(v) } }
+    fun setDigestEnabled(e: Boolean) { viewModelScope.launch { prefs.setDigestEnabled(e) } }
 
     fun setSyncInterval(value: Int) {
         viewModelScope.launch {

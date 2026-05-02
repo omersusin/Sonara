@@ -20,12 +20,14 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonara.app.ui.components.FluentCard
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +35,7 @@ fun NotificationsSettingsScreen(onBack: () -> Unit = {}) {
     val vm: SettingsViewModel = viewModel()
     val s by vm.uiState.collectAsState()
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -58,6 +61,16 @@ fun NotificationsSettingsScreen(onBack: () -> Unit = {}) {
                         desc = "Show Sonara notification even when music is paused",
                         checked = s.keepNotificationPaused,
                         onChange = { vm.setKeepNotificationPaused(it) }
+                    )
+                }
+            }
+            item {
+                FluentCard {
+                    SwitchRow(
+                        title = "Weekly Digest",
+                        desc = "Receive your top tracks and artists every Monday morning",
+                        checked = s.digestEnabled,
+                        onChange = { vm.setDigestEnabled(it) }
                     )
                 }
             }

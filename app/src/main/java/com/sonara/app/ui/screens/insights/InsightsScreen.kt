@@ -1,6 +1,7 @@
 package com.sonara.app.ui.screens.insights
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,14 +25,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Icon
@@ -50,8 +56,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -113,6 +117,41 @@ fun InsightsScreen(
                                     StatColumn("${if (h % 12 == 0) 12 else h % 12}${if (h < 12) "am" else "pm"}", "peak hour", p)
                                 }
                                 if (s.discoveryRate > 0) StatColumn("${s.discoveryRate}%", "variety", p)
+                            }
+                        }
+                        // ═══ MEMBERSHIP MILESTONE ═══
+                        if (s.registeredUnix > 0) {
+                            val daysSince = remember(s.registeredUnix) {
+                                ((System.currentTimeMillis() / 1000 - s.registeredUnix) / 86400).toInt()
+                            }
+                            val regYear = remember(s.registeredUnix) {
+                                java.util.Calendar.getInstance().apply { timeInMillis = s.registeredUnix * 1000 }
+                                    .get(java.util.Calendar.YEAR)
+                            }
+                            val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+                            Spacer(Modifier.height(8.dp))
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(SonaraDivider.copy(0.15f)))
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(Icons.Rounded.Cake, contentDescription = null, tint = p, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    buildString {
+                                        append("Day ")
+                                        append(when {
+                                            daysSince < 30 -> "$daysSince of your music journey"
+                                            daysSince < 365 -> "${daysSince / 30} months of listening"
+                                            else -> "${daysSince / 365} years of listening"
+                                        })
+                                        if (currentYear - regYear >= 1) append(" · since $regYear")
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = SonaraTextTertiary
+                                )
                             }
                         }
                     }
@@ -319,6 +358,11 @@ fun InsightsScreen(
             item { ListeningHeatmap(s.heatmap, p) }
         }
 
+        // ═══ TAG CLOUD ═══
+        if (s.genreDistribution.size >= 4) {
+            item { TagCloudCard(s.genreDistribution, p) }
+        }
+
         // ═══ LISTENING ACTIVITY (weekly bar chart) ═══
         if (s.weeklyActivity.isNotEmpty() && s.weeklyActivity.any { it.second > 0 }) {
             item { SectionHeader("Listening Activity") { onSeeAllListeningActivity() } }
@@ -390,6 +434,83 @@ fun InsightsScreen(
                     if (s.dataSource != "None") {
                         Spacer(Modifier.height(6.dp))
                         Text("Source: ${s.dataSource}", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                    }
+                }
+            }
+        }
+
+        // ═══ SÜRPRİZ KEŞFET ═══
+        if (s.lastFmConnected && (s.topTracks.isNotEmpty() || s.topArtists.isNotEmpty())) {
+            item {
+                FluentCard {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Discover", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+                            Text("A random pick from your collection", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                        }
+                        OutlinedButton(
+                            onClick = { vm.rollSurprise() },
+                            shape = RoundedCornerShape(50.dp),
+                            border = BorderStroke(1.dp, p),
+                            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = p)
+                        ) {
+                            Text("Surprise me", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                    when (s.surpriseType) {
+                        "track" -> s.surpriseTrack?.let { track ->
+                            Spacer(Modifier.height(10.dp))
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(SonaraDivider.copy(0.2f)))
+                            Spacer(Modifier.height(10.dp))
+                            val ctx = LocalContext.current
+                            Row(
+                                Modifier.fillMaxWidth().clickable { onTrackClick(track.title, track.artist) },
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                if (track.imageUrl.isNotBlank()) {
+                                    AsyncImage(model = ImageRequest.Builder(ctx).data(track.imageUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+                                } else {
+                                    Box(Modifier.size(48.dp).background(SonaraCardElevated, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MusicNote, null, tint = p.copy(0.4f), modifier = Modifier.size(20.dp)) }
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Text(track.title, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
+                                    Text(track.artist, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, maxLines = 1)
+                                }
+                                Text(
+                                    try { "${fmt.format(track.plays.toLong())} plays" } catch (_: Exception) { "${track.plays} plays" },
+                                    style = MaterialTheme.typography.labelSmall, color = p
+                                )
+                            }
+                        }
+                        "artist" -> s.surpriseArtist?.let { a ->
+                            Spacer(Modifier.height(10.dp))
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(SonaraDivider.copy(0.2f)))
+                            Spacer(Modifier.height(10.dp))
+                            val ctx = LocalContext.current
+                            Row(
+                                Modifier.fillMaxWidth().clickable { onArtistClick(a.first) },
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                if (a.third.isNotBlank()) {
+                                    AsyncImage(model = ImageRequest.Builder(ctx).data(a.third).crossfade(true).build(), contentDescription = a.first, modifier = Modifier.size(48.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+                                } else {
+                                    Box(Modifier.size(48.dp).background(SonaraCardElevated, CircleShape), contentAlignment = Alignment.Center) { Text(a.first.take(1), style = MaterialTheme.typography.titleMedium, color = p) }
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Text(a.first, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
+                                    Text(
+                                        try { "${fmt.format(a.second.toLong())} plays" } catch (_: Exception) { "${a.second} plays" },
+                                        style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -541,6 +662,75 @@ fun InsightsScreen(
         }
 
         item { Spacer(Modifier.height(16.dp)) }
+    }
+}
+
+@Composable
+internal fun TagCloudCard(genres: Map<String, Int>, p: Color) {
+    if (genres.isEmpty()) return
+    val sorted = remember(genres) {
+        genres.entries.sortedByDescending { it.value }.take(30)
+    }
+    val maxCount = sorted.firstOrNull()?.value?.toFloat() ?: 1f
+    val minTextSp = 10f
+    val maxTextSp = 38f
+
+    FluentCard {
+        Text("Genre Cloud", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
+        Spacer(Modifier.height(12.dp))
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(CircleShape)
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val cx = size.width / 2f
+                val cy = size.height / 2f
+                val radius = size.minDimension / 2f
+                val density = drawContext.density
+                val placed = mutableListOf<Rect>()
+
+                for ((genre, count) in sorted) {
+                    val fraction = count / maxCount
+                    val textSp = minTextSp + fraction * (maxTextSp - minTextSp)
+                    val textPx = textSp * density.density
+                    val alpha = 0.35f + 0.65f * fraction
+                    val color = p.copy(alpha = alpha)
+                    val textWidth = genre.length * textPx * 0.6f
+                    val textHeight = textPx * 1.2f
+
+                    var placedOk = false
+                    var angle = 0f
+                    var spiralR = 0f
+                    val step = 0.25f
+                    while (spiralR < radius * 0.85f && !placedOk) {
+                        val tx = cx + spiralR * kotlin.math.cos(angle) - textWidth / 2f
+                        val ty = cy + spiralR * kotlin.math.sin(angle) - textHeight / 2f
+                        val candidate = Rect(tx, ty, tx + textWidth, ty + textHeight)
+                        val farX = (tx + textWidth / 2f - cx)
+                        val farY = (ty + textHeight / 2f - cy)
+                        val inCircle = kotlin.math.sqrt(farX * farX + farY * farY) + textWidth / 2f < radius * 0.88f
+                        val overlaps = placed.any { it.overlaps(candidate) }
+                        if (inCircle && !overlaps) {
+                            drawContext.canvas.nativeCanvas.drawText(
+                                genre, tx, ty + textHeight * 0.85f,
+                                android.graphics.Paint().apply {
+                                    this.color = color.toArgb()
+                                    textSize = textPx
+                                    isAntiAlias = true
+                                    typeface = if (fraction > 0.5f) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+                                }
+                            )
+                            placed.add(candidate)
+                            placedOk = true
+                        }
+                        angle += step
+                        spiralR = angle * radius * 0.045f
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text("Based on Last.fm tag data", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, modifier = Modifier.align(Alignment.End))
     }
 }
 

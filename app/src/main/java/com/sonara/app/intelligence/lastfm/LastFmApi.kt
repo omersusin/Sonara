@@ -92,6 +92,16 @@ interface LastFmApi {
         @Query("autocorrect") autocorrect: Int = 1
     ): LastFmSimilarArtistsResponse
 
+    @GET("?method=user.getTrackScrobbles&format=json")
+    suspend fun getUserTrackScrobbles(
+        @Query("user") user: String,
+        @Query("artist") artist: String,
+        @Query("track") track: String,
+        @Query("api_key") apiKey: String,
+        @Query("limit") limit: Int = 200,
+        @Query("page") page: Int = 1
+    ): LastFmRecentTracksResponse
+
     @GET("?method=track.getSimilar&format=json")
     suspend fun getSimilarTracks(
         @Query("track") track: String,
