@@ -11,7 +11,8 @@ import com.sonara.app.data.BackupManager
 import com.sonara.app.preset.PresetExporter
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ai.SonaraAi
-import com.sonara.app.ui.theme.AccentColor
+import androidx.compose.ui.graphics.Color
+import com.sonara.app.ui.theme.AccentSeeds
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,7 +30,7 @@ import java.util.concurrent.TimeUnit
 data class SettingsUiState(
     val lastFmApiKey: String = "", val lastFmSharedSecret: String = "",
     val isApiKeySet: Boolean = false, val isSharedSecretSet: Boolean = false,
-    val accentColor: AccentColor = AccentColor.Amber,
+    val accentSeed: Color = AccentSeeds.Amber.seed,
     val aiEnabled: Boolean = true, val autoEqEnabled: Boolean = true,
     val smoothTransitions: Boolean = true, val safetyLimiter: Boolean = true,
     val scrobblingEnabled: Boolean = false, val autoPreset: Boolean = true,
@@ -108,7 +109,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     init {
         _uiState.update { it.copy(isGithubTokenSet = secrets.getGitHubTokenInstance().isNotBlank()) }
 
-        viewModelScope.launch { prefs.accentColorFlow.collect { c -> _uiState.update { it.copy(accentColor = c) } } }
+        viewModelScope.launch { prefs.accentSeedFlow.collect { seed -> _uiState.update { it.copy(accentSeed = seed) } } }
         // Read key status from SecureSecrets directly
         _uiState.update { it.copy(
             isApiKeySet = secrets.getLastFmApiKey().isNotBlank(),
@@ -231,7 +232,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun setAccentColor(c: AccentColor) { viewModelScope.launch { prefs.setAccentColor(c) } }
+    fun setAccentSeed(seed: Color) { viewModelScope.launch { prefs.setAccentSeed(seed) } }
     fun setAiEnabled(e: Boolean) { viewModelScope.launch { prefs.setAiEnabled(e) } }
     fun setAutoEqEnabled(e: Boolean) { viewModelScope.launch { prefs.setAutoEqEnabled(e) } }
     fun setSmoothTransitions(e: Boolean) { viewModelScope.launch { prefs.setSmoothTransitions(e) } }

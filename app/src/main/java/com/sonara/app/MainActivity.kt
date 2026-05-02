@@ -16,7 +16,8 @@ import com.sonara.app.data.SonaraLogger
 import com.sonara.app.intelligence.lastfm.LastFmAuthManager
 import com.sonara.app.service.SonaraService
 import com.sonara.app.ui.navigation.SonaraNavigation
-import com.sonara.app.ui.theme.AccentColor
+import androidx.compose.ui.graphics.Color
+import com.sonara.app.ui.theme.AccentSeeds
 import com.sonara.app.ui.theme.SonaraTheme
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -36,14 +37,19 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val prefs = (application as SonaraApp).preferences
-            val accent by prefs.accentColorFlow.collectAsState(initial = AccentColor.Amber)
+            val accentSeed by prefs.accentSeedFlow.collectAsState(initial = AccentSeeds.Amber.seed)
             val themeMode by prefs.themeModeFlow.collectAsState(initial = "dark")
-            val dynamicColors by prefs.dynamicColorsFlow.collectAsState(initial = false)
+            val dynamicColor by prefs.dynamicColorsFlow.collectAsState(initial = false)
             val highContrast by prefs.highContrastFlow.collectAsState(initial = false)
             val amoledMode by prefs.amoledModeFlow.collectAsState(initial = false)
 
-            SonaraTheme(accentColor = accent, themeMode = themeMode, dynamicColors = dynamicColors,
-                highContrast = highContrast, amoledMode = amoledMode) {
+            SonaraTheme(
+                seedColor = accentSeed,
+                themeMode = themeMode,
+                dynamicColor = dynamicColor,
+                highContrast = highContrast,
+                isAmoled = amoledMode
+            ) {
                 SonaraNavigation()
             }
         }

@@ -16,12 +16,12 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.sonara.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.sonara.app"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
 
@@ -70,6 +70,14 @@ android {
         compose = true
         buildConfig = true
     }
+
+    lint {
+        // lifecycle-lint 2.8.x was compiled against an older Kotlin Analysis API where
+        // KaCallableMemberCall was a class; it became an interface in Kotlin 2.2.x.
+        // lifecycle 2.9.0-rc01 ships the fixed lint rules; this disable is a fallback
+        // in case any transitive lifecycle-lint JAR still slips through.
+        disable += "NullSafeMutableLiveData"
+    }
 }
 
 dependencies {
@@ -100,6 +108,7 @@ dependencies {
     implementation(libs.workmanager.runtime)
     implementation(libs.coil.compose)
     implementation(libs.compose.google.fonts)
+    implementation(libs.materialkolor)
     implementation("androidx.palette:palette-ktx:1.0.0")
 
     debugImplementation(libs.compose.ui.tooling)

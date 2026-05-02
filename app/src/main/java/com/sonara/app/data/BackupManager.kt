@@ -41,7 +41,9 @@ object BackupManager {
         settings["safety_limiter"] = prefs.safetyLimiterFlow.first()
         settings["scrobbling_enabled"] = prefs.scrobblingEnabledFlow.first()
         settings["auto_preset"] = prefs.autoPresetFlow.first()
-        settings["accent_color"] = prefs.accentColorFlow.first().name
+        settings["accent_seed"] = prefs.accentSeedFlow.first().let {
+            com.sonara.app.ui.theme.AccentSeeds.toHex(it)
+        }
         settings["theme_mode"] = prefs.themeModeFlow.first()
         settings["dynamic_colors"] = prefs.dynamicColorsFlow.first()
         settings["high_contrast"] = prefs.highContrastFlow.first()
@@ -89,6 +91,9 @@ object BackupManager {
             (s["safety_limiter"] as? Boolean)?.let { prefs.setSafetyLimiter(it) }
             (s["scrobbling_enabled"] as? Boolean)?.let { prefs.setScrobblingEnabled(it) }
             (s["auto_preset"] as? Boolean)?.let { prefs.setAutoPreset(it) }
+            (s["accent_seed"] as? String)?.let {
+                prefs.setAccentSeed(com.sonara.app.ui.theme.AccentSeeds.fromHex(it))
+            }
             (s["theme_mode"] as? String)?.let { prefs.setThemeMode(it) }
             (s["amoled_mode"] as? Boolean)?.let { prefs.setAmoledMode(it) }
             (s["ai_provider"] as? String)?.let { prefs.setAiProvider(it) }

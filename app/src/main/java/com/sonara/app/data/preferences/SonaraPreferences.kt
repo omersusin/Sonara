@@ -9,7 +9,8 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.sonara.app.ui.theme.AccentColor
+import androidx.compose.ui.graphics.Color
+import com.sonara.app.ui.theme.AccentSeeds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -17,7 +18,8 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 class SonaraPreferences(private val context: Context) {
 
-    private val ACCENT_COLOR = stringPreferencesKey("accent_color")
+    private val ACCENT_COLOR = stringPreferencesKey("accent_color")  // legacy key – kept for migration
+    private val ACCENT_SEED  = stringPreferencesKey("accent_seed")
     private val LASTFM_API_KEY = stringPreferencesKey("lastfm_api_key")
     private val LASTFM_SHARED_SECRET = stringPreferencesKey("lastfm_shared_secret")
     private val LASTFM_SESSION_KEY = stringPreferencesKey("lastfm_session_key")
@@ -63,11 +65,23 @@ class SonaraPreferences(private val context: Context) {
     private val KEY_LYRICS_SHOW_TRANSLATED = booleanPreferencesKey("lyrics_show_translated")
     private val KEY_LYRICS_TARGET_LANGUAGE = stringPreferencesKey("lyrics_target_language")
 
-    val accentColorFlow: Flow<AccentColor> = context.dataStore.data.map { p ->
-        val name = p[ACCENT_COLOR] ?: AccentColor.Amber.name
-        AccentColor.entries.find { it.name == name } ?: AccentColor.Amber
+    // Seed-based accent (MD3E). On first read, migrates legacy enum name to hex seed.
+    val accentSeedFlow: Flow<Color> = context.dataStore.data.map { p ->
+        val hex = p[ACCENT_SEED]
+        if (hex != null) {
+            AccentSeeds.fromHex(hex)
+        } else {
+            // Migrate from old enum name, default to Amber
+            AccentSeeds.fromLegacyName(p[ACCENT_COLOR] ?: "amber")
+        }
     }
-    suspend fun setAccentColor(c: AccentColor) { context.dataStore.edit { it[ACCENT_COLOR] = c.name } }
+
+    suspend fun setAccentSeed(seed: Color) {
+        context.dataStore.edit {
+            it[ACCENT_SEED] = AccentSeeds.toHex(seed)
+            it.remove(ACCENT_COLOR)  // clear legacy key after first write
+        }
+    }
 
     // VULN-25 note: prefer SecureSecrets for sensitive keys. These DataStore flows
     // are kept for backward compatibility in NLS/Onboarding/scrobbling code paths.
