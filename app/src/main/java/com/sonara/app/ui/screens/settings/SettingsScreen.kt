@@ -93,6 +93,14 @@ import com.sonara.app.ui.components.ChipStatus
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.components.StatusChip
 import com.sonara.app.ui.theme.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialShapes
+import androidx.compose.material3.toShape
+import com.materialkolor.rememberDynamicColorScheme
 
 @Composable
 fun SettingsScreen(
@@ -580,6 +588,7 @@ internal fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
 
 
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
     val p = MaterialTheme.colorScheme.primary
@@ -621,6 +630,75 @@ internal fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
         SwitchRow("Dynamic Colors", "Use wallpaper colors (Android 12+)", s.dynamicColors) { vm.setDynamicColors(it) }
         SettingsDivider()
         SwitchRow("High Contrast", "Increase text contrast", s.highContrast) { vm.setHighContrast(it) }
+        SettingsDivider()
+
+        // ── Font Picker ──────────────────────────────────────
+        Text("Font", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text("App-wide typeface (Google Fonts)", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(12.dp))
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SonaraFont.entries.forEach { f ->
+                FilterChip(
+                    selected = s.selectedFont == f.name,
+                    onClick = { vm.setSelectedFont(f.name) },
+                    label = { Text(f.displayName) }
+                )
+            }
+        }
+        SettingsDivider()
+
+        // ── Palette Style Picker — Rush-style Canvas circles ─
+        Text("Color Style", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text("Palette generation algorithm", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(12.dp))
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SonaraPaletteStyle.entries.forEach { ps ->
+                val isSelected = s.selectedPaletteStyle == ps.name
+                val previewScheme = rememberDynamicColorScheme(
+                    seedColor = s.accentSeed,
+                    isDark = true,
+                    style = ps.toMaterialKolor()
+                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clickable { vm.setSelectedPaletteStyle(ps.name) }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(if (isSelected) MaterialShapes.VerySunny.toShape() else CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(modifier = Modifier.matchParentSize()) {
+                            val colors = listOf(
+                                previewScheme.primary, previewScheme.primaryContainer,
+                                previewScheme.secondary, previewScheme.secondaryContainer,
+                                previewScheme.tertiary, previewScheme.tertiaryContainer,
+                            )
+                            val sweep = 360f / colors.size
+                            colors.forEachIndexed { i, c ->
+                                drawArc(color = c, startAngle = i * sweep, sweepAngle = sweep, useCenter = true)
+                            }
+                        }
+                        if (isSelected) {
+                            Icon(Icons.Rounded.Check, null, tint = previewScheme.onPrimary, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(ps.displayName, style = MaterialTheme.typography.labelSmall, color = if (isSelected) MaterialTheme.colorScheme.primary else SonaraTextTertiary)
+                }
+            }
+        }
     }
 }
 

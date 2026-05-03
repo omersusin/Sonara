@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -110,6 +111,7 @@ private fun BlurredArtBackground(imageUrl: String?, blurRadius: Dp = 24.dp) {
 fun ArtistDetailScreen(
     artistName: String,
     trackTitle: String = "",
+    initialImageUrl: String = "",   // Pre-seed so image doesn't flash blank on navigation
     onBack: () -> Unit,
     onTrackClick: (String, String) -> Unit = { _, _ -> },
     onAlbumClick: (name: String, artist: String, plays: String, imageUrl: String) -> Unit = { _, _, _, _ -> },
@@ -129,7 +131,11 @@ fun ArtistDetailScreen(
         (fromArtist + fromTitle).distinct()
     }
 
-    var detail by remember { mutableStateOf<DeezerImageResolver.ArtistDetail?>(null) }
+    var detail by remember { mutableStateOf<DeezerImageResolver.ArtistDetail?>(
+        if (initialImageUrl.isNotBlank()) DeezerImageResolver.ArtistDetail(
+            name = artistName, imageUrl = initialImageUrl, fans = 0, albums = 0, topTracks = emptyList()
+        ) else null
+    ) }
     var audioDbArtist by remember { mutableStateOf<AudioDbArtist?>(null) }
     var discography by remember { mutableStateOf<List<AudioDbAlbum>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -144,7 +150,8 @@ fun ArtistDetailScreen(
     var upcomingEvents by remember { mutableStateOf<List<BandsintownEvent>>(emptyList()) }
     var similarArtists by remember { mutableStateOf<List<LastFmSimilarArtist>>(emptyList()) }
     var mbUrls by remember { mutableStateOf<MusicBrainzClient.MbArtistUrls?>(null) }
-    val discographyArtUrls = remember { mutableStateMapOf<String, String>() }
+    // Keyed by index so duplicate album names don't share/overwrite each other's art
+    val discographyArtUrls = remember { mutableStateMapOf<Int, String>() }
 
     LaunchedEffect(artistName) {
         withContext(Dispatchers.IO) {
@@ -573,8 +580,8 @@ fun ArtistDetailScreen(
                             }
                             Spacer(Modifier.height(12.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                items(discography) { album ->
-                                    val artUrl = discographyArtUrls[album.strAlbum] ?: ""
+                                itemsIndexed(discography, key = { idx, a -> "${a.strAlbum.ifBlank { "album" }}_$idx" }) { idx, album ->
+                                    val artUrl = discographyArtUrls[idx] ?: ""
                                     Column(
                                         modifier = Modifier.width(96.dp)
                                             .clickable { onAlbumClick(album.strAlbum, artistName, "", artUrl) },
@@ -614,7 +621,7 @@ fun ArtistDetailScreen(
                             }
                             Spacer(Modifier.height(12.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                items(similarArtists) { artist ->
+                                items(similarArtists, key = { "${it.name}_${similarArtists.indexOf(it)}" }) { artist ->
                                     SimilarArtistItem(artist) { onArtistClick(artist.name) }
                                 }
                             }

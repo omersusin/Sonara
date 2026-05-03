@@ -40,7 +40,8 @@ fun ArtistDiscographyScreen(
     var albums by remember { mutableStateOf<List<AudioDbAlbum>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     // Key = strAlbum (unique per discography; idAlbum can be blank/shared across albums)
-    val artUrls = remember { mutableStateMapOf<String, String>() }
+    // Keyed by index so duplicate album names don't share/overwrite each other's art
+    val artUrls = remember { mutableStateMapOf<Int, String>() }
 
     // Step 1: load album list
     LaunchedEffect(artistName) {
@@ -62,20 +63,19 @@ fun ArtistDiscographyScreen(
     LaunchedEffect(albums) {
         if (albums.isEmpty()) return@LaunchedEffect
         withContext(Dispatchers.IO) {
-            for (album in albums) {
-                val key = album.strAlbum
-                if (artUrls.containsKey(key)) continue
+            albums.forEachIndexed { idx, album ->
+                if (artUrls.containsKey(idx)) return@forEachIndexed
                 // Tier 1: inline art embedded in the discography response (often absent)
                 val inline = album.strThumbHQ ?: album.strThumb
                 if (!inline.isNullOrBlank()) {
-                    artUrls[key] = inline
-                    continue
+                    artUrls[idx] = inline
+                    return@forEachIndexed
                 }
                 // Tier 2: name-based search — unique query per album, avoids stale IDs
                 try {
                     val found = TheAudioDbClient.searchAlbum(artistName, album.strAlbum)
                     val url = found?.strThumbHQ ?: found?.strThumb
-                    if (!url.isNullOrBlank()) artUrls[key] = url
+                    if (!url.isNullOrBlank()) artUrls[idx] = url
                 } catch (_: Exception) {}
                 delay(400L)
             }
@@ -108,8 +108,8 @@ fun ArtistDiscographyScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                itemsIndexed(albums, key = { idx, a -> a.strAlbum.ifBlank { "idx_$idx" } }) { _, album ->
-                    val artUrl = artUrls[album.strAlbum] ?: ""
+                itemsIndexed(albums, key = { idx, a -> "${a.strAlbum.ifBlank { "album" }}_$idx" }) { idx, album ->
+                    val artUrl = artUrls[idx] ?: ""
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()

@@ -82,7 +82,10 @@ data class LastFmTopAlbum(
     val imageUrl: String? get() = image.lastOrNull { it.text.isNotBlank() && !it.text.contains("2a96cbd8b46e") }?.text
 }
 
-data class LastFmRecentTracksResponse(val recenttracks: LastFmRecentTracks? = null)
+data class LastFmRecentTracksResponse(
+    val recenttracks: LastFmRecentTracks? = null,
+    val trackscrobbles: LastFmRecentTracks? = null   // user.getTrackScrobbles uses this key
+)
 data class LastFmRecentTracks(
     val track: List<LastFmRecentTrack> = emptyList(),
     @SerializedName("@attr") val attr: LastFmRecentTracksAttr? = null
