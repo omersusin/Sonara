@@ -40,7 +40,64 @@ data class UserTagItem(val name: String?, val count: String?, val url: String?)
 data class LastFmTrackSearchResponse(val results: TrackSearchResults?)
 data class TrackSearchResults(val trackmatches: TrackMatches?)
 data class TrackMatches(val track: List<SearchTrackItem>?)
-data class SearchTrackItem(val name: String?, val artist: String?, val listeners: String?, val url: String?)
+data class SearchTrackItem(
+    val name: String?, val artist: String?, val listeners: String?, val url: String?,
+    val image: List<LastFmImage>? = null
+) {
+    val imageUrl: String? get() = image?.lastOrNull { it.text.isNotBlank() && !it.text.contains("2a96cbd8b46e") }?.text
+}
 
 // ═══ Pagination helper ═══
 data class PaginationAttr(val page: String?, val perPage: String?, val totalPages: String?, val total: String?)
+
+// ═══ Artist Search ═══
+data class LastFmArtistSearchResponse(val results: ArtistSearchResults?)
+data class ArtistSearchResults(val artistmatches: ArtistMatches?)
+data class ArtistMatches(val artist: List<SearchArtistItem>?)
+data class SearchArtistItem(
+    val name: String?, val listeners: String?, val url: String?,
+    val image: List<LastFmImage>? = null
+) {
+    val imageUrl: String? get() = image?.lastOrNull { it.text.isNotBlank() && !it.text.contains("2a96cbd8b46e") }?.text
+}
+
+// ═══ Album Search ═══
+data class LastFmAlbumSearchResponse(val results: AlbumSearchResults?)
+data class AlbumSearchResults(val albummatches: AlbumMatches?)
+data class AlbumMatches(val album: List<SearchAlbumItem>?)
+data class SearchAlbumItem(
+    val name: String?, val artist: String?, val url: String?,
+    val image: List<LastFmImage>? = null
+) {
+    val imageUrl: String? get() = image?.lastOrNull { it.text.isNotBlank() && !it.text.contains("2a96cbd8b46e") }?.text
+}
+
+// ═══ Global Charts ═══
+data class LastFmChartArtistsResponse(val artists: ChartArtistsWrapper?)
+data class ChartArtistsWrapper(val artist: List<ChartArtistItem>?)
+data class ChartArtistItem(
+    val name: String?, val playcount: String?, val listeners: String?,
+    val image: List<LastFmImage>? = null
+) {
+    val imageUrl: String? get() = image?.lastOrNull { it.text.isNotBlank() && !it.text.contains("2a96cbd8b46e") }?.text
+}
+
+data class LastFmChartTracksResponse(val tracks: ChartTracksWrapper?)
+data class ChartTracksWrapper(val track: List<ChartTrackItem>?)
+data class ChartTrackItem(
+    val name: String?, val artist: ChartArtistRef?, val playcount: String?, val listeners: String?,
+    val image: List<LastFmImage>? = null
+) {
+    val imageUrl: String? get() = image?.lastOrNull { it.text.isNotBlank() && !it.text.contains("2a96cbd8b46e") }?.text
+}
+data class ChartArtistRef(val name: String?)
+
+// ═══ Geo Top Artists ═══
+data class LastFmGeoArtistsResponse(val topartists: GeoArtistsWrapper?)
+data class GeoArtistsWrapper(val artist: List<GeoArtistItem>?)
+data class GeoArtistItem(
+    val name: String?, val listeners: String?,
+    val image: List<LastFmImage>? = null
+) {
+    val imageUrl: String? get() = image?.lastOrNull { it.text.isNotBlank() && !it.text.contains("2a96cbd8b46e") }?.text
+}

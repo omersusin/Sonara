@@ -37,6 +37,11 @@ import com.sonara.app.ui.screens.insights.TopArtistsListScreen
 import com.sonara.app.ui.screens.insights.TopTracksListScreen
 import com.sonara.app.ui.screens.insights.TopAlbumsListScreen
 import com.sonara.app.ui.screens.insights.LovedTracksListScreen
+import com.sonara.app.ui.screens.insights.SearchInsightsScreen
+import com.sonara.app.ui.screens.insights.GlobalChartsScreen
+import com.sonara.app.ui.screens.insights.CountryTopArtistsScreen
+import com.sonara.app.ui.screens.insights.FriendProfileScreen
+import com.sonara.app.ui.screens.insights.FriendItem
 import com.sonara.app.ui.screens.settings.AboutSettingsScreen
 import com.sonara.app.ui.screens.settings.PrivacyScreen
 import com.sonara.app.ui.screens.settings.AppPickerScreen
@@ -101,6 +106,13 @@ sealed class Screen(val route: String, val label: String) {
         fun createRoute(title: String, artist: String) =
             "track_scrobble_history/${java.net.URLEncoder.encode(title, "UTF-8")}/${java.net.URLEncoder.encode(artist, "UTF-8")}"
     }
+    data object SearchInsights : Screen("search_insights", "Search")
+    data object GlobalCharts : Screen("global_charts", "Global Charts")
+    data object CountryTopArtists : Screen("country_top_artists", "Country Top Artists")
+    data object FriendProfile : Screen("friend_profile/{username}/{realname}/{playcount}/{avatarUrl}", "Friend Profile") {
+        fun createRoute(username: String, realname: String, playcount: String, avatarUrl: String) =
+            "friend_profile/${java.net.URLEncoder.encode(username, "UTF-8")}/${java.net.URLEncoder.encode(realname.ifBlank { "-" }, "UTF-8")}/${java.net.URLEncoder.encode(playcount.ifBlank { "0" }, "UTF-8")}/${java.net.URLEncoder.encode(avatarUrl.ifBlank { "-" }, "UTF-8")}"
+    }
 }
 
 @Composable
@@ -157,6 +169,12 @@ fun SonaraNavigation() {
                     onConnectLastFm = { navController.navigate(Screen.SettingsBehavior.route) },
                     onAlbumClick = { name, artist, plays, imageUrl ->
                         navController.navigate(Screen.AlbumDetail.createRoute(name, artist, plays, imageUrl))
+                    },
+                    onSearchClick = { navController.navigate(Screen.SearchInsights.route) },
+                    onGlobalChartsClick = { navController.navigate(Screen.GlobalCharts.route) },
+                    onCountryChartsClick = { navController.navigate(Screen.CountryTopArtists.route) },
+                    onFriendClick = { f ->
+                        navController.navigate(Screen.FriendProfile.createRoute(f.name, f.realname, f.playcount, f.imageUrl))
                     }
                 )
             }
@@ -309,6 +327,50 @@ fun SonaraNavigation() {
                 CollageScreen(
                     albums = s.topAlbums.map { Triple(it.name, it.artist, it.imageUrl) },
                     onBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.SearchInsights.route) {
+                SearchInsightsScreen(
+                    onBack = { navController.popBackStack() },
+                    onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) },
+                    onArtistClick = { name -> navController.navigate(Screen.ArtistDetail.createRoute(name)) },
+                    onAlbumClick = { name, artist -> navController.navigate(Screen.AlbumDetail.createRoute(name, artist, "", "")) }
+                )
+            }
+            composable(Screen.GlobalCharts.route) {
+                GlobalChartsScreen(
+                    onBack = { navController.popBackStack() },
+                    onArtistClick = { name -> navController.navigate(Screen.ArtistDetail.createRoute(name)) },
+                    onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) }
+                )
+            }
+            composable(Screen.CountryTopArtists.route) {
+                CountryTopArtistsScreen(
+                    onBack = { navController.popBackStack() },
+                    onArtistClick = { name -> navController.navigate(Screen.ArtistDetail.createRoute(name)) }
+                )
+            }
+            composable(
+                route = Screen.FriendProfile.route,
+                arguments = listOf(
+                    navArgument("username") { type = NavType.StringType },
+                    navArgument("realname") { type = NavType.StringType },
+                    navArgument("playcount") { type = NavType.StringType },
+                    navArgument("avatarUrl") { type = NavType.StringType }
+                )
+            ) { entry ->
+                val username = java.net.URLDecoder.decode(entry.arguments?.getString("username") ?: "", "UTF-8")
+                val realname = java.net.URLDecoder.decode(entry.arguments?.getString("realname") ?: "", "UTF-8").let { if (it == "-") "" else it }
+                val playcount = java.net.URLDecoder.decode(entry.arguments?.getString("playcount") ?: "", "UTF-8").let { if (it == "-") "0" else it }
+                val avatarUrl = java.net.URLDecoder.decode(entry.arguments?.getString("avatarUrl") ?: "", "UTF-8").let { if (it == "-") "" else it }
+                FriendProfileScreen(
+                    username = username,
+                    realname = realname,
+                    playcount = playcount,
+                    avatarUrl = avatarUrl,
+                    onBack = { navController.popBackStack() },
+                    onArtistClick = { name -> navController.navigate(Screen.ArtistDetail.createRoute(name)) },
+                    onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) }
                 )
             }
         }

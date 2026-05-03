@@ -136,6 +136,33 @@ object OdesliHelper {
         result
     }
 
+    suspend fun getSongLinkUrl(title: String, artist: String): String = withContext(Dispatchers.IO) {
+        val query = "$artist $title"
+        val e = enc(query)
+        try {
+            val dConn = URL("https://api.deezer.com/search/track?q=$e&limit=1").openConnection() as HttpURLConnection
+            dConn.connectTimeout = 5000; dConn.readTimeout = 5000
+            if (dConn.responseCode == 200) {
+                val dJson = dConn.inputStream.bufferedReader().readText(); dConn.disconnect()
+                val data = JSONObject(dJson).optJSONArray("data")
+                if (data != null && data.length() > 0) {
+                    val trackId = data.getJSONObject(0).optLong("id", 0)
+                    if (trackId > 0) {
+                        val oUrl = "https://api.song.link/v1-alpha.1/links?url=${enc("https://www.deezer.com/track/$trackId")}&songIfSingle=true"
+                        val oConn = URL(oUrl).openConnection() as HttpURLConnection
+                        oConn.connectTimeout = 8000; oConn.readTimeout = 8000
+                        if (oConn.responseCode == 200) {
+                            val body = oConn.inputStream.bufferedReader().readText(); oConn.disconnect()
+                            val pageUrl = JSONObject(body).optString("pageUrl", "")
+                            if (pageUrl.isNotBlank()) return@withContext pageUrl
+                        } else oConn.disconnect()
+                    }
+                }
+            } else dConn.disconnect()
+        } catch (ex: Exception) { Log.w(TAG, "getSongLinkUrl: ${ex.message}") }
+        "https://song.link/s/$e"
+    }
+
     /**
      * Open a platform link. Tries deep link first (for installed apps), falls back to URL.
      */
