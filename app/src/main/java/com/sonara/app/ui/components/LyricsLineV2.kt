@@ -31,6 +31,7 @@ fun LyricsLineV2(
     accentColor: Color,
     inactiveAlpha: Float = 0.35f,
     baseFontSize: Float = 24f,
+    lyricsPosition: String = "center",
     modifier: Modifier = Modifier,
 ) {
     val words = line.words
@@ -41,6 +42,8 @@ fun LyricsLineV2(
                 line.isBackground -> Arrangement.Center
                 line.agent == "v1" -> Arrangement.Start
                 line.agent == "v2" -> Arrangement.End
+                lyricsPosition == "left"  -> Arrangement.Start
+                lyricsPosition == "right" -> Arrangement.End
                 else -> Arrangement.Center
             },
         ) {
@@ -73,6 +76,8 @@ fun LyricsLineV2(
                 line.isBackground -> TextAlign.Center
                 line.agent == "v1" -> TextAlign.Start
                 line.agent == "v2" -> TextAlign.End
+                lyricsPosition == "left"  -> TextAlign.Start
+                lyricsPosition == "right" -> TextAlign.End
                 else -> TextAlign.Center
             },
             modifier = modifier.fillMaxWidth(),
