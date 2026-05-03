@@ -10,11 +10,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -30,7 +29,7 @@ import com.sonara.app.ui.theme.SonaraFont
 import com.sonara.app.ui.theme.SonaraTextPrimary
 import com.sonara.app.ui.theme.SonaraTextSecondary
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LookAndFeelSettingsScreen(onBack: () -> Unit = {}) {
     val vm: SettingsViewModel = viewModel()
@@ -39,7 +38,7 @@ fun LookAndFeelSettingsScreen(onBack: () -> Unit = {}) {
 
     Scaffold(
         topBar = {
-            MediumFlexibleTopAppBar(
+            LargeTopAppBar(
                 title = { Text("Look & Feel") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
                 scrollBehavior = scrollBehavior,

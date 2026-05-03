@@ -15,12 +15,11 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
@@ -47,7 +46,7 @@ import com.sonara.app.ui.theme.SonaraTextSecondary
 import com.sonara.app.ui.theme.SonaraTextTertiary
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LyricsSettingsScreen(onBack: () -> Unit = {}) {
     val vm: SettingsViewModel = viewModel()
@@ -57,7 +56,7 @@ fun LyricsSettingsScreen(onBack: () -> Unit = {}) {
 
     Scaffold(
         topBar = {
-            MediumFlexibleTopAppBar(
+            LargeTopAppBar(
                 title = { Text("Lyrics") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
                 scrollBehavior = scrollBehavior,
