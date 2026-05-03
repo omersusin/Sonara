@@ -16,12 +16,13 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.sonara.app"
-    compileSdk = 35
+    compileSdk = 36
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = "com.sonara.app"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
 
