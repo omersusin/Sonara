@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.materialkolor.rememberDynamicColorScheme
@@ -58,9 +59,10 @@ fun SonaraTheme(
         )
     }
 
+    val typography = remember(font) { buildTypography(font) }
     MaterialTheme(
         colorScheme = scheme,
-        typography = buildTypography(font),
+        typography = typography,
         shapes = SonaraShapes,
         content = content
     )
