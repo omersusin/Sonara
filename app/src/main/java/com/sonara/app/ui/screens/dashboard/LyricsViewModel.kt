@@ -159,11 +159,9 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
             var updated = current
 
             if (showTranslated && targetLang.isNotBlank()) {
-                val geminiKey = prefs.geminiApiKeyFlow.first()
                 val translated = LyricsTranslator.translate(
-                    lines        = lines.map { it.text },
-                    targetLang   = targetLang,
-                    geminiApiKey = geminiKey
+                    lines      = lines.map { it.text },
+                    targetLang = targetLang
                 )
                 updated = if (translated != null) {
                     updated.copy(translatedLines = translated, translationLanguage = targetLang)
@@ -196,11 +194,9 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
             if (parsed.lines.isNotEmpty()) {
                 var ready = LyricsState.Ready(parsed, plain)
                 if (showTranslated && targetLang.isNotBlank()) {
-                    val geminiKey = prefs.geminiApiKeyFlow.first()
                     val translated = LyricsTranslator.translate(
-                        lines        = parsed.lines.map { it.text },
-                        targetLang   = targetLang,
-                        geminiApiKey = geminiKey
+                        lines      = parsed.lines.map { it.text },
+                        targetLang = targetLang
                     )
                     if (translated != null) ready = ready.copy(translatedLines = translated, translationLanguage = targetLang)
                 }
