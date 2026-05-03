@@ -121,7 +121,7 @@ fun SearchInsightsScreen(
         Column(Modifier.fillMaxSize().padding(padding)) {
             TabRow(selectedTabIndex = tab.ordinal, containerColor = MaterialTheme.colorScheme.surface) {
                 SearchTab.entries.forEach { t ->
-                    Tab(selected = tab == t, onClick = { tab = t }, text = { Text(t.name.lowercase().replaceFirstChar { it.uppercase() }) })
+                    Tab(selected = tab == t, onClick = { tab = t }, text = { Text(t.name.lowercase().replaceFirstChar { it.uppercase() }, maxLines = 1, style = MaterialTheme.typography.labelMedium) })
                 }
             }
 

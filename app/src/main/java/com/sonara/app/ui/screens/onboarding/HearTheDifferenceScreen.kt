@@ -45,7 +45,7 @@ fun HearTheDifferenceScreen(isPlaying: Boolean = false, onContinue: () -> Unit, 
 
         if (isPlaying) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Card(Modifier.weight(1f).height(130.dp), colors = CardDefaults.cardColors(containerColor = origColor), shape = RoundedCornerShape(20.dp)) {
+                Card(Modifier.weight(1f).height(130.dp), colors = CardDefaults.cardColors(containerColor = origColor), shape = RoundedCornerShape(12.dp)) {
                     Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                         Icon(Icons.Rounded.MusicOff, null, Modifier.size(36.dp), tint = if (isOriginalMode) p else SonaraTextTertiary)
                         Spacer(Modifier.height(10.dp))
@@ -53,7 +53,7 @@ fun HearTheDifferenceScreen(isPlaying: Boolean = false, onContinue: () -> Unit, 
                         if (isOriginalMode) { Spacer(Modifier.height(4.dp)); Text("No EQ", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary) }
                     }
                 }
-                Card(Modifier.weight(1f).height(130.dp), colors = CardDefaults.cardColors(containerColor = enhColor), shape = RoundedCornerShape(20.dp)) {
+                Card(Modifier.weight(1f).height(130.dp), colors = CardDefaults.cardColors(containerColor = enhColor), shape = RoundedCornerShape(12.dp)) {
                     Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                         Icon(Icons.Rounded.MusicNote, null, Modifier.size(36.dp), tint = if (!isOriginalMode) p else SonaraTextTertiary)
                         Spacer(Modifier.height(10.dp))
@@ -63,7 +63,7 @@ fun HearTheDifferenceScreen(isPlaying: Boolean = false, onContinue: () -> Unit, 
                 }
             }
             Spacer(Modifier.height(28.dp))
-            Box(Modifier.fillMaxWidth().height(60.dp).clip(RoundedCornerShape(30.dp))
+            Box(Modifier.fillMaxWidth().height(60.dp).clip(RoundedCornerShape(24.dp))
                 .background(if (isOriginalMode) SonaraWarning.copy(0.25f) else p.copy(0.12f))
                 .pointerInput(Unit) { detectTapGestures(onPress = {
                     isOriginalMode = true; haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -73,7 +73,7 @@ fun HearTheDifferenceScreen(isPlaying: Boolean = false, onContinue: () -> Unit, 
                     style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
             }
         } else {
-            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = SonaraCard), shape = RoundedCornerShape(20.dp)) {
+            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = SonaraCard), shape = RoundedCornerShape(12.dp)) {
                 Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Rounded.PlayArrow, null, Modifier.size(48.dp), tint = SonaraTextTertiary)
                     Spacer(Modifier.height(12.dp))
@@ -84,6 +84,6 @@ fun HearTheDifferenceScreen(isPlaying: Boolean = false, onContinue: () -> Unit, 
 
         Spacer(Modifier.height(32.dp))
         FilledTonalButton(onClick = { onSetEqEnabled?.invoke(true); onContinue() }, Modifier.fillMaxWidth().height(50.dp),
-            shape = RoundedCornerShape(25.dp), colors = ButtonDefaults.filledTonalButtonColors(containerColor = p, contentColor = SonaraBackground)) { Text("Get Started") }
+            shape = RoundedCornerShape(24.dp), colors = ButtonDefaults.filledTonalButtonColors(containerColor = p, contentColor = SonaraBackground)) { Text("Get Started") }
     }
 }
