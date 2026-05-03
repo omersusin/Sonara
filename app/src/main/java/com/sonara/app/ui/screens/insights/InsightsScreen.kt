@@ -31,11 +31,13 @@ import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.geometry.Rect
@@ -44,6 +46,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -85,7 +88,11 @@ fun InsightsScreen(
     onSeeAllListeningActivity: () -> Unit = {},
     onSeeAllLovedTracks: () -> Unit = {},
     onAlbumClick: (name: String, artist: String, plays: String, imageUrl: String) -> Unit = { _, _, _, _ -> },
-    onConnectLastFm: () -> Unit = {}
+    onConnectLastFm: () -> Unit = {},
+    onSearchClick: () -> Unit = {},
+    onGlobalChartsClick: () -> Unit = {},
+    onCountryChartsClick: () -> Unit = {},
+    onFriendClick: (FriendItem) -> Unit = {}
 ) {
     val vm: InsightsViewModel = viewModel()
     val s by vm.uiState.collectAsState()
@@ -94,6 +101,15 @@ fun InsightsScreen(
     val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+
+        // Search icon row
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                IconButton(onClick = onSearchClick) {
+                    Icon(Icons.Rounded.Search, contentDescription = "Search", tint = p)
+                }
+            }
+        }
 
         // ═══ HERO STATS ═══
         item {
@@ -109,6 +125,14 @@ fun InsightsScreen(
                             StatColumn(try { fmt.format(s.totalArtists.toLong()) } catch (_: Exception) { s.totalArtists }, "artists", p)
                             StatColumn(try { fmt.format(s.trackCount.toLong()) } catch (_: Exception) { s.trackCount }, "tracks", p)
                             StatColumn("~${s.avgDailyScrobbles}", "per day", p)
+                        }
+                        if (s.scrobblesToday > 0) {
+                            Spacer(Modifier.height(8.dp))
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(SonaraDivider.copy(0.15f)))
+                            Spacer(Modifier.height(8.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                                StatColumn("${s.scrobblesToday}", "today", p)
+                            }
                         }
                         if (s.streakDays > 0 || s.peakHour >= 0 || s.discoveryRate > 0) {
                             Spacer(Modifier.height(10.dp))
@@ -330,6 +354,31 @@ fun InsightsScreen(
                             Text(album.artist, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, maxLines = 1)
                             Text(try { "${fmt.format(album.plays.toLong())} plays" } catch (_: Exception) { "${album.plays} plays" }, style = MaterialTheme.typography.labelSmall, color = p)
                         }
+                    }
+                }
+            }
+        }
+
+        // ═══ GLOBAL CHARTS + COUNTRY BUTTONS ═══
+        if (s.lastFmConnected) {
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = onGlobalChartsClick,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, p.copy(0.5f))
+                    ) {
+                        Icon(Icons.Rounded.Public, null, Modifier.size(16.dp).padding(end = 4.dp))
+                        Text("Global Charts", style = MaterialTheme.typography.labelMedium, color = p)
+                    }
+                    OutlinedButton(
+                        onClick = onCountryChartsClick,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, p.copy(0.5f))
+                    ) {
+                        Text("Country Top", style = MaterialTheme.typography.labelMedium, color = p)
                     }
                 }
             }
@@ -623,7 +672,10 @@ fun InsightsScreen(
                     Spacer(Modifier.height(8.dp))
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(s.friends.take(10)) { f ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(72.dp)) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.width(72.dp).clickable { onFriendClick(f) }
+                            ) {
                                 AsyncImage(model = f.imageUrl, contentDescription = f.name,
                                     modifier = Modifier.size(48.dp).clip(CircleShape),
                                     contentScale = ContentScale.Crop)

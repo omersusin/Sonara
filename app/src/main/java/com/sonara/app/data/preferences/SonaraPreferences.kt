@@ -272,6 +272,27 @@ class SonaraPreferences(private val context: Context) {
     val digestEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[DIGEST_ENABLED] ?: true }
     suspend fun setDigestEnabled(e: Boolean) { context.dataStore.edit { it[DIGEST_ENABLED] = e } }
 
+    private val HIDDEN_TAGS_KEY = stringPreferencesKey("hidden_tags")
+
+    val hiddenTagsFlow: Flow<Set<String>> = context.dataStore.data
+        .map { prefs -> prefs[HIDDEN_TAGS_KEY]?.split("|||")?.filter { it.isNotBlank() }?.toSet() ?: emptySet() }
+
+    suspend fun addHiddenTag(tag: String) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[HIDDEN_TAGS_KEY]?.split("|||")?.filter { it.isNotBlank() }?.toMutableSet() ?: mutableSetOf()
+            current.add(tag.trim().lowercase())
+            prefs[HIDDEN_TAGS_KEY] = current.joinToString("|||")
+        }
+    }
+
+    suspend fun removeHiddenTag(tag: String) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[HIDDEN_TAGS_KEY]?.split("|||")?.filter { it.isNotBlank() }?.toMutableSet() ?: mutableSetOf()
+            current.remove(tag.trim().lowercase())
+            prefs[HIDDEN_TAGS_KEY] = current.joinToString("|||")
+        }
+    }
+
     suspend fun resetAll() { context.dataStore.edit { it.clear() } }
 
     companion object {

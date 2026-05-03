@@ -167,6 +167,39 @@ interface LastFmApi {
         @Query("limit") limit: Int = 5
     ): LastFmTrackSearchResponse
 
+    @GET("?method=artist.search&format=json")
+    suspend fun searchArtist(
+        @Query("artist") artist: String,
+        @Query("api_key") apiKey: String,
+        @Query("limit") limit: Int = 5
+    ): LastFmArtistSearchResponse
+
+    @GET("?method=album.search&format=json")
+    suspend fun searchAlbum(
+        @Query("album") album: String,
+        @Query("api_key") apiKey: String,
+        @Query("limit") limit: Int = 5
+    ): LastFmAlbumSearchResponse
+
+    @GET("?method=chart.getTopArtists&format=json")
+    suspend fun getChartTopArtists(
+        @Query("api_key") apiKey: String,
+        @Query("limit") limit: Int = 50
+    ): LastFmChartArtistsResponse
+
+    @GET("?method=chart.getTopTracks&format=json")
+    suspend fun getChartTopTracks(
+        @Query("api_key") apiKey: String,
+        @Query("limit") limit: Int = 50
+    ): LastFmChartTracksResponse
+
+    @GET("?method=geo.getTopArtists&format=json")
+    suspend fun getGeoTopArtists(
+        @Query("country") country: String,
+        @Query("api_key") apiKey: String,
+        @Query("limit") limit: Int = 30
+    ): LastFmGeoArtistsResponse
+
     companion object {
         const val BASE_URL = "https://ws.audioscrobbler.com/2.0/"
     }

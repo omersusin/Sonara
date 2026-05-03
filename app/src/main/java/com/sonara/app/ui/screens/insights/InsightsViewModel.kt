@@ -79,12 +79,16 @@ data class InsightsUiState(
     val surpriseType: String = "",
     // PANO-05: Monthly timeline
     val monthlyTimeline: List<Pair<String, Int>> = emptyList(),
-    val monthlyTimelineLoading: Boolean = false
+    val monthlyTimelineLoading: Boolean = false,
+    // Scrobbles today
+    val scrobblesToday: Int = 0,
+    // Hidden tags
+    val hiddenTags: Set<String> = emptySet()
 )
 
 data class TopTrackItem(val title: String, val artist: String, val plays: String, val imageUrl: String = "")
 data class TopAlbumItem(val name: String, val artist: String, val plays: String, val imageUrl: String = "")
-data class RecentTrackItem(val title: String, val artist: String, val album: String, val imageUrl: String, val isNowPlaying: Boolean, val date: String, val uts: Long = 0L)
+data class RecentTrackItem(val title: String, val artist: String, val album: String, val imageUrl: String, val isNowPlaying: Boolean, val date: String, val uts: Long = 0L, val isLoved: Boolean = false)
 data class LovedTrackDisplayItem(val title: String, val artist: String, val date: String, val url: String)
 data class FriendItem(val name: String, val realname: String, val playcount: String, val imageUrl: String)
 
@@ -145,6 +149,9 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 }
             }
         }
+
+        // Hidden tags
+        viewModelScope.launch { prefs.hiddenTagsFlow.collect { tags -> _uiState.update { it.copy(hiddenTags = tags) } } }
 
         // Last.fm auth
         viewModelScope.launch { app.lastFmAuth.authState.collect { state -> _uiState.update { it.copy(lastFmConnected = state == LastFmAuthManager.AuthState.CONNECTED) } } }
@@ -220,7 +227,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 val recentTracksD = async {
                     try {
                         val recent = LastFmClient.api.getRecentTracks(username, apiKey, 200)
-                        val list = recent.recenttracks?.track?.map { t -> RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "", t.imageUrl ?: "", t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L) } ?: emptyList()
+                        val list = recent.recenttracks?.track?.map { t -> RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "", t.imageUrl ?: "", t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L, t.loved == "1") } ?: emptyList()
                         _uiState.update { it.copy(recentTracks = list) }
                         val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
                         val dayCounts = IntArray(7)
@@ -298,6 +305,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 loadDailyChart()
                 loadFriends()
                 loadMonthlyTimeline()
+                fetchScrobblesToday(username)
             }
         }
     }
@@ -312,7 +320,8 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 val list = resp.recenttracks?.track?.map { t ->
                     RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "",
                         t.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") } ?: "",
-                        t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L)
+                        t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L,
+                        t.loved == "1")
                 } ?: emptyList()
                 val enriched = list.map { t -> if (t.imageUrl.isBlank()) t.copy(imageUrl = DeezerImageResolver.getTrackImageWithFallback(t.title, t.artist) ?: "") else t }
                 _uiState.update { it.copy(recentTracks = enriched) }
@@ -326,7 +335,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val recent = LastFmClient.api.getRecentTracks(username, apiKey, 10)
-                val apiList = recent.recenttracks?.track?.map { t -> RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "", t.imageUrl ?: "", t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L) } ?: emptyList()
+                val apiList = recent.recenttracks?.track?.map { t -> RecentTrackItem(t.name, t.artist?.text ?: "", t.album?.text ?: "", t.imageUrl ?: "", t.isNowPlaying, t.date?.text ?: "Now", t.date?.uts?.toLongOrNull() ?: 0L, t.loved == "1") } ?: emptyList()
                 val np = SonaraNotificationListener.nowPlaying.value
                 _uiState.update { st ->
                     if (np.isPlaying && np.title.isNotBlank()) {
@@ -532,6 +541,56 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 surpriseType = "artist"
             ) }
         }
+    }
+
+    fun toggleLove(title: String, artist: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val apiKey = app.secureSecrets.getLastFmApiKey()
+            val sharedSecret = app.secureSecrets.getLastFmSharedSecret()
+            val sessionKey = app.secureSecrets.getLastFmSessionKey()
+            if (apiKey.isBlank() || sessionKey.isBlank()) return@launch
+            val isCurrentlyLoved = _uiState.value.recentTracks.find { it.title == title && it.artist == artist }?.isLoved ?: false
+            val scrobbler = com.sonara.app.intelligence.lastfm.ScrobblingManager()
+            val success = if (isCurrentlyLoved) {
+                scrobbler.unloveTrack(title, artist, apiKey, sharedSecret, sessionKey)
+            } else {
+                scrobbler.loveTrack(title, artist, apiKey, sharedSecret, sessionKey)
+            }
+            if (success) {
+                _uiState.update { st ->
+                    st.copy(recentTracks = st.recentTracks.map { t ->
+                        if (t.title == title && t.artist == artist) t.copy(isLoved = !isCurrentlyLoved) else t
+                    })
+                }
+            }
+        }
+    }
+
+    fun fetchScrobblesToday(username: String) {
+        val apiKey = app.lastFmAuth.getActiveApiKey()
+        if (apiKey.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val cal = java.util.Calendar.getInstance()
+                cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                cal.set(java.util.Calendar.MINUTE, 0)
+                cal.set(java.util.Calendar.SECOND, 0)
+                cal.set(java.util.Calendar.MILLISECOND, 0)
+                val startOfDay = cal.timeInMillis / 1000
+                val now = System.currentTimeMillis() / 1000
+                val resp = LastFmClient.api.getRecentTracksRange(username, apiKey, startOfDay, now, 1, 1)
+                val total = resp.recenttracks?.attr?.total?.toIntOrNull() ?: 0
+                _uiState.update { it.copy(scrobblesToday = total) }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun hideTag(tag: String) {
+        viewModelScope.launch { prefs.addHiddenTag(tag) }
+    }
+
+    fun unhideTag(tag: String) {
+        viewModelScope.launch { prefs.removeHiddenTag(tag) }
     }
 
     fun loadMonthlyTimeline() {

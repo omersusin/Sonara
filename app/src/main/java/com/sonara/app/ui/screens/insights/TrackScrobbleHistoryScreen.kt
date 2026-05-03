@@ -44,6 +44,7 @@ fun TrackScrobbleHistoryScreen(
     data class ScrobbleEntry(val date: String, val uts: Long, val imageUrl: String)
 
     var scrobbles by remember { mutableStateOf<List<ScrobbleEntry>>(emptyList()) }
+    var totalScrobbleCount by remember { mutableStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
     var firstScrobbleLabel by remember { mutableStateOf("") }
 
@@ -55,6 +56,7 @@ fun TrackScrobbleHistoryScreen(
                 if (username.isBlank() || apiKey.isBlank()) { isLoading = false; return@withContext }
 
                 val resp = LastFmClient.api.getUserTrackScrobbles(username, trackArtist, trackTitle, apiKey, limit = 200)
+                val apiTotal = resp.recenttracks?.attr?.total?.toIntOrNull()
                 val sdf = SimpleDateFormat("d MMM yyyy, HH:mm", Locale.getDefault())
                 val entries = resp.recenttracks?.track
                     ?.filter { it.date != null }
@@ -67,6 +69,8 @@ fun TrackScrobbleHistoryScreen(
                             imageUrl = t.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") } ?: ""
                         )
                     } ?: emptyList()
+
+                totalScrobbleCount = apiTotal ?: entries.size
 
                 val oldest = entries.minByOrNull { it.uts }
                 if (oldest != null && oldest.uts > 0) {
@@ -108,7 +112,7 @@ fun TrackScrobbleHistoryScreen(
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                fmt.format(scrobbles.size.toLong()),
+                                fmt.format(totalScrobbleCount.toLong()),
                                 style = MaterialTheme.typography.headlineMedium,
                                 color = p,
                                 fontWeight = FontWeight.Bold

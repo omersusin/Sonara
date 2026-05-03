@@ -1,9 +1,12 @@
 package com.sonara.app.ui.screens.insights
 
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,7 +23,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,16 +45,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import androidx.activity.ComponentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
+import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.theme.SonaraCard
 import com.sonara.app.ui.theme.SonaraCardElevated
 import com.sonara.app.ui.theme.SonaraDivider
 import com.sonara.app.ui.theme.SonaraTextPrimary
 import com.sonara.app.ui.theme.SonaraTextTertiary
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AllGenresScreen(onBack: () -> Unit) {
     val activity = LocalContext.current as ComponentActivity
@@ -59,7 +64,10 @@ fun AllGenresScreen(onBack: () -> Unit) {
 
     var searchQuery by remember { mutableStateOf("") }
 
-    val sorted = s.genreDistribution.entries.sortedByDescending { it.value }
+    val hiddenTags = s.hiddenTags
+    val sorted = s.genreDistribution.entries
+        .filter { it.key.lowercase() !in hiddenTags }
+        .sortedByDescending { it.value }
     val displayed = if (searchQuery.isBlank()) sorted
         else sorted.filter { it.key.contains(searchQuery, ignoreCase = true) }
     val total = sorted.sumOf { it.value }.toFloat().coerceAtLeast(1f)
@@ -123,9 +131,33 @@ fun AllGenresScreen(onBack: () -> Unit) {
                             Box(Modifier.fillMaxWidth(count / maxVal).height(28.dp).clip(RoundedCornerShape(6.dp)).background(p.copy(alpha = 0.65f)))
                             Text("$pct%", style = MaterialTheme.typography.labelSmall, color = SonaraTextPrimary, modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
                         }
+                        IconButton(onClick = { vm.hideTag(genre) }, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Rounded.VisibilityOff, "Hide genre", tint = SonaraTextTertiary, modifier = Modifier.size(16.dp))
+                        }
                     }
                 }
-                item { Spacer(Modifier.height(16.dp)) }
+                item { Spacer(Modifier.height(8.dp)) }
+            }
+
+            // Hidden tags restore section
+            if (hiddenTags.isNotEmpty()) {
+                FluentCard(modifier = Modifier.padding(16.dp)) {
+                    Text("Hidden Genres", style = MaterialTheme.typography.labelMedium, color = SonaraTextTertiary)
+                    Spacer(Modifier.height(8.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        hiddenTags.forEach { tag ->
+                            FilterChip(
+                                selected = false,
+                                onClick = { vm.unhideTag(tag) },
+                                label = { Text(tag, style = MaterialTheme.typography.labelSmall) },
+                                trailingIcon = { Icon(Icons.Rounded.Close, "Restore", Modifier.size(12.dp)) }
+                            )
+                        }
+                    }
+                }
             }
         }
     }

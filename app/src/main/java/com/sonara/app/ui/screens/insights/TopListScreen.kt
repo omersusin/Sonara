@@ -71,10 +71,34 @@ import com.sonara.app.SonaraApp
 import com.sonara.app.intelligence.deezer.DeezerImageResolver
 import com.sonara.app.intelligence.lastfm.LastFmClient
 import com.sonara.app.ui.theme.*
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material3.FilterChip
+import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.util.Locale
+
+private fun rankDelta(currentRank: Int, prevRank: Int?): Int? {
+    if (prevRank == null) return Int.MAX_VALUE // new entry
+    return prevRank - currentRank
+}
+
+@Composable
+private fun DeltaIcon(delta: Int?, modifier: Modifier = Modifier) {
+    if (delta == null) return
+    val p = MaterialTheme.colorScheme.primary
+    when {
+        delta == Int.MAX_VALUE -> Text("⇈", style = MaterialTheme.typography.labelSmall, color = p, modifier = modifier)
+        delta >= 5 -> Icon(Icons.Rounded.KeyboardArrowUp, null, tint = p, modifier = modifier.size(14.dp))
+        delta > 0 -> Icon(Icons.Rounded.KeyboardArrowUp, null, tint = p.copy(0.6f), modifier = modifier.size(14.dp))
+        delta < 0 -> Icon(Icons.Rounded.KeyboardArrowDown, null, tint = SonaraTextTertiary, modifier = modifier.size(14.dp))
+        else -> {}
+    }
+}
 
 private enum class ViewMode(val label: String, val cols: Int) {
     LIST("List", 1),
@@ -126,6 +150,7 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
     val ctx = LocalContext.current
     var period by rememberSaveable { mutableStateOf("overall") }
     var artists by remember { mutableStateOf<List<Triple<String, String, String>>>(emptyList()) }
+    var prevArtistRanks by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var loading by remember { mutableStateOf(true) }
     var viewMode by rememberSaveable { mutableStateOf(ViewMode.LIST) }
     var showViewMenu by remember { mutableStateOf(false) }
@@ -138,8 +163,13 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
             val username = app.lastFmAuth.getConnectionInfo().username
             if (apiKey.isNotBlank() && username.isNotBlank()) {
                 try {
-                    val resp = LastFmClient.api.getUserTopArtists(username, apiKey, period, 1000)
-                    artists = resp.topartists?.artist?.map { Triple(it.name, it.playcount, if ((it.imageUrl ?: "").contains("2a96cbd8b46e")) "" else it.imageUrl ?: "") } ?: emptyList()
+                    coroutineScope {
+                        val currentD = async { LastFmClient.api.getUserTopArtists(username, apiKey, period, 1000) }
+                        val prevD = if (period != "overall") async { LastFmClient.api.getUserTopArtists(username, apiKey, "overall", 1000) } else null
+                        val current = currentD.await()
+                        prevArtistRanks = prevD?.await()?.topartists?.artist?.mapIndexed { i, a -> a.name to (i + 1) }?.toMap() ?: emptyMap()
+                        artists = current.topartists?.artist?.map { Triple(it.name, it.playcount, if ((it.imageUrl ?: "").contains("2a96cbd8b46e")) "" else it.imageUrl ?: "") } ?: emptyList()
+                    }
                 } catch (_: Exception) {}
             }
             loading = false
@@ -190,8 +220,10 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
                                 if (r.isNotBlank()) imgUrl = r
                             }
                         }
+                        val delta = if (period != "overall") rankDelta(i + 1, prevArtistRanks[a.first]) else null
                         Row(Modifier.fillMaxWidth().clickable { onArtistClick(a.first) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("${i+1}", style = MaterialTheme.typography.labelLarge, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(28.dp))
+                            DeltaIcon(delta)
                             if (imgUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(imgUrl).crossfade(true).build(), contentDescription = a.first, modifier = Modifier.size(50.dp).clip(CircleShape), contentScale = ContentScale.Crop)
                             else Box(Modifier.size(50.dp).background(SonaraCardElevated, CircleShape), contentAlignment = Alignment.Center) { Text(a.first.take(1), style = MaterialTheme.typography.titleSmall, color = p) }
                             Column(Modifier.weight(1f)) {
@@ -245,6 +277,7 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
     val ctx = LocalContext.current
     var period by rememberSaveable { mutableStateOf("overall") }
     var tracks by remember { mutableStateOf<List<TopTrackItem>>(emptyList()) }
+    var prevTrackRanks by remember { mutableStateOf<Map<Pair<String,String>, Int>>(emptyMap()) }
     var loading by remember { mutableStateOf(true) }
     var viewMode by rememberSaveable { mutableStateOf(ViewMode.LIST) }
     var showViewMenu by remember { mutableStateOf(false) }
@@ -257,8 +290,13 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
             val username = app.lastFmAuth.getConnectionInfo().username
             if (apiKey.isNotBlank() && username.isNotBlank()) {
                 try {
-                    val resp = LastFmClient.api.getUserTopTracks(username, apiKey, period, 1000)
-                    tracks = resp.toptracks?.track?.map { TopTrackItem(it.name, it.artist?.name ?: "", it.playcount, if ((it.imageUrl ?: "").contains("2a96cbd8b46e")) "" else it.imageUrl ?: "") } ?: emptyList()
+                    coroutineScope {
+                        val currentD = async { LastFmClient.api.getUserTopTracks(username, apiKey, period, 1000) }
+                        val prevD = if (period != "overall") async { LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 1000) } else null
+                        val current = currentD.await()
+                        prevTrackRanks = prevD?.await()?.toptracks?.track?.mapIndexed { i, t -> (t.name to (t.artist?.name ?: "")) to (i + 1) }?.toMap() ?: emptyMap()
+                        tracks = current.toptracks?.track?.map { TopTrackItem(it.name, it.artist?.name ?: "", it.playcount, if ((it.imageUrl ?: "").contains("2a96cbd8b46e")) "" else it.imageUrl ?: "") } ?: emptyList()
+                    }
                 } catch (_: Exception) {}
             }
             loading = false
@@ -309,8 +347,10 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
                                 if (r.isNotBlank()) imgUrl = r
                             }
                         }
+                        val delta = if (period != "overall") rankDelta(i + 1, prevTrackRanks[track.title to track.artist]) else null
                         Row(Modifier.fillMaxWidth().clickable { onTrackClick(track.title, track.artist) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text("${i+1}", style = MaterialTheme.typography.labelLarge, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(28.dp))
+                            DeltaIcon(delta)
                             if (imgUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(imgUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.size(46.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
                             else Box(Modifier.size(46.dp).background(SonaraCardElevated, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MusicNote, null, tint = p.copy(0.4f), modifier = Modifier.size(18.dp)) }
                             Column(Modifier.weight(1f)) {
@@ -371,6 +411,7 @@ fun TopAlbumsListScreen(
     val ctx = LocalContext.current
     var period by rememberSaveable { mutableStateOf("overall") }
     var albums by remember { mutableStateOf<List<TopAlbumItem>>(emptyList()) }
+    var prevAlbumRanks by remember { mutableStateOf<Map<Pair<String,String>, Int>>(emptyMap()) }
     var loading by remember { mutableStateOf(true) }
     var viewMode by rememberSaveable { mutableStateOf(ViewMode.LIST) }
     var showViewMenu by remember { mutableStateOf(false) }
@@ -383,8 +424,13 @@ fun TopAlbumsListScreen(
             val username = app.lastFmAuth.getConnectionInfo().username
             if (apiKey.isNotBlank() && username.isNotBlank()) {
                 try {
-                    val resp = LastFmClient.api.getUserTopAlbums(username, apiKey, period, 1000)
-                    albums = resp.topalbums?.album?.map { TopAlbumItem(it.name, it.artist?.name ?: "", it.playcount, if ((it.imageUrl ?: "").contains("2a96cbd8b46e")) "" else it.imageUrl ?: "") } ?: emptyList()
+                    coroutineScope {
+                        val currentD = async { LastFmClient.api.getUserTopAlbums(username, apiKey, period, 1000) }
+                        val prevD = if (period != "overall") async { LastFmClient.api.getUserTopAlbums(username, apiKey, "overall", 1000) } else null
+                        val current = currentD.await()
+                        prevAlbumRanks = prevD?.await()?.topalbums?.album?.mapIndexed { i, a -> (a.name to (a.artist?.name ?: "")) to (i + 1) }?.toMap() ?: emptyMap()
+                        albums = current.topalbums?.album?.map { TopAlbumItem(it.name, it.artist?.name ?: "", it.playcount, if ((it.imageUrl ?: "").contains("2a96cbd8b46e")) "" else it.imageUrl ?: "") } ?: emptyList()
+                    }
                 } catch (_: Exception) {}
             }
             loading = false
@@ -435,6 +481,7 @@ fun TopAlbumsListScreen(
                                 if (r.isNotBlank()) imgUrl = r
                             }
                         }
+                        val delta = if (period != "overall") rankDelta(i + 1, prevAlbumRanks[album.name to album.artist]) else null
                         Row(
                             Modifier.fillMaxWidth()
                                 .clickable { onAlbumClick(album.name, album.artist, album.plays, imgUrl) }
@@ -443,6 +490,7 @@ fun TopAlbumsListScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text("${i+1}", style = MaterialTheme.typography.labelLarge, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(28.dp))
+                            DeltaIcon(delta)
                             if (imgUrl.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(imgUrl).crossfade(true).build(), contentDescription = null, modifier = Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
                             else Box(Modifier.size(50.dp).background(SonaraCardElevated, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Album, null, tint = p.copy(0.4f), modifier = Modifier.size(20.dp)) }
                             Column(Modifier.weight(1f)) {
