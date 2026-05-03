@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -93,6 +94,13 @@ import com.sonara.app.ui.components.ChipStatus
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.components.StatusChip
 import com.sonara.app.ui.theme.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.ExposedDropdownMenu
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import com.materialkolor.rememberDynamicColorScheme
 
 @Composable
 fun SettingsScreen(
@@ -580,34 +588,19 @@ internal fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
 
 
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
     val p = MaterialTheme.colorScheme.primary
     FluentCard {
-        Text("Accent Color", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(4.dp))
-        Text(AccentSeeds.presets.find { it.seed == s.accentSeed }?.displayName ?: "Custom",
-            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-        Spacer(Modifier.height(16.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            AccentSeeds.presets.forEach { accent ->
-                val sel = accent.seed == s.accentSeed
-                Box(
-                    Modifier.size(38.dp).clip(CircleShape)
-                        .background(accent.seed)
-                        .then(if (sel) Modifier.border(2.5.dp, SonaraTextPrimary, CircleShape) else Modifier.border(1.dp, SonaraDivider.copy(0.3f), CircleShape))
-                        .clickable { vm.setAccentSeed(accent.seed) },
-                    contentAlignment = Alignment.Center
-                ) { if (sel) Icon(Icons.Rounded.Check, null, tint = SonaraBackground, modifier = Modifier.size(18.dp)) }
-            }
-        }
-        SettingsDivider()
+        // ── Theme Mode ───────────────────────────────────────
         Text("Theme Mode", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (id, label) ->
                 val sel = s.themeMode == id
-                OutlinedButton(onClick = { vm.setThemeMode(id) },
+                OutlinedButton(
+                    onClick = { vm.setThemeMode(id) },
                     shape = MaterialTheme.shapes.extraLarge,
                     border = BorderStroke(1.dp, if (sel) p else SonaraDivider),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = if (sel) p else SonaraTextSecondary),
@@ -621,6 +614,106 @@ internal fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
         SwitchRow("Dynamic Colors", "Use wallpaper colors (Android 12+)", s.dynamicColors) { vm.setDynamicColors(it) }
         SettingsDivider()
         SwitchRow("High Contrast", "Increase text contrast", s.highContrast) { vm.setHighContrast(it) }
+        SettingsDivider()
+
+        // ── Font Dropdown ────────────────────────────────────
+        var fontExpanded by remember { mutableStateOf(false) }
+        Text("Font", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text("App-wide typeface (Google Fonts)", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Spacer(Modifier.height(8.dp))
+        ExposedDropdownMenuBox(
+            expanded = fontExpanded,
+            onExpandedChange = { fontExpanded = it }
+        ) {
+            OutlinedTextField(
+                value = SonaraFont.fromId(s.selectedFont).displayName,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fontExpanded) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                modifier = Modifier.menuAnchor().fillMaxWidth()
+            )
+            ExposedDropdownMenu(
+                expanded = fontExpanded,
+                onDismissRequest = { fontExpanded = false }
+            ) {
+                SonaraFont.entries.forEach { f ->
+                    DropdownMenuItem(
+                        text = { Text(f.displayName) },
+                        onClick = { vm.setSelectedFont(f.name); fontExpanded = false },
+                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                    )
+                }
+            }
+        }
+        SettingsDivider()
+
+        // ── Color: Accent + Palette Style ───────────────────
+        Text("Color", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            AccentSeeds.presets.find { it.seed == s.accentSeed }?.displayName ?: "Custom",
+            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            AccentSeeds.presets.forEach { accent ->
+                val sel = accent.seed == s.accentSeed
+                Box(
+                    Modifier.size(38.dp).clip(CircleShape)
+                        .background(accent.seed)
+                        .then(if (sel) Modifier.border(2.5.dp, SonaraTextPrimary, CircleShape) else Modifier.border(1.dp, SonaraDivider.copy(0.3f), CircleShape))
+                        .clickable { vm.setAccentSeed(accent.seed) },
+                    contentAlignment = Alignment.Center
+                ) { if (sel) Icon(Icons.Rounded.Check, null, tint = SonaraBackground, modifier = Modifier.size(18.dp)) }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("Palette Style", style = MaterialTheme.typography.bodyMedium, color = SonaraTextSecondary)
+        Spacer(Modifier.height(8.dp))
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SonaraPaletteStyle.entries.forEach { ps ->
+                val isSelected = s.selectedPaletteStyle == ps.name
+                val previewScheme = rememberDynamicColorScheme(
+                    seedColor = s.accentSeed,
+                    isDark = true,
+                    style = ps.toMaterialKolor()
+                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clickable { vm.setSelectedPaletteStyle(ps.name) }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(if (isSelected) RoundedCornerShape(10.dp) else CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(modifier = Modifier.matchParentSize()) {
+                            val colors = listOf(
+                                previewScheme.primary, previewScheme.primaryContainer,
+                                previewScheme.secondary, previewScheme.secondaryContainer,
+                                previewScheme.tertiary, previewScheme.tertiaryContainer,
+                            )
+                            val sweep = 360f / colors.size
+                            colors.forEachIndexed { i, c ->
+                                drawArc(color = c, startAngle = i * sweep, sweepAngle = sweep, useCenter = true)
+                            }
+                        }
+                        if (isSelected) {
+                            Icon(Icons.Rounded.Check, null, tint = previewScheme.onPrimary, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(ps.displayName, style = MaterialTheme.typography.labelSmall, color = if (isSelected) p else SonaraTextTertiary)
+                }
+            }
+        }
     }
 }
 

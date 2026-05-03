@@ -64,6 +64,8 @@ class SonaraPreferences(private val context: Context) {
     private val KEY_LYRICS_SYNC_OFFSET = intPreferencesKey("lyrics_sync_offset_ms")
     private val KEY_LYRICS_SHOW_TRANSLATED = booleanPreferencesKey("lyrics_show_translated")
     private val KEY_LYRICS_TARGET_LANGUAGE = stringPreferencesKey("lyrics_target_language")
+    private val SELECTED_FONT          = stringPreferencesKey("selected_font")
+    private val SELECTED_PALETTE_STYLE = stringPreferencesKey("selected_palette_style")
 
     // Seed-based accent (MD3E). On first read, migrates legacy enum name to hex seed.
     val accentSeedFlow: Flow<Color> = context.dataStore.data.map { p ->
@@ -292,6 +294,12 @@ class SonaraPreferences(private val context: Context) {
             prefs[HIDDEN_TAGS_KEY] = current.joinToString("|||")
         }
     }
+
+    val selectedFontFlow: Flow<String> = context.dataStore.data.map { it[SELECTED_FONT] ?: "INTER" }
+    suspend fun setSelectedFont(font: String) { context.dataStore.edit { it[SELECTED_FONT] = font } }
+
+    val selectedPaletteStyleFlow: Flow<String> = context.dataStore.data.map { it[SELECTED_PALETTE_STYLE] ?: "EXPRESSIVE" }
+    suspend fun setSelectedPaletteStyle(style: String) { context.dataStore.edit { it[SELECTED_PALETTE_STYLE] = style } }
 
     suspend fun resetAll() { context.dataStore.edit { it.clear() } }
 

@@ -43,7 +43,7 @@ object LyricsHelper {
     ): LyricsResult? = withContext(Dispatchers.IO) {
         if (title.isBlank()) return@withContext null
 
-        val key = cacheKey(title, artist)
+        val key = cacheKey(title, artist, album)
         memCache.get(key)?.let { return@withContext it }
 
         data class ProviderDef(val name: String, val id: String, val fetch: suspend () -> LyricsResult?)
@@ -110,19 +110,29 @@ object LyricsHelper {
         }
     }
 
-    fun invalidate(title: String, artist: String) {
-        memCache.remove(cacheKey(title, artist))
+    fun invalidate(title: String, artist: String, album: String = "") {
+        memCache.remove(cacheKey(title, artist, album))
+        // Also remove legacy key (without album) for backward-compat cache hits
+        memCache.remove(cacheKey(title, artist, ""))
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    /**
+     * Returns true if the raw lyrics string contains meaningful visible text.
+     * Handles both LRC timestamps and TTML/XML tags so that empty TTML shells
+     * (provider returns a valid document with no actual words) are correctly
+     * rejected rather than accepted as "lyrics found".
+     */
     private fun isMeaningfulLyrics(raw: String): Boolean {
         val invisibleRe = Regex("""[​‌‍⁠­]""")
         val timestampRe = Regex("""\[\d{1,2}:\d{2}(?:\.\d{1,3})?]""")
+        val ttmlTagRe   = Regex("""<[^>]+>""")
         val normalized  = raw.replace("﻿", "").replace(invisibleRe, "").trim()
         if (normalized.isEmpty()) return false
-        val noTs = timestampRe.replace(normalized, "").replace(invisibleRe, "").trim()
-        return noTs.any { !it.isWhitespace() && it != ' ' }
+        val noTs   = timestampRe.replace(normalized, "")
+        val noTags = ttmlTagRe.replace(noTs, "").replace(invisibleRe, "").trim()
+        return noTags.any { !it.isWhitespace() && it != ' ' }
     }
 
     private suspend fun tryLrcLib(
@@ -140,8 +150,6 @@ object LyricsHelper {
                     return LyricsResult(p, res.syncedLyrics, res.plainLyrics, "lrclib")
                 }
             }
-            // Plain-only: return null so other providers can attempt to find synced lyrics.
-            // Plain text is used as a last-resort fallback at the end of getLyrics().
             null
         } catch (e: Exception) {
             SonaraLogger.w(TAG, "LrcLib failed: ${e.message}")
@@ -161,6 +169,6 @@ object LyricsHelper {
         }
     }
 
-    private fun cacheKey(title: String, artist: String) =
-        "${title.trim().lowercase()}|${artist.trim().lowercase()}"
+    private fun cacheKey(title: String, artist: String, album: String = "") =
+        "${title.trim().lowercase()}|${artist.trim().lowercase()}|${album.trim().lowercase()}"
 }

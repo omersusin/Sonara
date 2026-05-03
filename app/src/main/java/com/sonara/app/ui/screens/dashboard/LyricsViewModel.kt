@@ -8,9 +8,11 @@ import com.sonara.app.data.SonaraDatabase
 import com.sonara.app.intelligence.lyrics.LrcParser
 import com.sonara.app.intelligence.lyrics.LyricsCacheEntity
 import com.sonara.app.intelligence.lyrics.LyricsHelper
+import com.sonara.app.intelligence.lyrics.LyricsRomanizer
 import com.sonara.app.intelligence.lyrics.LyricsState
 import com.sonara.app.intelligence.lyrics.LyricsTranslator
 import com.sonara.app.intelligence.lyrics.ParsedLyrics
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,30 +29,38 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
 
     private var loadedKey = ""
 
-    fun load(title: String, artist: String, album: String, durationMs: Long, showTranslated: Boolean = false, targetLang: String = "en") {
+    fun load(
+        title: String,
+        artist: String,
+        album: String,
+        durationMs: Long,
+        showTranslated: Boolean = false,
+        targetLang: String = "en"
+    ) {
         if (title.isBlank()) { _state.value = LyricsState.Idle; return }
-        val key = "${title.trim().lowercase()}|${artist.trim().lowercase()}"
-        if (key == loadedKey) return
+        val key = "${title.trim().lowercase()}|${artist.trim().lowercase()}|${album.trim().lowercase()}"
+        // BUG-FIX 11e: don't skip if we're in Idle or Error state (covers retry after reset)
+        if (key == loadedKey && _state.value !is LyricsState.Idle && _state.value !is LyricsState.Error) return
         loadedKey = key
-        _state.value = LyricsState.Idle
         _state.value = LyricsState.Loading()
 
         viewModelScope.launch {
-            // Check DB cache first — preserves raw LRC/TTML for full-fidelity re-parse
+            // Check DB cache first
             val cached = dao.getByKey(key)
             if (cached != null) {
                 _state.value = buildStateFromCache(cached.syncedLyrics, cached.plainLyrics, showTranslated, targetLang)
                 return@launch
             }
 
-            // Fetch via priority chain (order depends on user's preferred provider)
             val preferred = prefs.preferredLyricsProviderFlow.first()
-            val result = LyricsHelper.getLyrics(title, artist, album, durationMs,
+            val result = LyricsHelper.getLyrics(
+                title, artist, album, durationMs,
                 preferredProvider = preferred,
                 onProviderTrying = { providerName ->
                     _state.value = LyricsState.Loading(providerName)
                 }
             )
+
             if (result != null) {
                 dao.insert(LyricsCacheEntity(
                     cacheKey = key,
@@ -58,34 +68,33 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
                     plainLyrics = result.plain,
                     source = result.provider
                 ))
-                val ready = if (result.parsed.lines.isNotEmpty()) {
-                    LyricsState.Ready(result.parsed, result.plain)
-                } else if (result.plain != null) {
-                    LyricsState.Ready(ParsedLyrics(emptyList(), false), result.plain)
-                } else {
-                    null
+
+                val ready = when {
+                    result.parsed.lines.isNotEmpty() -> LyricsState.Ready(result.parsed, result.plain)
+                    result.plain != null             -> LyricsState.Ready(ParsedLyrics(emptyList(), false), result.plain)
+                    else                             -> null
                 }
+
                 if (ready != null) {
-                    _state.value = ready
-                    // Translation
+                    // BUG-FIX 11b: fetch translation + romanization concurrently, emit ONCE
+                    var translatedLines: List<String>? = null
+                    var romanizedLines: List<String>? = null
+
                     if (showTranslated && targetLang.isNotBlank() && result.parsed.lines.isNotEmpty()) {
-                        val translated = LyricsTranslator.translate(result.parsed.lines.map { it.text }, targetLang)
-                        if (translated != null) {
-                            _state.value = (_state.value as? LyricsState.Ready)
-                                ?.copy(translatedLines = translated, translationLanguage = targetLang)
-                                ?: _state.value
-                        }
+                        translatedLines = LyricsTranslator.translate(
+                            lines      = result.parsed.lines.map { it.text },
+                            targetLang = targetLang
+                        )
                     }
-                    // Romanization
                     if (result.parsed.lines.isNotEmpty()) {
-                        val romanized = com.sonara.app.intelligence.lyrics.LyricsRomanizer
-                            .romanize(result.parsed.lines.map { it.text })
-                        if (romanized != null) {
-                            _state.value = (_state.value as? LyricsState.Ready)
-                                ?.copy(romanizedLines = romanized)
-                                ?: _state.value
-                        }
+                        romanizedLines = LyricsRomanizer.romanize(result.parsed.lines.map { it.text })
                     }
+
+                    _state.value = ready.copy(
+                        translatedLines     = translatedLines,
+                        translationLanguage = if (translatedLines != null) targetLang else null,
+                        romanizedLines      = romanizedLines
+                    )
                 } else {
                     _state.value = LyricsState.NotFound
                 }
@@ -98,23 +107,22 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
     fun reset() {
         loadedKey = ""
         _state.value = LyricsState.Idle
+        viewModelScope.coroutineContext.cancelChildren() // BUG-FIX 11a: cancel in-flight coroutines
     }
 
     /**
      * Re-fetches lyrics with a corrected title/artist, bypassing the cache.
-     * Used by the lyrics correction dialog (CROSS-02).
      */
-    fun searchLyricsWithCorrection(title: String, artist: String) {
+    fun searchLyricsWithCorrection(title: String, artist: String, album: String = "") {
         if (title.isBlank()) return
-        val key = "${title.trim().lowercase()}|${artist.trim().lowercase()}"
+        val key = "${title.trim().lowercase()}|${artist.trim().lowercase()}|${album.trim().lowercase()}"
         loadedKey = key
         _state.value = LyricsState.Loading()
 
         viewModelScope.launch {
-            // Invalidate both old and new cache keys so we force a fresh fetch
-            LyricsHelper.invalidate(title, artist)
+            LyricsHelper.invalidate(title, artist, album)
 
-            val result = LyricsHelper.getLyrics(title, artist,
+            val result = LyricsHelper.getLyrics(title, artist, album,
                 onProviderTrying = { providerName ->
                     _state.value = LyricsState.Loading(providerName)
                 }
@@ -126,11 +134,11 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
                     plainLyrics  = result.plain,
                     source       = result.provider
                 ))
-                val ready = if (result.parsed.lines.isNotEmpty()) {
-                    LyricsState.Ready(result.parsed, result.plain)
-                } else if (result.plain != null) {
-                    LyricsState.Ready(ParsedLyrics(emptyList(), false), result.plain)
-                } else null
+                val ready = when {
+                    result.parsed.lines.isNotEmpty() -> LyricsState.Ready(result.parsed, result.plain)
+                    result.plain != null             -> LyricsState.Ready(ParsedLyrics(emptyList(), false), result.plain)
+                    else                             -> null
+                }
                 _state.value = ready ?: LyricsState.NotFound
             } else {
                 _state.value = LyricsState.NotFound
@@ -150,26 +158,23 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             var updated = current
 
-            // Translation
             if (showTranslated && targetLang.isNotBlank()) {
-                val translated = LyricsTranslator.translate(lines.map { it.text }, targetLang)
-                if (translated != null) {
-                    updated = updated.copy(
-                        translatedLines = translated,
-                        translationLanguage = targetLang
-                    )
+                val translated = LyricsTranslator.translate(
+                    lines      = lines.map { it.text },
+                    targetLang = targetLang
+                )
+                updated = if (translated != null) {
+                    updated.copy(translatedLines = translated, translationLanguage = targetLang)
+                } else {
+                    updated.copy(translatedLines = null, translationLanguage = null)
                 }
             } else {
                 updated = updated.copy(translatedLines = null, translationLanguage = null)
             }
 
-            // Romanization
             if (romanize) {
-                val romanized = com.sonara.app.intelligence.lyrics.LyricsRomanizer
-                    .romanize(lines.map { it.text })
-                if (romanized != null) {
-                    updated = updated.copy(romanizedLines = romanized)
-                }
+                val romanized = LyricsRomanizer.romanize(lines.map { it.text })
+                if (romanized != null) updated = updated.copy(romanizedLines = romanized)
             } else {
                 updated = updated.copy(romanizedLines = null)
             }
@@ -178,23 +183,24 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    /**
-     * Re-parses a cached raw string — auto-detects TTML vs LRC so that
-     * word-level Apple Music lyrics survive a cache round-trip.
-     */
-    private suspend fun buildStateFromCache(rawSynced: String?, plain: String?, showTranslated: Boolean = false, targetLang: String = "en"): LyricsState {
+    private suspend fun buildStateFromCache(
+        rawSynced: String?,
+        plain: String?,
+        showTranslated: Boolean = false,
+        targetLang: String = "en"
+    ): LyricsState {
         if (rawSynced != null) {
             val parsed = LyricsHelper.parseRaw(rawSynced)
             if (parsed.lines.isNotEmpty()) {
-                val ready = LyricsState.Ready(parsed, plain)
+                var ready = LyricsState.Ready(parsed, plain)
                 if (showTranslated && targetLang.isNotBlank()) {
-                    val translated = LyricsTranslator.translate(parsed.lines.map { it.text }, targetLang)
-                    if (translated != null) {
-                        return ready.copy(translatedLines = translated, translationLanguage = targetLang)
-                    }
+                    val translated = LyricsTranslator.translate(
+                        lines      = parsed.lines.map { it.text },
+                        targetLang = targetLang
+                    )
+                    if (translated != null) ready = ready.copy(translatedLines = translated, translationLanguage = targetLang)
                 }
-                val romanized = com.sonara.app.intelligence.lyrics.LyricsRomanizer
-                    .romanize(parsed.lines.map { it.text })
+                val romanized = LyricsRomanizer.romanize(parsed.lines.map { it.text })
                 return if (romanized != null) ready.copy(romanizedLines = romanized) else ready
             }
         }

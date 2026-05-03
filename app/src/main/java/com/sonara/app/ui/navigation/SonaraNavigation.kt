@@ -84,8 +84,9 @@ sealed class Screen(val route: String, val label: String) {
             "album_detail/${java.net.URLEncoder.encode(name, "UTF-8")}/${java.net.URLEncoder.encode(artist, "UTF-8")}/${java.net.URLEncoder.encode(plays.ifBlank { "-" }, "UTF-8")}/${java.net.URLEncoder.encode(imageUrl.ifBlank { "-" }, "UTF-8")}"
     }
     data object ArtistDetail : Screen("artist_detail/{name}", "Artist") {
-        fun createRoute(name: String) =
-            "artist_detail/${java.net.URLEncoder.encode(name, "UTF-8")}"
+        fun createRoute(name: String, imageUrl: String = "") =
+            "artist_detail/${java.net.URLEncoder.encode(name, "UTF-8")}" +
+                if (imageUrl.isNotBlank()) "?initialImageUrl=${java.net.URLEncoder.encode(imageUrl, "UTF-8")}" else ""
         fun createRouteWithTrack(name: String, trackTitle: String) =
             "artist_detail/${java.net.URLEncoder.encode(name, "UTF-8")}" +
                 "?trackTitle=${java.net.URLEncoder.encode(trackTitle, "UTF-8")}"
@@ -157,7 +158,7 @@ fun SonaraNavigation() {
             composable(Screen.Presets.route) { PresetsScreen() }
             composable(Screen.Insights.route) {
                 InsightsScreen(
-                    onArtistClick = { name -> navController.navigate(Screen.ArtistDetail.createRoute(name)) },
+                    onArtistClick = { name, imageUrl -> navController.navigate(Screen.ArtistDetail.createRoute(name, imageUrl)) },
                     onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) },
                     onSeeAllArtists = { navController.navigate(Screen.TopArtistsList.route) },
                     onSeeAllTracks = { navController.navigate(Screen.TopTracksList.route) },
@@ -250,17 +251,20 @@ fun SonaraNavigation() {
                 )
             }
             composable(
-                route = "${Screen.ArtistDetail.route}?trackTitle={trackTitle}",
+                route = "${Screen.ArtistDetail.route}?trackTitle={trackTitle}&initialImageUrl={initialImageUrl}",
                 arguments = listOf(
                     navArgument("name") { type = NavType.StringType },
-                    navArgument("trackTitle") { type = NavType.StringType; defaultValue = "" }
+                    navArgument("trackTitle") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("initialImageUrl") { type = NavType.StringType; defaultValue = "" }
                 )
             ) { entry ->
                 val name = java.net.URLDecoder.decode(entry.arguments?.getString("name") ?: "", "UTF-8")
                 val trackTitle = java.net.URLDecoder.decode(entry.arguments?.getString("trackTitle") ?: "", "UTF-8")
+                val initialImageUrl = java.net.URLDecoder.decode(entry.arguments?.getString("initialImageUrl") ?: "", "UTF-8")
                 ArtistDetailScreen(
                     artistName = name,
                     trackTitle = trackTitle,
+                    initialImageUrl = initialImageUrl,
                     onBack = { navController.popBackStack() },
                     onTrackClick = { title, artist -> navController.navigate(Screen.TrackDetail.createRoute(title, artist)) },
                     onAlbumClick = { albumName, artist, plays, imageUrl ->
