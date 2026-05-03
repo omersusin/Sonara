@@ -81,13 +81,9 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
                     var romanizedLines: List<String>? = null
 
                     if (showTranslated && targetLang.isNotBlank() && result.parsed.lines.isNotEmpty()) {
-                        val geminiKey = prefs.geminiApiKeyFlow.first()
                         translatedLines = LyricsTranslator.translate(
-                            lines       = result.parsed.lines.map { it.text },
-                            targetLang  = targetLang,
-                            geminiApiKey = geminiKey,
-                            songTitle   = title,
-                            artistName  = artist
+                            lines      = result.parsed.lines.map { it.text },
+                            targetLang = targetLang
                         )
                     }
                     if (result.parsed.lines.isNotEmpty()) {

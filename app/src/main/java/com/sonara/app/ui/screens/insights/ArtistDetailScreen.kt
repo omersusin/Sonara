@@ -229,20 +229,19 @@ fun ArtistDetailScreen(
     LaunchedEffect(discography) {
         if (discography.isEmpty()) return@LaunchedEffect
         withContext(Dispatchers.IO) {
-            for (album in discography) {
-                val key = album.strAlbum
-                if (discographyArtUrls.containsKey(key)) continue
+            for ((idx, album) in discography.withIndex()) {
+                if (discographyArtUrls.containsKey(idx)) continue
                 // Tier 1: inline art embedded in the discography response (often absent)
                 val inline = album.strThumbHQ ?: album.strThumb
                 if (!inline.isNullOrBlank()) {
-                    discographyArtUrls[key] = inline
+                    discographyArtUrls[idx] = inline
                     continue
                 }
                 // Tier 2: name-based search — unique query per album, avoids stale IDs
                 try {
                     val found = TheAudioDbClient.searchAlbum(artistName, album.strAlbum)
                     val url = found?.strThumbHQ ?: found?.strThumb
-                    if (!url.isNullOrBlank()) discographyArtUrls[key] = url
+                    if (!url.isNullOrBlank()) discographyArtUrls[idx] = url
                 } catch (_: Exception) {}
                 delay(350L)
             }
