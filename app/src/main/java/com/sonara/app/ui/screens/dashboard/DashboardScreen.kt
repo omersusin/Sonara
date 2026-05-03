@@ -106,6 +106,19 @@ fun DashboardScreen() {
         }
     }
 
+    // Re-apply translation/romanize when settings change while same song plays
+    LaunchedEffect(
+        settingsState.lyricsShowTranslated,
+        settingsState.lyricsTargetLanguage,
+        settingsState.lyricsRomanize
+    ) {
+        lyricsVm.applyDisplaySettings(
+            showTranslated = settingsState.lyricsShowTranslated,
+            targetLang = settingsState.lyricsTargetLanguage,
+            romanize = settingsState.lyricsRomanize
+        )
+    }
+
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
@@ -153,10 +166,17 @@ fun DashboardScreen() {
                 lyricsTextSizeSp = settingsState.lyricsTextSize,
                 lyricsShowTranslated = settingsState.lyricsShowTranslated,
                 lyricsTargetLanguage = settingsState.lyricsTargetLanguage,
+                lyricsAutoScroll = settingsState.lyricsAutoScroll,
+                lyricsLineSpacing = settingsState.lyricsLineSpacing,
+                lyricsBlurInactive = settingsState.lyricsBlurInactive,
+                lyricsTextAlignment = settingsState.lyricsPosition,
+                lyricsGlowEnabled = settingsState.lyricsGlowEnabled,
+                lyricsRomanize = settingsState.lyricsRomanize,
                 isLoved = s.isLoved,
                 onToggleLove = { vm.toggleLove() },
                 playerPackage = s.playerPackage,
                 onImmersiveRequest = { immersiveLyricsVisible = true },
+                onSearchCorrection = { t, a -> lyricsVm.searchLyricsWithCorrection(t, a) },
                 onClick = if (s.playerPackage.isNotBlank()) ({
                     ctx.packageManager.getLaunchIntentForPackage(s.playerPackage)
                         ?.let { ctx.startActivity(it) }
@@ -346,10 +366,20 @@ fun DashboardScreen() {
             lyricsState = lyricsState,
             lyricsSyncOffsetMs = settingsState.lyricsSyncOffsetMs,
             lyricsAnimationStyle = settingsState.lyricsAnimationStyle,
+            lyricsAutoScroll = settingsState.lyricsAutoScroll,
+            lyricsLineSpacing = settingsState.lyricsLineSpacing,
+            lyricsBlurInactive = settingsState.lyricsBlurInactive,
+            lyricsTextAlignment = settingsState.lyricsPosition,
+            lyricsGlowEnabled = settingsState.lyricsGlowEnabled,
+            lyricsRomanize = settingsState.lyricsRomanize,
+            lyricsBackground = settingsState.lyricsBackground,
+            lyricsTextSizeSp = settingsState.lyricsTextSize,
+            lyricsShowTranslated = settingsState.lyricsShowTranslated,
             onDismiss = { immersiveLyricsVisible = false },
             onTogglePlayPause = { com.sonara.app.service.SonaraNotificationListener.sendPlayPause() },
             onNext = { com.sonara.app.service.SonaraNotificationListener.sendNext() },
-            onPrevious = { com.sonara.app.service.SonaraNotificationListener.sendPrevious() }
+            onPrevious = { com.sonara.app.service.SonaraNotificationListener.sendPrevious() },
+            onSearchCorrection = { t, a -> lyricsVm.searchLyricsWithCorrection(t, a) }
         )
     }
 }

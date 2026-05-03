@@ -103,18 +103,26 @@ fun SyncedLyricLine(
         label        = "lineBlur"
     )
 
-    // If this is an instrumental gap, show dots instead of text
-    if (isInstrumental && isActive) {
-        Box(
-            modifier = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad),
-            contentAlignment = Alignment.Center
-        ) {
-            DotLoadingProgress(
-                color    = primary,
-                progress = instrumentalProgress()
-            )
+    // Instrumental gap: show dots for active line (animated progress),
+    // or dim static dots for blank-text lines that are near-active (past/upcoming).
+    if (isInstrumental) {
+        val showDots = isActive || line.text.isBlank()
+        if (showDots) {
+            val dotAlpha = if (isActive) 1f else (1f - (distanceFromActive * 0.25f)).coerceAtLeast(0f)
+            Box(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = hPad, vertical = vPad)
+                    .graphicsLayer { alpha = dotAlpha },
+                contentAlignment = Alignment.Center
+            ) {
+                DotLoadingProgress(
+                    color    = primary,
+                    progress = if (isActive) instrumentalProgress() else 0f
+                )
+            }
+            return
         }
-        return
     }
 
     // ── Shared sweep progress [0..1] for VIVIMUSIC / LYRICS_V2 ───────────────
@@ -173,6 +181,7 @@ fun SyncedLyricLine(
             Text(
                 text      = line.text,
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
+                    .then(glowMod)
                     .graphicsLayer { scaleX = glowScale; scaleY = glowScale; this.alpha = alpha }
                     .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,
@@ -237,6 +246,7 @@ fun SyncedLyricLine(
                 Text(
                     text      = annotated,
                     modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
+                        .then(glowMod)
                         .graphicsLayer { scaleX = scale; scaleY = scale }
                         .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                     textAlign = textAlign,
@@ -249,6 +259,7 @@ fun SyncedLyricLine(
                 Text(
                     text      = line.text,
                     modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = vPad)
+                        .then(glowMod)
                         .graphicsLayer { scaleX = scale; scaleY = scale }
                         .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                     textAlign = textAlign,
@@ -284,6 +295,7 @@ fun SyncedLyricLine(
             Text(
                 text = line.text,
                 modifier = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp)
+                    .then(glowMod)
                     .graphicsLayer { scaleX = appleScale; scaleY = appleScale; this.alpha = alpha }
                     .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,
@@ -318,6 +330,7 @@ fun SyncedLyricLine(
             Text(
                 text = line.text,
                 modifier = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp)
+                    .then(glowMod)
                     .graphicsLayer { scaleX = apple2Scale; scaleY = apple2Scale; this.alpha = alpha }
                     .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,
@@ -344,6 +357,7 @@ fun SyncedLyricLine(
             Text(
                 text      = line.text,
                 modifier  = modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp)
+                    .then(glowMod)
                     .graphicsLayer { scaleX = viviScale; scaleY = viviScale; this.alpha = alpha }
                     .then(if (blur > 0.dp) Modifier.blur(blur) else Modifier),
                 textAlign = textAlign,
@@ -368,6 +382,7 @@ fun SyncedLyricLine(
                 accentColor        = primary,
                 inactiveAlpha      = 0.35f,
                 baseFontSize       = if (textSizeSp > 0f) textSizeSp else 24f,
+                lyricsPosition     = lyricsPosition,
                 modifier           = modifier
                     .fillMaxWidth()
                     .padding(horizontal = hPad, vertical = vPad)
@@ -395,6 +410,7 @@ fun SyncedLyricLine(
                 Text(
                     text      = line.text,
                     modifier  = Modifier.fillMaxWidth()
+                        .then(glowMod)
                         .graphicsLayer { scaleX = metroScale; scaleY = metroScale },
                     textAlign = textAlign,
                     style     = effectiveStyle.copy(

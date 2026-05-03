@@ -67,10 +67,23 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 if (ready != null) {
                     _state.value = ready
+                    // Translation
                     if (showTranslated && targetLang.isNotBlank() && result.parsed.lines.isNotEmpty()) {
                         val translated = LyricsTranslator.translate(result.parsed.lines.map { it.text }, targetLang)
                         if (translated != null) {
-                            _state.value = ready.copy(translatedLines = translated, translationLanguage = targetLang)
+                            _state.value = (_state.value as? LyricsState.Ready)
+                                ?.copy(translatedLines = translated, translationLanguage = targetLang)
+                                ?: _state.value
+                        }
+                    }
+                    // Romanization
+                    if (result.parsed.lines.isNotEmpty()) {
+                        val romanized = com.sonara.app.intelligence.lyrics.LyricsRomanizer
+                            .romanize(result.parsed.lines.map { it.text })
+                        if (romanized != null) {
+                            _state.value = (_state.value as? LyricsState.Ready)
+                                ?.copy(romanizedLines = romanized)
+                                ?: _state.value
                         }
                     }
                 } else {
@@ -126,6 +139,46 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
+     * Re-applies translation and romanization to already-loaded lyrics.
+     * Call when the user toggles showTranslated or changes targetLang mid-session.
+     */
+    fun applyDisplaySettings(showTranslated: Boolean, targetLang: String, romanize: Boolean) {
+        val current = _state.value as? LyricsState.Ready ?: return
+        val lines = current.lyrics.lines
+        if (lines.isEmpty()) return
+
+        viewModelScope.launch {
+            var updated = current
+
+            // Translation
+            if (showTranslated && targetLang.isNotBlank()) {
+                val translated = LyricsTranslator.translate(lines.map { it.text }, targetLang)
+                if (translated != null) {
+                    updated = updated.copy(
+                        translatedLines = translated,
+                        translationLanguage = targetLang
+                    )
+                }
+            } else {
+                updated = updated.copy(translatedLines = null, translationLanguage = null)
+            }
+
+            // Romanization
+            if (romanize) {
+                val romanized = com.sonara.app.intelligence.lyrics.LyricsRomanizer
+                    .romanize(lines.map { it.text })
+                if (romanized != null) {
+                    updated = updated.copy(romanizedLines = romanized)
+                }
+            } else {
+                updated = updated.copy(romanizedLines = null)
+            }
+
+            _state.value = updated
+        }
+    }
+
+    /**
      * Re-parses a cached raw string — auto-detects TTML vs LRC so that
      * word-level Apple Music lyrics survive a cache round-trip.
      */
@@ -140,7 +193,9 @@ class LyricsViewModel(application: Application) : AndroidViewModel(application) 
                         return ready.copy(translatedLines = translated, translationLanguage = targetLang)
                     }
                 }
-                return ready
+                val romanized = com.sonara.app.intelligence.lyrics.LyricsRomanizer
+                    .romanize(parsed.lines.map { it.text })
+                return if (romanized != null) ready.copy(romanizedLines = romanized) else ready
             }
         }
         return if (plain != null) LyricsState.Ready(ParsedLyrics(emptyList(), false), plain)

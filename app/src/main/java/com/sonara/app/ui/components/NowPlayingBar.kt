@@ -116,6 +116,8 @@ fun NowPlayingBar(
     lyricsLineSpacing: Float = 1.3f,
     lyricsBlurInactive: Boolean = true,
     lyricsTextAlignment: String = "center",
+    lyricsGlowEnabled: Boolean = false,
+    lyricsRomanize: Boolean = false,
     onSearchCorrection: ((String, String) -> Unit)? = null
 ) {
     val p = MaterialTheme.colorScheme.primary
@@ -334,7 +336,7 @@ fun NowPlayingBar(
                         }
                         LazyColumn(
                             state = lyricsListState,
-                            userScrollEnabled = !isPlaying || hasUserScrolled,
+                            userScrollEnabled = true,
                             modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp).padding(top = 6.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
@@ -365,11 +367,16 @@ fun NowPlayingBar(
                                 val timeToNextLine = if (nextLineStartMs != null) nextLineStartMs - lyricsPosition else Long.MAX_VALUE
                                 val lineSingingEnded = lyricsPosition > estimatedLineEndMs
                                 val isInstrumental = line.text.isBlank() ||
-                                    (isActive && lineSingingEnded && timeToNextLine > 4000L && nextLineStartMs != null)
+                                    (isActive && lineSingingEnded && timeToNextLine > 2000L && nextLineStartMs != null)
                                 val instrumentalProg = if (isInstrumental && isActive && nextLineStartMs != null) {
-                                    val gapStart = estimatedLineEndMs
-                                    val gapTotal = (nextLineStartMs - gapStart).coerceAtLeast(1L)
-                                    ((lyricsPosition - gapStart).toFloat() / gapTotal).coerceIn(0f, 1f)
+                                    if (line.text.isBlank()) {
+                                        val gapTotal = (nextLineStartMs - line.startMs).coerceAtLeast(1L)
+                                        ((lyricsPosition - line.startMs).toFloat() / gapTotal).coerceIn(0f, 1f)
+                                    } else {
+                                        val gapStart = estimatedLineEndMs
+                                        val gapTotal = (nextLineStartMs - gapStart).coerceAtLeast(1L)
+                                        ((lyricsPosition - gapStart).toFloat() / gapTotal).coerceIn(0f, 1f)
+                                    }
                                 } else 0f
                                 SyncedLyricLine(
                                     line = line,
@@ -385,6 +392,7 @@ fun NowPlayingBar(
                                     isInstrumental = isInstrumental,
                                     instrumentalProgress = { instrumentalProg },
                                     accentColor = expressiveAccent,
+                                    lyricsGlowEnabled = lyricsGlowEnabled,
                                     modifier = Modifier.clickable {
                                         val seekMs = (line.startMs - lyricsSyncOffsetMs).coerceAtLeast(0L)
                                         SonaraNotificationListener.seekTo(seekMs)
@@ -400,6 +408,20 @@ fun NowPlayingBar(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = SonaraTextSecondary.copy(alpha = 0.6f),
                                         modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                                val romanizedLine = if (lyricsRomanize) {
+                                    (lyricsState as? LyricsState.Ready)?.romanizedLines?.getOrNull(idx)
+                                } else null
+                                if (romanizedLine != null) {
+                                    Text(
+                                        text = romanizedLine,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = SonaraTextSecondary.copy(alpha = 0.55f),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 14.dp),
                                         textAlign = TextAlign.Center
                                     )
                                 }

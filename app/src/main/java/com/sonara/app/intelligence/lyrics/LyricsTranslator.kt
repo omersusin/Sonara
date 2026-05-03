@@ -13,8 +13,6 @@ object LyricsTranslator {
 
     private const val TAG = "LyricsTranslator"
     private const val BASE = "https://api.mymemory.translated.net/get"
-    // Most lyrics are English; fixed source avoids autodetect failures on short/unusual text
-    private const val SOURCE_LANG = "en"
 
     private val http = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -24,7 +22,6 @@ object LyricsTranslator {
     suspend fun translate(lines: List<String>, targetLang: String): List<String>? =
         withContext(Dispatchers.IO) {
             if (lines.isEmpty() || targetLang.isBlank()) return@withContext null
-            if (targetLang == SOURCE_LANG) return@withContext null
 
             try {
                 val result = mutableListOf<String>()
@@ -33,7 +30,7 @@ object LyricsTranslator {
                 for (batch in lines.chunked(10)) {
                     val batchText = batch.joinToString(" ||| ")
                     val encoded = URLEncoder.encode(batchText, "UTF-8")
-                    val url = "$BASE?q=$encoded&langpair=$SOURCE_LANG|$targetLang"
+                    val url = "$BASE?q=$encoded&langpair=|$targetLang"   // empty source = autodetect
 
                     val body = try {
                         http.newCall(Request.Builder().url(url).build())

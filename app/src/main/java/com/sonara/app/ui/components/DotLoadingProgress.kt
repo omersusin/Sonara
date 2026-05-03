@@ -1,77 +1,66 @@
 package com.sonara.app.ui.components
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 
 /**
- * DotLoadingProgress — animated three-dot indicator used for instrumental gaps
- * in synced lyrics (CROSS-01).
+ * Three-dot instrumental gap indicator.
  *
- * Each dot pulses with a staggered delay to create a flowing "waiting" rhythm.
+ * When [progress] is 0..1, dots fill left-to-right as the gap progresses
+ * (Rush-style staggered scale+alpha). This is purely driven by playback position —
+ * no looping animation, so it freezes correctly when paused.
  *
- * @param color     Dot color; defaults to MaterialTheme.colorScheme.primary.
- * @param dotSize   Diameter of each dot.
- * @param spacing   Gap between dots.
- * @param progress  Optional [0..1] progress value — when > 0, dots scale based
- *                  on position relative to progress (visual time fill effect).
- *                  When 0, all dots pulse uniformly.
+ * Dot 0 starts animating at progress=0.00, peaks at ~0.21
+ * Dot 1 starts animating at progress=0.15, peaks at ~0.36
+ * Dot 2 starts animating at progress=0.30, peaks at ~0.51
+ * All three are full-bright by progress=0.51, then hold.
+ *
+ * Pass [progress] = 0f to show all dots at dim/small state (gap just started).
  */
 @Composable
 fun DotLoadingProgress(
+    progress: Float = 0f,
     modifier: Modifier = Modifier,
     color: Color = Color.Unspecified,
     dotSize: Dp = 8.dp,
-    spacing: Dp = 6.dp,
-    progress: Float = 0f
+    spacing: Dp = 16.dp,
 ) {
-    val resolvedColor = if (color != Color.Unspecified) color else MaterialTheme.colorScheme.primary
-    val transition = rememberInfiniteTransition(label = "dot_pulse")
-
+    val resolvedColor = if (color != Color.Unspecified) color
+                        else MaterialTheme.colorScheme.primary
     val dotCount = 3
-    val scales = Array(dotCount) { i ->
-        val delay = i * 160
-        // ignore progress param for now — uniform pulse
-        val scale by transition.animateFloat(
-            initialValue   = 0.6f,
-            targetValue    = 1f,
-            animationSpec  = infiniteRepeatable(
-                animation    = tween(520, delayMillis = delay, easing = FastOutSlowInEasing),
-                repeatMode   = RepeatMode.Reverse
-            ),
-            label = "dot_$i"
-        )
-        scale
-    }
 
     Row(
-        modifier = modifier,
+        modifier = modifier.padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(spacing),
-        verticalAlignment = Alignment.CenterVertically
     ) {
-        for (i in 0 until dotCount) {
+        repeat(dotCount) { index ->
             Box(
                 modifier = Modifier
                     .size(dotSize)
-                    .scale(scales[i])
+                    .graphicsLayer {
+                        val clamped = progress.coerceIn(0f, 1f)
+                        // Each dot's local progress: offset by 0.15 per dot, stretched by 1.4
+                        val dotProgress = ((clamped - index * 0.15f) * 1.4f).coerceIn(0f, 1f)
+                        val scale = lerp(1f, 1.8f, dotProgress)
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = lerp(0.3f, 1f, dotProgress)
+                    }
                     .background(resolvedColor, CircleShape)
             )
         }

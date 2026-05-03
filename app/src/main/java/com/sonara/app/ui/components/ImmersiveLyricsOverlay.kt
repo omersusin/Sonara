@@ -68,9 +68,11 @@ import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.screens.share.LyricsShareScreen
 import kotlin.math.abs
 import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ImmersiveLyricsOverlay(
@@ -92,9 +94,12 @@ fun ImmersiveLyricsOverlay(
     lyricsLineSpacing: Float = 1.3f,
     lyricsBlurInactive: Boolean = true,
     lyricsTextAlignment: String = "center",
+    lyricsGlowEnabled: Boolean = false,
+    lyricsRomanize: Boolean = false,
+    lyricsBackground: String = "solid",
     lyricsTextSizeSp: Float = 0f,
-    onSearchCorrection: ((String, String) -> Unit)? = null,
-    lyricsBackground: String = "solid"
+    lyricsShowTranslated: Boolean = false,
+    onSearchCorrection: ((String, String) -> Unit)? = null
 ) {
     val p = MaterialTheme.colorScheme.primary
     val haptic = LocalHapticFeedback.current
@@ -102,6 +107,22 @@ fun ImmersiveLyricsOverlay(
     var showCorrection by remember { mutableStateOf(false) }
     var corrTitle by remember(title) { mutableStateOf(title) }
     var corrArtist by remember(artist) { mutableStateOf(artist) }
+
+    // Expressive accent from album art
+    var expressiveAccent by remember { mutableStateOf(Color.Unspecified) }
+    LaunchedEffect(albumArt) {
+        expressiveAccent = if (albumArt != null) {
+            withContext(Dispatchers.Default) {
+                try {
+                    val palette = androidx.palette.graphics.Palette.from(albumArt).generate()
+                    val rgb = palette.vibrantSwatch?.rgb
+                        ?: palette.mutedSwatch?.rgb
+                        ?: palette.dominantSwatch?.rgb
+                    if (rgb != null) Color(rgb) else Color.Unspecified
+                } catch (_: Exception) { Color.Unspecified }
+            }
+        } else Color.Unspecified
+    }
 
     BackHandler { if (showShareScreen) showShareScreen = false else onDismiss() }
 
@@ -141,10 +162,13 @@ fun ImmersiveLyricsOverlay(
     // Snap to current line instantly when overlay opens (no animation, avoids layout-not-ready race)
     LaunchedEffect(Unit) {
         if (activeLineIndex >= 0) {
-            val h = snapshotFlow { listState.layoutInfo.viewportSize.height }.filter { it > 0 }.first()
+            val layoutInfo = snapshotFlow { listState.layoutInfo }
+                .filter { it.viewportSize.height > 0 }
+                .first()
+            val viewportH = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
             listState.scrollToItem(
                 index = (activeLineIndex - 1).coerceAtLeast(0),
-                scrollOffset = -(h / 2) + 60
+                scrollOffset = -(viewportH / 2) + 60
             )
         }
     }
@@ -152,10 +176,21 @@ fun ImmersiveLyricsOverlay(
     // Animated scroll to keep active line centered as song progresses
     LaunchedEffect(activeLineIndex) {
         if (activeLineIndex >= 0 && lyricsAutoScroll && !hasUserScrolled) {
-            val h = snapshotFlow { listState.layoutInfo.viewportSize.height }.filter { it > 0 }.first()
+            val layoutInfo = snapshotFlow { listState.layoutInfo }
+                .filter { it.viewportSize.height > 0 }
+                .first()
+            val viewportH = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
+            val center = layoutInfo.viewportStartOffset + (viewportH / 2)
+            val itemInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == activeLineIndex }
+            val offset = if (itemInfo != null) {
+                val itemCenter = itemInfo.offset + (itemInfo.size / 2)
+                itemCenter - center
+            } else {
+                -(viewportH / 2) + 60
+            }
             listState.animateScrollToItem(
-                index = activeLineIndex,
-                scrollOffset = -(h / 2) + 60
+                index = (activeLineIndex - 1).coerceAtLeast(0),
+                scrollOffset = offset.coerceAtLeast(-(viewportH / 2))
             )
         }
     }
@@ -252,7 +287,7 @@ fun ImmersiveLyricsOverlay(
                     if (lines.isNotEmpty()) {
                         LazyColumn(
                             state = listState,
-                            userScrollEnabled = !isPlaying || hasUserScrolled,
+                            userScrollEnabled = true,
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                             contentPadding = PaddingValues(horizontal = 28.dp, vertical = 80.dp),
                             verticalArrangement = Arrangement.spacedBy(18.dp)
@@ -281,11 +316,16 @@ fun ImmersiveLyricsOverlay(
                                 val timeToNextLine = if (nextLineStartMs != null) nextLineStartMs - lyricsPosition else Long.MAX_VALUE
                                 val lineSingingEnded = lyricsPosition > estimatedLineEndMs
                                 val isInstrumental = line.text.isBlank() ||
-                                    (isActive && lineSingingEnded && timeToNextLine > 4000L && nextLineStartMs != null)
+                                    (isActive && lineSingingEnded && timeToNextLine > 2000L && nextLineStartMs != null)
                                 val instrumentalProg = if (isInstrumental && isActive && nextLineStartMs != null) {
-                                    val gapStart = estimatedLineEndMs
-                                    val gapTotal = (nextLineStartMs - gapStart).coerceAtLeast(1L)
-                                    ((lyricsPosition - gapStart).toFloat() / gapTotal).coerceIn(0f, 1f)
+                                    if (line.text.isBlank()) {
+                                        val gapTotal = (nextLineStartMs - line.startMs).coerceAtLeast(1L)
+                                        ((lyricsPosition - line.startMs).toFloat() / gapTotal).coerceIn(0f, 1f)
+                                    } else {
+                                        val gapStart = estimatedLineEndMs
+                                        val gapTotal = (nextLineStartMs - gapStart).coerceAtLeast(1L)
+                                        ((lyricsPosition - gapStart).toFloat() / gapTotal).coerceIn(0f, 1f)
+                                    }
                                 } else 0f
                                 SyncedLyricLine(
                                     line = line,
@@ -300,12 +340,50 @@ fun ImmersiveLyricsOverlay(
                                     textSizeSp = lyricsTextSizeSp,
                                     isInstrumental = isInstrumental,
                                     instrumentalProgress = { instrumentalProg },
+                                    accentColor = expressiveAccent,
+                                    lyricsGlowEnabled = lyricsGlowEnabled,
                                     modifier = Modifier.clickable {
                                         val seekMs = (line.startMs - lyricsSyncOffsetMs).coerceAtLeast(0L)
                                         SonaraNotificationListener.seekTo(seekMs)
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     }
                                 )
+                                val romanizedLine = if (lyricsRomanize) {
+                                    (lyricsState as? LyricsState.Ready)?.romanizedLines?.getOrNull(idx)
+                                } else null
+                                if (romanizedLine != null) {
+                                    Text(
+                                        text = romanizedLine,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.55f),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 28.dp),
+                                        textAlign = when (lyricsTextAlignment) {
+                                            "left"  -> androidx.compose.ui.text.style.TextAlign.Start
+                                            "right" -> androidx.compose.ui.text.style.TextAlign.End
+                                            else    -> androidx.compose.ui.text.style.TextAlign.Center
+                                        }
+                                    )
+                                }
+                                val translatedLine = if (lyricsShowTranslated) {
+                                    (lyricsState as? LyricsState.Ready)?.translatedLines?.getOrNull(idx)
+                                } else null
+                                if (translatedLine != null) {
+                                    Text(
+                                        text = translatedLine,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.55f),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 28.dp, vertical = 2.dp),
+                                        textAlign = when (lyricsTextAlignment) {
+                                            "left"  -> androidx.compose.ui.text.style.TextAlign.Start
+                                            "right" -> androidx.compose.ui.text.style.TextAlign.End
+                                            else    -> androidx.compose.ui.text.style.TextAlign.Center
+                                        }
+                                    )
+                                }
                             }
                         }
                     } else {

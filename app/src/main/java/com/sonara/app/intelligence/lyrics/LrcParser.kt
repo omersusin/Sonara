@@ -73,12 +73,12 @@ object LrcParser {
                 ))
             } else {
                 val text = decodeHtml(content.trim())
-                if (text.isNotEmpty()) {
-                    lines.add(LyricLine(
-                        startMs = lineMs, text = text, words = emptyList(),
-                        agent = agent, isBackground = isBackground
-                    ))
-                }
+                // Keep blank lines — they represent instrumental gaps in LRC files.
+                // SyncedLyricLine checks line.text.isBlank() to show dots.
+                lines.add(LyricLine(
+                    startMs = lineMs, text = text, words = emptyList(),
+                    agent = agent, isBackground = isBackground
+                ))
             }
         }
 
