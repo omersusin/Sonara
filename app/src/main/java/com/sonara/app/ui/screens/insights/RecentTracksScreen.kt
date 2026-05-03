@@ -340,7 +340,7 @@ fun RecentTracksScreen(
                                 onDismissRequest = { expandedMenuTrack = null }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Copy "${t.title} — ${t.artist}"") },
+                                    text = { Text("Copy \"${t.title} — ${t.artist}\"") },
                                     leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(18.dp)) },
                                     onClick = {
                                         clipboard.setText(AnnotatedString("${t.title} — ${t.artist}"))
