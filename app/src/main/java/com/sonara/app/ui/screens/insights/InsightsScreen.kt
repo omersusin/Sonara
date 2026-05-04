@@ -78,7 +78,7 @@ import java.util.Locale
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun InsightsScreen(
-    onArtistClick: (String) -> Unit = {},
+    onArtistClick: (name: String, imageUrl: String) -> Unit = { _, _ -> },
     onTrackClick: (String, String) -> Unit = { _, _ -> },
     onSeeAllArtists: () -> Unit = {},
     onSeeAllTracks: () -> Unit = {},
@@ -252,7 +252,7 @@ fun InsightsScreen(
                 Row(Modifier.fillMaxWidth().height(200.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     // #1 large left
                     val a1 = s.topArtists[0]
-                    Box(Modifier.weight(0.6f).fillMaxSize().clip(RoundedCornerShape(16.dp)).clickable { onArtistClick(a1.first) }) {
+                    Box(Modifier.weight(0.6f).fillMaxSize().clip(RoundedCornerShape(16.dp)).clickable { onArtistClick(a1.first, a1.third) }) {
                         if (a1.third.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(a1.third).crossfade(true).build(), contentDescription = a1.first, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                         else Box(Modifier.fillMaxSize().background(SonaraCardElevated))
                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.7f)))))
@@ -267,7 +267,7 @@ fun InsightsScreen(
                         listOf(1, 2).forEach { idx ->
                             if (idx < s.topArtists.size) {
                                 val a = s.topArtists[idx]
-                                Box(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onArtistClick(a.first) }) {
+                                Box(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onArtistClick(a.first, a.third) }) {
                                     if (a.third.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(a.third).crossfade(true).build(), contentDescription = a.first, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                                     else Box(Modifier.fillMaxSize().background(SonaraCardElevated))
                                     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.7f)))))
@@ -287,7 +287,7 @@ fun InsightsScreen(
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         items(s.topArtists.drop(3)) { a ->
                             val ctx = LocalContext.current
-                            Column(Modifier.width(80.dp).clickable { onArtistClick(a.first) }, horizontalAlignment = Alignment.CenterHorizontally) {
+                            Column(Modifier.width(80.dp).clickable { onArtistClick(a.first, a.third) }, horizontalAlignment = Alignment.CenterHorizontally) {
                                 if (a.third.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(a.third).crossfade(true).build(), contentDescription = a.first, modifier = Modifier.size(64.dp).clip(CircleShape), contentScale = ContentScale.Crop)
                                 else Box(Modifier.size(64.dp).background(SonaraCardElevated, CircleShape), contentAlignment = Alignment.Center) { Text(a.first.take(1), style = MaterialTheme.typography.titleSmall, color = p) }
                                 Text(a.first, style = MaterialTheme.typography.labelSmall, color = SonaraTextPrimary, maxLines = 1)
@@ -302,7 +302,7 @@ fun InsightsScreen(
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(s.topArtists) { a ->
                         val ctx = LocalContext.current
-                        Column(Modifier.width(100.dp).clickable { onArtistClick(a.first) }, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(Modifier.width(100.dp).clickable { onArtistClick(a.first, a.third) }, horizontalAlignment = Alignment.CenterHorizontally) {
                             if (a.third.isNotBlank()) AsyncImage(model = ImageRequest.Builder(ctx).data(a.third).crossfade(true).build(), contentDescription = a.first, modifier = Modifier.size(80.dp).clip(CircleShape), contentScale = ContentScale.Crop)
                             else Box(Modifier.size(80.dp).background(SonaraCardElevated, CircleShape), contentAlignment = Alignment.Center) { Text(a.first.take(1), style = MaterialTheme.typography.headlineSmall, color = p) }
                             Spacer(Modifier.height(4.dp))
@@ -546,7 +546,7 @@ fun InsightsScreen(
                             Spacer(Modifier.height(10.dp))
                             val ctx = LocalContext.current
                             Row(
-                                Modifier.fillMaxWidth().clickable { onArtistClick(a.first) },
+                                Modifier.fillMaxWidth().clickable { onArtistClick(a.first, a.third) },
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {

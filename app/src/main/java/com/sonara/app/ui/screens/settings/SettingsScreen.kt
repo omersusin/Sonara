@@ -1,64 +1,59 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.sonara.app.ui.screens.settings
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
-import android.os.Environment
-import java.io.File
-import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Key
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.ArrowDropUp
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Launch
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Upload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Surface
-import androidx.compose.material.icons.rounded.ArrowDropDown
-import androidx.compose.material.icons.rounded.ArrowDropUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -70,7 +65,6 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,21 +72,30 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.sonara.app.BuildConfig
-import com.sonara.app.SonaraApp
+import com.materialkolor.rememberDynamicColorScheme
 import com.sonara.app.data.BackupManager
-import com.sonara.app.preset.PresetExporter
 import com.sonara.app.ui.components.ChipStatus
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.components.StatusChip
-import com.sonara.app.ui.theme.*
+import com.sonara.app.ui.theme.AccentSeeds
+import com.sonara.app.ui.theme.SonaraBackground
+import com.sonara.app.ui.theme.SonaraCard
+import com.sonara.app.ui.theme.SonaraCardElevated
+import com.sonara.app.ui.theme.SonaraDivider
+import com.sonara.app.ui.theme.SonaraError
+import com.sonara.app.ui.theme.SonaraFont
+import com.sonara.app.ui.theme.SonaraPaletteStyle
+import com.sonara.app.ui.theme.SonaraSuccess
+import com.sonara.app.ui.theme.SonaraTextPrimary
+import com.sonara.app.ui.theme.SonaraTextSecondary
+import com.sonara.app.ui.theme.SonaraTextTertiary
+import com.sonara.app.ui.theme.SonaraWarning
 
 @Composable
 fun SettingsScreen(
@@ -115,29 +118,103 @@ fun SettingsScreen(
     ) {
         item {
             Spacer(Modifier.height(24.dp))
-            Text("Settings", style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(bottom = 4.dp))
-            Text("Tweak your experience", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+            Text(
+                "Settings",
+                style = MaterialTheme.typography.displaySmall,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+            Text(
+                "Tweak your experience",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
             Spacer(Modifier.height(16.dp))
         }
-        item { SettingsCategoryCard(Icons.Rounded.Palette, "Look & Feel", "Dynamic color, dark theme, accent", onNavigateLookAndFeel) }
-        item { SettingsCategoryCard(Icons.Rounded.Tune, "Audio & AI", "EQ, AI sources, scrobbling, Last.fm", onNavigateBehavior) }
-        item { SettingsCategoryCard(Icons.Rounded.MusicNote, "Lyrics", "Animation style, text size, sync offset", onNavigateLyrics) }
-        item { SettingsCategoryCard(Icons.Rounded.Notifications, "Notifications", "Persistent notification settings", onNavigateNotifications) }
-        item { SettingsCategoryCard(Icons.Rounded.History, "Backup & Restore", "Export presets, clear cache", onNavigateBackup) }
-        item { SettingsCategoryCard(Icons.Rounded.Info, "About", "Version, developer tools", onNavigateAbout) }
-        item { SettingsCategoryCard(Icons.Rounded.Key, "Privacy & Permissions", "What Sonara reads, data storage", onNavigatePrivacy) }
+        item {
+            SettingsCategoryCard(
+                Icons.Rounded.Palette,
+                "Look & Feel",
+                "Dynamic color, dark theme, accent",
+                onNavigateLookAndFeel
+            )
+        }
+        item {
+            SettingsCategoryCard(
+                Icons.Rounded.Tune,
+                "Audio & AI",
+                "EQ, AI sources, scrobbling, Last.fm",
+                onNavigateBehavior
+            )
+        }
+        item {
+            SettingsCategoryCard(
+                Icons.Rounded.MusicNote,
+                "Lyrics",
+                "Animation style, text size, sync offset",
+                onNavigateLyrics
+            )
+        }
+        item {
+            SettingsCategoryCard(
+                Icons.Rounded.Notifications,
+                "Notifications",
+                "Persistent notification settings",
+                onNavigateNotifications
+            )
+        }
+        item {
+            SettingsCategoryCard(
+                Icons.Rounded.History,
+                "Backup & Restore",
+                "Export presets, clear cache",
+                onNavigateBackup
+            )
+        }
+        item {
+            SettingsCategoryCard(
+                Icons.Rounded.Info,
+                "About",
+                "Version, developer tools",
+                onNavigateAbout
+            )
+        }
+        item {
+            SettingsCategoryCard(
+                Icons.Rounded.Key,
+                "Privacy & Permissions",
+                "What Sonara reads, data storage",
+                onNavigatePrivacy
+            )
+        }
         item { Spacer(Modifier.height(16.dp)) }
     }
 }
 
 @Composable
-private fun SettingsCategoryCard(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+private fun SettingsCategoryCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
     FluentCard(onClick = onClick) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SonaraTextSecondary
+                )
             }
             Icon(Icons.Rounded.ChevronRight, null, tint = SonaraTextTertiary)
         }
@@ -156,40 +233,108 @@ internal fun CommunityCard(state: SettingsUiState, vm: SettingsViewModel) {
                 title = { Text("How Community Works") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Download", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
-                        Text("Downloads community-trained audio classification data to improve accuracy from day one.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        Text(
+                            "Download",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = SonaraTextPrimary
+                        )
+                        Text(
+                            "Downloads community-trained audio classification data to improve accuracy from day one.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SonaraTextSecondary
+                        )
                         HorizontalDivider(color = SonaraDivider.copy(0.3f))
-                        Text("Contribute", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
-                        Text("Shares anonymous audio feature vectors (NOT audio recordings) to help improve the model for everyone.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        Text(
+                            "Contribute",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = SonaraTextPrimary
+                        )
+                        Text(
+                            "Shares anonymous audio feature vectors (NOT audio recordings) to help improve the model for everyone.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SonaraTextSecondary
+                        )
                         HorizontalDivider(color = SonaraDivider.copy(0.3f))
-                        Text("GitHub Token", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
-                        Text("Required for contributions. Create a fine-grained token at github.com/settings/tokens with repo:sonara-models read/write access.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        Text(
+                            "GitHub Token",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = SonaraTextPrimary
+                        )
+                        Text(
+                            "Required for contributions. Create a fine-grained token at github.com/settings/tokens with repo:sonara-models read/write access.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SonaraTextSecondary
+                        )
                     }
                 },
-                confirmButton = { TextButton(onClick = { showCommunityHelp = false }) { Text("Got it") } }
+                confirmButton = {
+                    TextButton(onClick = {
+                        showCommunityHelp = false
+                    }) { Text("Got it") }
+                }
             )
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text("Community", style = MaterialTheme.typography.titleMedium)
-            TextButton(onClick = { showCommunityHelp = true }) { Text("How it works?", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
+            TextButton(onClick = { showCommunityHelp = true }) {
+                Text(
+                    "How it works?",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
         Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column(Modifier.weight(1f)) {
-                Text("Use community data", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
-                Text("Improves accuracy from day one", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                Text(
+                    "Use community data",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = SonaraTextPrimary
+                )
+                Text(
+                    "Improves accuracy from day one",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SonaraTextSecondary
+                )
             }
-            Switch(checked = state.communityDownloadEnabled, onCheckedChange = { vm.setCommunityDownload(it) },
-                colors = SwitchDefaults.colors(checkedTrackColor = p))
+            Switch(
+                checked = state.communityDownloadEnabled,
+                onCheckedChange = { vm.setCommunityDownload(it) },
+                colors = SwitchDefaults.colors(checkedTrackColor = p)
+            )
         }
         Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column(Modifier.weight(1f)) {
-                Text("Contribute to community", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
-                Text("Share anonymous audio data to help improve Sonara", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                Text(
+                    "Contribute to community",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = SonaraTextPrimary
+                )
+                Text(
+                    "Share anonymous audio data to help improve Sonara",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SonaraTextSecondary
+                )
             }
-            Switch(checked = state.communityUploadEnabled, onCheckedChange = { vm.setCommunityUpload(it) },
-                colors = SwitchDefaults.colors(checkedTrackColor = p))
+            Switch(
+                checked = state.communityUploadEnabled,
+                onCheckedChange = { vm.setCommunityUpload(it) },
+                colors = SwitchDefaults.colors(checkedTrackColor = p)
+            )
         }
         if (state.communityUploadEnabled) {
             Spacer(Modifier.height(10.dp))
@@ -197,65 +342,95 @@ internal fun CommunityCard(state: SettingsUiState, vm: SettingsViewModel) {
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(state.communityPending.toString(), style = MaterialTheme.typography.titleLarge, color = p)
-                    Text("Pending", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                    Text(
+                        state.communityPending.toString(),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = p
+                    )
+                    Text(
+                        "Pending",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SonaraTextTertiary
+                    )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(state.communityTotalSent.toString(), style = MaterialTheme.typography.titleLarge, color = p)
-                    Text("Total sent", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+                    Text(
+                        state.communityTotalSent.toString(),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = p
+                    )
+                    Text(
+                        "Total sent",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SonaraTextTertiary
+                    )
                 }
             }
         }
 
-            // GitHub PAT for community contributions
-            Spacer(Modifier.height(12.dp))
+        // GitHub PAT for community contributions
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = "GitHub Token (for contributions)",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        if (state.isGithubTokenSet) {
             Text(
-                text = "GitHub Token (for contributions)",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = "Token saved",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        } else {
+            OutlinedTextField(
+                value = state.githubTokenInput,
+                onValueChange = { vm.updateGithubTokenInput(it) },
+                label = { Text("Personal Access Token") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation()
             )
             Spacer(Modifier.height(4.dp))
-            if (state.isGithubTokenSet) {
-                Text(
-                    text = "Token saved",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            } else {
-                OutlinedTextField(
-                    value = state.githubTokenInput,
-                    onValueChange = { vm.updateGithubTokenInput(it) },
-                    label = { Text("Personal Access Token") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation()
-                )
-                Spacer(Modifier.height(4.dp))
-                OutlinedButton(
-                    onClick = { vm.saveGithubToken() },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = state.githubTokenInput.isNotBlank()
-                ) {
-                    Text("Save Token")
-                }
+            OutlinedButton(
+                onClick = { vm.saveGithubToken() },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = state.githubTokenInput.isNotBlank()
+            ) {
+                Text("Save Token")
             }
+        }
     }
 }
 
 @Composable
 internal fun SectionHeader(t: String) {
-    Text(t.uppercase(), style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary,
-        modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp))
+    Text(
+        t.uppercase(), style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary,
+        modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp)
+    )
 }
 
 @Composable
 internal fun NotificationCard(ctx: Context) {
     FluentCard {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Rounded.Notifications, null, tint = SonaraWarning, modifier = Modifier.size(24.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                Icons.Rounded.Notifications,
+                null,
+                tint = SonaraWarning,
+                modifier = Modifier.size(24.dp)
+            )
             Column(Modifier.weight(1f)) {
                 Text("Notification Access", style = MaterialTheme.typography.titleMedium)
-                Text("Required to detect playing music", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                Text(
+                    "Required to detect playing music",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SonaraTextSecondary
+                )
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -271,7 +446,11 @@ internal fun NotificationCard(ctx: Context) {
 internal fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Context) {
     val p = MaterialTheme.colorScheme.primary
     FluentCard {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text("Last.fm", style = MaterialTheme.typography.titleMedium)
             StatusChip(
                 if (state.lastFmConnected) "Connected" else "Not Connected",
@@ -281,24 +460,40 @@ internal fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Cont
         Spacer(Modifier.height(8.dp))
         when {
             state.lastFmConnected -> {
-                Text("Connected as ${state.lastFmUsername}", style = MaterialTheme.typography.bodySmall, color = SonaraSuccess)
+                Text(
+                    "Connected as ${state.lastFmUsername}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SonaraSuccess
+                )
                 Spacer(Modifier.height(4.dp))
-                Text("Genre detection and scrobbling active.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                Text(
+                    "Genre detection and scrobbling active.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SonaraTextSecondary
+                )
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { vm.disconnectLastFm() }, shape = MaterialTheme.shapes.extraLarge,
+                    OutlinedButton(
+                        onClick = { vm.disconnectLastFm() },
+                        shape = MaterialTheme.shapes.extraLarge,
                         border = BorderStroke(1.dp, SonaraError.copy(0.5f)),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
                     ) { Text("Disconnect") }
-                    OutlinedButton(onClick = { vm.connectLastFm { intent -> ctx.startActivity(intent) } },
+                    OutlinedButton(
+                        onClick = { vm.connectLastFm { intent -> ctx.startActivity(intent) } },
                         shape = MaterialTheme.shapes.extraLarge,
                         border = BorderStroke(1.dp, SonaraDivider),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraTextSecondary)
                     ) { Text("Reconnect") }
                 }
             }
+
             else -> {
-                Text("Connect your Last.fm account for accurate genre detection and scrobbling.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                Text(
+                    "Connect your Last.fm account for accurate genre detection and scrobbling.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SonaraTextSecondary
+                )
                 Spacer(Modifier.height(12.dp))
                 var showLoginDialog by remember { mutableStateOf(false) }
                 if (showLoginDialog) {
@@ -321,26 +516,63 @@ internal fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Cont
                         title = { Text("How to get Last.fm API Key") },
                         text = {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("1. Open last.fm/api/account/create", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
-                                Text("2. Application Name: Sonara", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
-                                Text("3. Leave Callback URL empty", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
-                                Text("4. Click Submit", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
-                                Text("5. Copy API Key and Shared Secret", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
-                                Text("6. Paste them below and tap Save Keys", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+                                Text(
+                                    "1. Open last.fm/api/account/create",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = SonaraTextPrimary
+                                )
+                                Text(
+                                    "2. Application Name: Sonara",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = SonaraTextPrimary
+                                )
+                                Text(
+                                    "3. Leave Callback URL empty",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = SonaraTextPrimary
+                                )
+                                Text(
+                                    "4. Click Submit",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = SonaraTextPrimary
+                                )
+                                Text(
+                                    "5. Copy API Key and Shared Secret",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = SonaraTextPrimary
+                                )
+                                Text(
+                                    "6. Paste them below and tap Save Keys",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = SonaraTextPrimary
+                                )
                             }
                         },
                         confirmButton = {
                             TextButton(onClick = {
                                 showApiGuide = false
-                                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.last.fm/api/account/create")))
+                                ctx.startActivity(
+                                    Intent(
+                                        Intent.ACTION_VIEW,
+                                        Uri.parse("https://www.last.fm/api/account/create")
+                                    )
+                                )
                             }) { Text("Open Last.fm") }
                         },
-                        dismissButton = { TextButton(onClick = { showApiGuide = false }) { Text("Close") } }
+                        dismissButton = {
+                            TextButton(onClick = {
+                                showApiGuide = false
+                            }) { Text("Close") }
+                        }
                     )
                 }
                 if (!state.lastFmConnected) {
                     TextButton(onClick = { showApiGuide = true }) {
-                        Text("How to get API keys?", color = p, style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            "How to get API keys?",
+                            color = p,
+                            style = MaterialTheme.typography.labelMedium
+                        )
                     }
                     Spacer(Modifier.height(12.dp))
 
@@ -348,7 +580,12 @@ internal fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Cont
                         value = state.apiKeyInput,
                         onValueChange = { vm.updateApiKeyInput(it) },
                         label = { Text(if (state.isApiKeySet) "API Key ✓ Saved" else "API Key") },
-                        placeholder = { Text(if (state.isApiKeySet) "••••••••" else "Enter API Key", color = SonaraTextTertiary) },
+                        placeholder = {
+                            Text(
+                                if (state.isApiKeySet) "••••••••" else "Enter API Key",
+                                color = SonaraTextTertiary
+                            )
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
@@ -361,7 +598,12 @@ internal fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Cont
                         value = state.sharedSecretInput,
                         onValueChange = { vm.updateSharedSecretInput(it) },
                         label = { Text(if (state.isSharedSecretSet) "Shared Secret ✓ Saved" else "Shared Secret") },
-                        placeholder = { Text(if (state.isSharedSecretSet) "••••••••" else "Enter Secret", color = SonaraTextTertiary) },
+                        placeholder = {
+                            Text(
+                                if (state.isSharedSecretSet) "••••••••" else "Enter Secret",
+                                color = SonaraTextTertiary
+                            )
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
@@ -385,33 +627,63 @@ internal fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Cont
 }
 
 
-
-
 @Composable
 internal fun SoundEngineCard(s: SettingsUiState, vm: SettingsViewModel) {
     FluentCard {
-        SwitchRow("AI Auto-adjust", "Automatically adjust EQ based on genre and mood", s.aiEnabled) { vm.setAiEnabled(it) }
+        SwitchRow(
+            "AI Auto-adjust",
+            "Automatically adjust EQ based on genre and mood",
+            s.aiEnabled
+        ) { vm.setAiEnabled(it) }
         SettingsDivider()
-        SwitchRow("AutoEQ", "Apply headphone correction", s.autoEqEnabled) { vm.setAutoEqEnabled(it) }
+        SwitchRow(
+            "AutoEQ",
+            "Apply headphone correction",
+            s.autoEqEnabled
+        ) { vm.setAutoEqEnabled(it) }
         SettingsDivider()
-        SwitchRow("Auto Preset", "Auto-select preset based on genre", s.autoPreset) { vm.setAutoPreset(it) }
+        SwitchRow(
+            "Auto Preset",
+            "Auto-select preset based on genre",
+            s.autoPreset
+        ) { vm.setAutoPreset(it) }
     }
 }
 
 @Composable
 internal fun AdvancedCard(s: SettingsUiState, vm: SettingsViewModel) {
     FluentCard {
-        SwitchRow("Smooth Transitions", "Gradual EQ changes between tracks", s.smoothTransitions) { vm.setSmoothTransitions(it) }
+        SwitchRow(
+            "Smooth Transitions",
+            "Gradual EQ changes between tracks",
+            s.smoothTransitions
+        ) { vm.setSmoothTransitions(it) }
         SettingsDivider()
-        SwitchRow("Safety Limiter", "Prevent audio clipping", s.safetyLimiter) { vm.setSafetyLimiter(it) }
+        SwitchRow(
+            "Safety Limiter",
+            "Prevent audio clipping",
+            s.safetyLimiter
+        ) { vm.setSafetyLimiter(it) }
         SettingsDivider()
-        SwitchRow("Scrobbling", "Send listening history to Last.fm", s.scrobblingEnabled) { vm.setScrobblingEnabled(it) }
+        SwitchRow(
+            "Scrobbling",
+            "Send listening history to Last.fm",
+            s.scrobblingEnabled
+        ) { vm.setScrobblingEnabled(it) }
         if (s.pendingScrobbles > 0) {
             Spacer(Modifier.height(4.dp))
-            Text("Pending: ${s.pendingScrobbles} scrobbles queued", style = MaterialTheme.typography.bodySmall, color = SonaraWarning)
+            Text(
+                "Pending: ${s.pendingScrobbles} scrobbles queued",
+                style = MaterialTheme.typography.bodySmall,
+                color = SonaraWarning
+            )
         }
         SettingsDivider()
-        SwitchRow("AI Feedback Chips", "Show quick emoji feedback buttons on Dashboard", s.legacyAnalysis) { vm.setLegacyAnalysis(it) }
+        SwitchRow(
+            "AI Feedback Chips",
+            "Show quick emoji feedback buttons on Dashboard",
+            s.legacyAnalysis
+        ) { vm.setLegacyAnalysis(it) }
     }
 }
 
@@ -437,16 +709,31 @@ internal fun ModelDropdown(
             colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraTextPrimary)
         ) {
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = p)
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = p
+                )
                 Spacer(Modifier.width(8.dp))
                 Text("Loading models...", style = MaterialTheme.typography.bodySmall)
             } else {
-                Text(displayName, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-                Icon(if (expanded) Icons.Rounded.ArrowDropUp else Icons.Rounded.ArrowDropDown, null, tint = SonaraTextSecondary)
+                Text(
+                    displayName,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1
+                )
+                Icon(
+                    if (expanded) Icons.Rounded.ArrowDropUp else Icons.Rounded.ArrowDropDown,
+                    null,
+                    tint = SonaraTextSecondary
+                )
             }
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false },
-            modifier = Modifier.heightIn(max = 300.dp)) {
+        DropdownMenu(
+            expanded = expanded, onDismissRequest = { expanded = false },
+            modifier = Modifier.heightIn(max = 300.dp)
+        ) {
             models.forEach { (id, name) ->
                 DropdownMenuItem(
                     text = { Text(name, style = MaterialTheme.typography.bodyMedium) },
@@ -456,7 +743,13 @@ internal fun ModelDropdown(
             if (models.isNotEmpty()) {
                 HorizontalDivider()
                 DropdownMenuItem(
-                    text = { Text("Refresh list", style = MaterialTheme.typography.bodySmall, color = p) },
+                    text = {
+                        Text(
+                            "Refresh list",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = p
+                        )
+                    },
                     onClick = { expanded = false; onRefresh() }
                 )
             }
@@ -476,20 +769,32 @@ internal fun PresetExportImportCard(vm: SettingsViewModel) {
     FluentCard {
         Text("Backup & Restore", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
-        Text("Full backup: all settings, presets, and learning data",
-            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Text(
+            "Full backup: all settings, presets, and learning data",
+            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary
+        )
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
-                onClick = { vm.exportFullBackup { json ->
-                    val file = BackupManager.saveToFile(json)
-                    if (file != null) {
-                        Toast.makeText(ctx, "Saved to Downloads/${file.name}", Toast.LENGTH_LONG).show()
-                    } else {
-                        clipboard.setText(AnnotatedString(json))
-                        Toast.makeText(ctx, "File failed, copied to clipboard", Toast.LENGTH_SHORT).show()
+                onClick = {
+                    vm.exportFullBackup { json ->
+                        val file = BackupManager.saveToFile(json)
+                        if (file != null) {
+                            Toast.makeText(
+                                ctx,
+                                "Saved to Downloads/${file.name}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            clipboard.setText(AnnotatedString(json))
+                            Toast.makeText(
+                                ctx,
+                                "File failed, copied to clipboard",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     }
-                } },
+                },
                 modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge,
                 border = BorderStroke(1.dp, p),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
@@ -518,20 +823,42 @@ internal fun PresetExportImportCard(vm: SettingsViewModel) {
             title = { Text("Restore Backup") },
             text = {
                 Column {
-                    Text("Paste exported Sonara preset JSON:", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                    Text(
+                        "Paste exported Sonara preset JSON:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SonaraTextSecondary
+                    )
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
-                        value = importInput, onValueChange = { importInput = it; importResult = "" },
+                        value = importInput,
+                        onValueChange = { importInput = it; importResult = "" },
                         placeholder = { Text("Paste JSON here...", color = SonaraTextTertiary) },
-                        modifier = Modifier.fillMaxWidth().height(150.dp), maxLines = 10,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp),
+                        maxLines = 10,
                         shape = MaterialTheme.shapes.small,
-                        trailingIcon = { IconButton(onClick = { clipboard.getText()?.text?.let { importInput = it } }) { Icon(Icons.Rounded.ContentPaste, "Paste", tint = SonaraTextSecondary) } },
+                        trailingIcon = {
+                            IconButton(onClick = {
+                                clipboard.getText()?.text?.let {
+                                    importInput = it
+                                }
+                            }) {
+                                Icon(
+                                    Icons.Rounded.ContentPaste,
+                                    "Paste",
+                                    tint = SonaraTextSecondary
+                                )
+                            }
+                        },
                         colors = tfColors()
                     )
                     if (importResult.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
-                        Text(importResult, style = MaterialTheme.typography.bodySmall,
-                            color = if (importResult.startsWith("✓")) SonaraSuccess else SonaraError)
+                        Text(
+                            importResult, style = MaterialTheme.typography.bodySmall,
+                            color = if (importResult.startsWith("✓")) SonaraSuccess else SonaraError
+                        )
                     }
                 }
             },
@@ -541,7 +868,9 @@ internal fun PresetExportImportCard(vm: SettingsViewModel) {
                 }) { Text("Import", color = p) }
             },
             dismissButton = {
-                TextButton(onClick = { showImportDialog = false; importInput = ""; importResult = "" }) {
+                TextButton(onClick = {
+                    showImportDialog = false; importInput = ""; importResult = ""
+                }) {
                     Text("Cancel", color = SonaraTextSecondary)
                 }
             }
@@ -552,10 +881,18 @@ internal fun PresetExportImportCard(vm: SettingsViewModel) {
 @Composable
 internal fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
     FluentCard {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column {
                 Text("Track Cache", style = MaterialTheme.typography.titleMedium)
-                Text("${s.cacheSize} tracks | ${s.personalSamples} learned", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                Text(
+                    "${s.cacheSize} tracks | ${s.personalSamples} learned",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SonaraTextSecondary
+                )
             }
             OutlinedButton(
                 onClick = { vm.clearCache() }, shape = MaterialTheme.shapes.extraLarge,
@@ -564,10 +901,18 @@ internal fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
             ) { Text("Clear") }
         }
         SettingsDivider()
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column {
                 Text("Reset All", style = MaterialTheme.typography.titleMedium)
-                Text("Restore defaults", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                Text(
+                    "Restore defaults",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SonaraTextSecondary
+                )
             }
             OutlinedButton(
                 onClick = { vm.clearAllData() }, shape = MaterialTheme.shapes.extraLarge,
@@ -579,35 +924,23 @@ internal fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
 }
 
 
-
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
     val p = MaterialTheme.colorScheme.primary
     FluentCard {
-        Text("Accent Color", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(4.dp))
-        Text(AccentSeeds.presets.find { it.seed == s.accentSeed }?.displayName ?: "Custom",
-            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
-        Spacer(Modifier.height(16.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            AccentSeeds.presets.forEach { accent ->
-                val sel = accent.seed == s.accentSeed
-                Box(
-                    Modifier.size(38.dp).clip(CircleShape)
-                        .background(accent.seed)
-                        .then(if (sel) Modifier.border(2.5.dp, SonaraTextPrimary, CircleShape) else Modifier.border(1.dp, SonaraDivider.copy(0.3f), CircleShape))
-                        .clickable { vm.setAccentSeed(accent.seed) },
-                    contentAlignment = Alignment.Center
-                ) { if (sel) Icon(Icons.Rounded.Check, null, tint = SonaraBackground, modifier = Modifier.size(18.dp)) }
-            }
-        }
-        SettingsDivider()
+        // ── Theme Mode ───────────────────────────────────────
         Text("Theme Mode", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (id, label) ->
+            listOf(
+                "system" to "System",
+                "light" to "Light",
+                "dark" to "Dark"
+            ).forEach { (id, label) ->
                 val sel = s.themeMode == id
-                OutlinedButton(onClick = { vm.setThemeMode(id) },
+                OutlinedButton(
+                    onClick = { vm.setThemeMode(id) },
                     shape = MaterialTheme.shapes.extraLarge,
                     border = BorderStroke(1.dp, if (sel) p else SonaraDivider),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = if (sel) p else SonaraTextSecondary),
@@ -618,9 +951,159 @@ internal fun AppearanceCard(s: SettingsUiState, vm: SettingsViewModel) {
         SettingsDivider()
         SwitchRow("AMOLED Mode", "Pure black background", s.amoledMode) { vm.setAmoledMode(it) }
         SettingsDivider()
-        SwitchRow("Dynamic Colors", "Use wallpaper colors (Android 12+)", s.dynamicColors) { vm.setDynamicColors(it) }
+        SwitchRow(
+            "Dynamic Colors",
+            "Use wallpaper colors (Android 12+)",
+            s.dynamicColors
+        ) { vm.setDynamicColors(it) }
         SettingsDivider()
-        SwitchRow("High Contrast", "Increase text contrast", s.highContrast) { vm.setHighContrast(it) }
+        SwitchRow(
+            "High Contrast",
+            "Increase text contrast",
+            s.highContrast
+        ) { vm.setHighContrast(it) }
+        SettingsDivider()
+
+        // ── Font Dropdown ────────────────────────────────────
+        var fontExpanded by remember { mutableStateOf(false) }
+        Text("Font", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "App-wide typeface (Google Fonts)",
+            style = MaterialTheme.typography.bodySmall,
+            color = SonaraTextSecondary
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        ExposedDropdownMenuBox(
+            expanded = fontExpanded,
+            onExpandedChange = { fontExpanded = it }
+        ) {
+            OutlinedTextField(
+                value = SonaraFont.fromId(s.selectedFont).displayName,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fontExpanded) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth()
+            )
+            ExposedDropdownMenu(
+                expanded = fontExpanded,
+                onDismissRequest = { fontExpanded = false }
+            ) {
+                SonaraFont.entries.forEach { f ->
+                    DropdownMenuItem(
+                        text = { Text(f.displayName) },
+                        onClick = { vm.setSelectedFont(f.name); fontExpanded = false },
+                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                    )
+                }
+            }
+        }
+
+        SettingsDivider()
+
+        // ── Color: Accent + Palette Style ───────────────────
+        Text("Color", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            AccentSeeds.presets.find { it.seed == s.accentSeed }?.displayName ?: "Custom",
+            style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            AccentSeeds.presets.forEach { accent ->
+                val sel = accent.seed == s.accentSeed
+                Box(
+                    Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(accent.seed)
+                        .then(
+                            if (sel) Modifier.border(
+                                2.5.dp,
+                                SonaraTextPrimary,
+                                CircleShape
+                            ) else Modifier.border(1.dp, SonaraDivider.copy(0.3f), CircleShape)
+                        )
+                        .clickable { vm.setAccentSeed(accent.seed) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (sel) Icon(
+                        Icons.Rounded.Check,
+                        null,
+                        tint = SonaraBackground,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Palette Style",
+            style = MaterialTheme.typography.bodyMedium,
+            color = SonaraTextSecondary
+        )
+        Spacer(Modifier.height(8.dp))
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SonaraPaletteStyle.entries.forEach { ps ->
+                val isSelected = s.selectedPaletteStyle == ps.name
+                val previewScheme = rememberDynamicColorScheme(
+                    seedColor = s.accentSeed,
+                    isDark = true,
+                    style = ps.toMaterialKolor()
+                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clickable { vm.setSelectedPaletteStyle(ps.name) }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(if (isSelected) RoundedCornerShape(10.dp) else CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(modifier = Modifier.matchParentSize()) {
+                            val colors = listOf(
+                                previewScheme.primary, previewScheme.primaryContainer,
+                                previewScheme.secondary, previewScheme.secondaryContainer,
+                                previewScheme.tertiary, previewScheme.tertiaryContainer,
+                            )
+                            val sweep = 360f / colors.size
+                            colors.forEachIndexed { i, c ->
+                                drawArc(
+                                    color = c,
+                                    startAngle = i * sweep,
+                                    sweepAngle = sweep,
+                                    useCenter = true
+                                )
+                            }
+                        }
+                        if (isSelected) {
+                            Icon(
+                                Icons.Rounded.Check,
+                                null,
+                                tint = previewScheme.onPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        ps.displayName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isSelected) p else SonaraTextTertiary
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -635,38 +1118,104 @@ internal fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
                 title = { Text("How AI Sources Work") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Last.fm", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
-                        Text("Fetches genre tags and metadata from the Last.fm database. Most accurate source for well-known tracks.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        Text(
+                            "Last.fm",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = SonaraTextPrimary
+                        )
+                        Text(
+                            "Fetches genre tags and metadata from the Last.fm database. Most accurate source for well-known tracks.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SonaraTextSecondary
+                        )
                         HorizontalDivider(color = SonaraDivider.copy(0.3f))
-                        Text("Local AI", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
-                        Text("On-device classification using artist/title patterns and audio features. Works offline.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        Text(
+                            "Local AI",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = SonaraTextPrimary
+                        )
+                        Text(
+                            "On-device classification using artist/title patterns and audio features. Works offline.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SonaraTextSecondary
+                        )
                         HorizontalDivider(color = SonaraDivider.copy(0.3f))
-                        Text("Lyrics", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
-                        Text("Analyzes lyrics tone and language for mood detection. Adds emotional context to EQ choices.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        Text(
+                            "Lyrics",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = SonaraTextPrimary
+                        )
+                        Text(
+                            "Analyzes lyrics tone and language for mood detection. Adds emotional context to EQ choices.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SonaraTextSecondary
+                        )
                         HorizontalDivider(color = SonaraDivider.copy(0.3f))
-                        Text("Merged", style = MaterialTheme.typography.titleSmall, color = SonaraTextPrimary)
-                        Text("When multiple sources agree, confidence is higher and the result is marked as Merged.", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                        Text(
+                            "Merged",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = SonaraTextPrimary
+                        )
+                        Text(
+                            "When multiple sources agree, confidence is higher and the result is marked as Merged.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SonaraTextSecondary
+                        )
                     }
                 },
-                confirmButton = { TextButton(onClick = { showAiSourcesHelp = false }) { Text("Got it") } }
+                confirmButton = {
+                    TextButton(onClick = {
+                        showAiSourcesHelp = false
+                    }) { Text("Got it") }
+                }
             )
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text("AI Sources", style = MaterialTheme.typography.titleMedium)
-            TextButton(onClick = { showAiSourcesHelp = true }) { Text("How it works?", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
+            TextButton(onClick = { showAiSourcesHelp = true }) {
+                Text(
+                    "How it works?",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
         Spacer(Modifier.height(4.dp))
-        Text("Choose which sources AI uses for genre detection", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Text(
+            "Choose which sources AI uses for genre detection",
+            style = MaterialTheme.typography.bodySmall,
+            color = SonaraTextSecondary
+        )
         Spacer(Modifier.height(8.dp))
-        SwitchRow("Last.fm", "Online genre tags and metadata", s.sourceLastFm) { vm.setSourceLastFm(it) }
+        SwitchRow("Last.fm", "Online genre tags and metadata", s.sourceLastFm) {
+            vm.setSourceLastFm(
+                it
+            )
+        }
         SettingsDivider()
-        SwitchRow("Local AI", "On-device title/artist classification", s.sourceLocalAi) { vm.setSourceLocalAi(it) }
+        SwitchRow(
+            "Local AI",
+            "On-device title/artist classification",
+            s.sourceLocalAi
+        ) { vm.setSourceLocalAi(it) }
         SettingsDivider()
-        SwitchRow("Lyrics", "Lyrics-based tone and mood analysis", s.sourceLyrics) { vm.setSourceLyrics(it) }
+        SwitchRow(
+            "Lyrics",
+            "Lyrics-based tone and mood analysis",
+            s.sourceLyrics
+        ) { vm.setSourceLyrics(it) }
         SettingsDivider()
         Text("AI Provider", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
-        Text("Primary provider for AI insights (with fallback)", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+        Text(
+            "Primary provider for AI insights (with fallback)",
+            style = MaterialTheme.typography.bodySmall,
+            color = SonaraTextSecondary
+        )
         Spacer(Modifier.height(8.dp))
         val providers = listOf(
             "gemini" to "Gemini",
@@ -678,24 +1227,36 @@ internal fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
             providers.forEach { (id, label) ->
                 val sel = s.aiProvider == id
                 val p2 = MaterialTheme.colorScheme.primary
-                OutlinedButton(onClick = { vm.setAiProvider(id) },
+                OutlinedButton(
+                    onClick = { vm.setAiProvider(id) },
                     modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge,
                     border = BorderStroke(1.dp, if (sel) p2 else SonaraDivider),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = if (sel) p2 else SonaraTextSecondary)
                 ) { Text(label, style = MaterialTheme.typography.labelSmall) }
             }
         }
-                if (s.aiProvider == "gemini") {
+        if (s.aiProvider == "gemini") {
             Spacer(Modifier.height(8.dp))
             val p2 = MaterialTheme.colorScheme.primary
-            OutlinedTextField(value = s.geminiKeyInput, onValueChange = { vm.updateGeminiKeyInput(it) },
-                placeholder = { Text(if (s.geminiApiKey.isNotBlank()) "••••••••" else "Gemini API key", color = SonaraTextTertiary) },
+            OutlinedTextField(
+                value = s.geminiKeyInput, onValueChange = { vm.updateGeminiKeyInput(it) },
+                placeholder = {
+                    Text(
+                        if (s.geminiApiKey.isNotBlank()) "••••••••" else "Gemini API key",
+                        color = SonaraTextTertiary
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2)
+            )
             Spacer(Modifier.height(4.dp))
-            OutlinedButton(onClick = { vm.saveGeminiKey() }, enabled = s.geminiKeyInput.isNotBlank(),
+            OutlinedButton(
+                onClick = { vm.saveGeminiKey() }, enabled = s.geminiKeyInput.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
-                border = BorderStroke(1.dp, if (s.geminiKeyInput.isNotBlank()) p2 else SonaraDivider)
+                border = BorderStroke(
+                    1.dp,
+                    if (s.geminiKeyInput.isNotBlank()) p2 else SonaraDivider
+                )
             ) { Text("Save Key") }
             Spacer(Modifier.height(8.dp))
             Text("Model", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
@@ -711,14 +1272,25 @@ internal fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
         if (s.aiProvider == "openrouter") {
             Spacer(Modifier.height(8.dp))
             val p2 = MaterialTheme.colorScheme.primary
-            OutlinedTextField(value = s.openRouterKeyInput, onValueChange = { vm.updateOpenRouterKeyInput(it) },
-                placeholder = { Text(if (s.openRouterApiKey.isNotBlank()) "••••" else "OpenRouter API key", color = SonaraTextTertiary) },
+            OutlinedTextField(
+                value = s.openRouterKeyInput, onValueChange = { vm.updateOpenRouterKeyInput(it) },
+                placeholder = {
+                    Text(
+                        if (s.openRouterApiKey.isNotBlank()) "••••" else "OpenRouter API key",
+                        color = SonaraTextTertiary
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2)
+            )
             Spacer(Modifier.height(4.dp))
-            OutlinedButton(onClick = { vm.saveOpenRouterKey() }, enabled = s.openRouterKeyInput.isNotBlank(),
+            OutlinedButton(
+                onClick = { vm.saveOpenRouterKey() }, enabled = s.openRouterKeyInput.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
-                border = BorderStroke(1.dp, if (s.openRouterKeyInput.isNotBlank()) p2 else SonaraDivider)
+                border = BorderStroke(
+                    1.dp,
+                    if (s.openRouterKeyInput.isNotBlank()) p2 else SonaraDivider
+                )
             ) { Text("Save Key") }
             Spacer(Modifier.height(8.dp))
             Text("Model", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
@@ -734,12 +1306,20 @@ internal fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
         if (s.aiProvider == "groq") {
             Spacer(Modifier.height(8.dp))
             val p2 = MaterialTheme.colorScheme.primary
-            OutlinedTextField(value = s.groqKeyInput, onValueChange = { vm.updateGroqKeyInput(it) },
-                placeholder = { Text(if (s.groqApiKey.isNotBlank()) "••••" else "Groq API key", color = SonaraTextTertiary) },
+            OutlinedTextField(
+                value = s.groqKeyInput, onValueChange = { vm.updateGroqKeyInput(it) },
+                placeholder = {
+                    Text(
+                        if (s.groqApiKey.isNotBlank()) "••••" else "Groq API key",
+                        color = SonaraTextTertiary
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2)
+            )
             Spacer(Modifier.height(4.dp))
-            OutlinedButton(onClick = { vm.saveGroqKey() }, enabled = s.groqKeyInput.isNotBlank(),
+            OutlinedButton(
+                onClick = { vm.saveGroqKey() }, enabled = s.groqKeyInput.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
                 border = BorderStroke(1.dp, if (s.groqKeyInput.isNotBlank()) p2 else SonaraDivider)
             ) { Text("Save Key") }
@@ -757,14 +1337,25 @@ internal fun AiSourcesCard(s: SettingsUiState, vm: SettingsViewModel) {
         if (s.aiProvider == "huggingface") {
             Spacer(Modifier.height(8.dp))
             val p2 = MaterialTheme.colorScheme.primary
-            OutlinedTextField(value = s.huggingFaceKeyInput, onValueChange = { vm.updateHuggingFaceKeyInput(it) },
-                placeholder = { Text(if (s.huggingFaceApiKey.isNotBlank()) "••••" else "Hugging Face token (hf_…)", color = SonaraTextTertiary) },
+            OutlinedTextField(
+                value = s.huggingFaceKeyInput, onValueChange = { vm.updateHuggingFaceKeyInput(it) },
+                placeholder = {
+                    Text(
+                        if (s.huggingFaceApiKey.isNotBlank()) "••••" else "Hugging Face token (hf_…)",
+                        color = SonaraTextTertiary
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2))
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p2, cursorColor = p2)
+            )
             Spacer(Modifier.height(4.dp))
-            OutlinedButton(onClick = { vm.saveHuggingFaceKey() }, enabled = s.huggingFaceKeyInput.isNotBlank(),
+            OutlinedButton(
+                onClick = { vm.saveHuggingFaceKey() }, enabled = s.huggingFaceKeyInput.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
-                border = BorderStroke(1.dp, if (s.huggingFaceKeyInput.isNotBlank()) p2 else SonaraDivider)
+                border = BorderStroke(
+                    1.dp,
+                    if (s.huggingFaceKeyInput.isNotBlank()) p2 else SonaraDivider
+                )
             ) { Text("Save Key") }
             Spacer(Modifier.height(8.dp))
             Text("Model", style = MaterialTheme.typography.labelMedium, color = SonaraTextSecondary)
@@ -786,26 +1377,54 @@ internal fun AboutCard(state: SettingsUiState, vm: SettingsViewModel) {
     var devMode by remember { mutableStateOf(false) }
     val ctx = LocalContext.current
     FluentCard {
-        Row(Modifier.fillMaxWidth().clickable {
-            tapCount++
-            if (tapCount >= 5 && !devMode) { devMode = true }
-        }, horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable {
+                    tapCount++
+                    if (tapCount >= 5 && !devMode) {
+                        devMode = true
+                    }
+                },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column {
                 Text("Sonara", style = MaterialTheme.typography.titleMedium)
-                Text("Personal Sound Engine", style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
+                Text(
+                    "Personal Sound Engine",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SonaraTextSecondary
+                )
             }
             Text("v1.0.0", style = MaterialTheme.typography.labelLarge, color = SonaraTextTertiary)
         }
         if (tapCount in 1..4) {
-            Text("${5 - tapCount} more taps for developer options", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
+            Text(
+                "${5 - tapCount} more taps for developer options",
+                style = MaterialTheme.typography.labelSmall,
+                color = SonaraTextTertiary
+            )
         }
         if (devMode) {
             SettingsDivider()
-            Text("Developer Options", style = MaterialTheme.typography.titleSmall, color = SonaraWarning)
+            Text(
+                "Developer Options",
+                style = MaterialTheme.typography.titleSmall,
+                color = SonaraWarning
+            )
             Spacer(Modifier.height(12.dp))
             // Community sync interval
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("Sync every N songs", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Sync every N songs",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = SonaraTextPrimary
+                )
                 var intervalText by remember { mutableStateOf(state.syncInterval.toString()) }
                 OutlinedTextField(
                     value = intervalText,
@@ -820,7 +1439,8 @@ internal fun AboutCard(state: SettingsUiState, vm: SettingsViewModel) {
                 )
             }
             Spacer(Modifier.height(12.dp))
-            OutlinedButton(onClick = { vm.disconnectLastFm(); vm.clearAllData() },
+            OutlinedButton(
+                onClick = { vm.disconnectLastFm(); vm.clearAllData() },
                 modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
                 border = BorderStroke(1.dp, SonaraError.copy(0.5f)),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = SonaraError)
@@ -830,7 +1450,11 @@ internal fun AboutCard(state: SettingsUiState, vm: SettingsViewModel) {
 }
 
 @Composable
-internal fun ScrobbleFilterCard(state: SettingsUiState, vm: SettingsViewModel, onOpenAppPicker: () -> Unit = {}) {
+internal fun ScrobbleFilterCard(
+    state: SettingsUiState,
+    vm: SettingsViewModel,
+    onOpenAppPicker: () -> Unit = {}
+) {
     val p = MaterialTheme.colorScheme.primary
     FluentCard(modifier = Modifier.clickable { onOpenAppPicker() }) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -839,11 +1463,23 @@ internal fun ScrobbleFilterCard(state: SettingsUiState, vm: SettingsViewModel, o
                 Spacer(Modifier.height(4.dp))
                 val allowed = state.allowedScrobbleApps
                 if (allowed.isEmpty()) {
-                    Text("Monitoring all apps", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                    Text(
+                        "Monitoring all apps",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SonaraTextTertiary
+                    )
                 } else {
-                    Text("${allowed.size} app${if (allowed.size > 1) "s" else ""} selected", style = MaterialTheme.typography.bodySmall, color = p)
+                    Text(
+                        "${allowed.size} app${if (allowed.size > 1) "s" else ""} selected",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = p
+                    )
                 }
-                Text("Select specific apps to restrict scrobbling", style = MaterialTheme.typography.bodySmall, color = SonaraTextTertiary)
+                Text(
+                    "Select specific apps to restrict scrobbling",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SonaraTextTertiary
+                )
             }
             Icon(Icons.Rounded.ChevronRight, null, tint = SonaraTextTertiary)
         }
@@ -853,14 +1489,22 @@ internal fun ScrobbleFilterCard(state: SettingsUiState, vm: SettingsViewModel, o
 @Composable
 internal fun SwitchRow(title: String, desc: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     val p = MaterialTheme.colorScheme.primary
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             Text(desc, style = MaterialTheme.typography.bodySmall, color = SonaraTextSecondary)
         }
-        Switch(checked = checked, onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(checkedThumbColor = p, checkedTrackColor = p.copy(0.3f),
-                uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated))
+        Switch(
+            checked = checked, onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = p, checkedTrackColor = p.copy(0.3f),
+                uncheckedThumbColor = SonaraTextTertiary, uncheckedTrackColor = SonaraCardElevated
+            )
+        )
     }
 }
 
@@ -871,7 +1515,11 @@ internal fun SettingsDivider() {
 
 @Composable
 internal fun tfColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = SonaraDivider,
-    focusedContainerColor = SonaraCardElevated, unfocusedContainerColor = SonaraCardElevated,
-    cursorColor = MaterialTheme.colorScheme.primary, focusedTextColor = SonaraTextPrimary, unfocusedTextColor = SonaraTextPrimary
+    focusedBorderColor = MaterialTheme.colorScheme.primary,
+    unfocusedBorderColor = SonaraDivider,
+    focusedContainerColor = SonaraCardElevated,
+    unfocusedContainerColor = SonaraCardElevated,
+    cursorColor = MaterialTheme.colorScheme.primary,
+    focusedTextColor = SonaraTextPrimary,
+    unfocusedTextColor = SonaraTextPrimary
 )

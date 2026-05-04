@@ -6,9 +6,12 @@
 
     <uses-sdk
         android:minSdkVersion="26"
-        android:targetSdkVersion="34" />
+        android:targetSdkVersion="36" />
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
@@ -36,6 +39,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:testOnly="true"
         android:theme="@style/Theme.Sonara" >
         <activity
             android:name="com.sonara.app.MainActivity"
@@ -64,9 +68,10 @@
             android:foregroundServiceType="mediaPlayback" />
         <service
             android:name="com.sonara.app.service.SonaraNotificationListener"
+            android:description="@string/notification_listener_description"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback"
-            android:label="Sonara Sound Engine"
+            android:label="@string/notification_listener_label"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" >
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
@@ -75,7 +80,8 @@
 
         <receiver
             android:name="com.sonara.app.receiver.AudioEffectSessionReceiver"
-            android:exported="true" >
+            android:exported="true"
+            android:permission="android.permission.MODIFY_AUDIO_SETTINGS" >
             <intent-filter>
                 <action android:name="android.media.action.OPEN_AUDIO_EFFECT_CONTROL_SESSION" />
                 <action android:name="android.media.action.CLOSE_AUDIO_EFFECT_CONTROL_SESSION" />
@@ -84,12 +90,26 @@
         <receiver
             android:name="com.sonara.app.receiver.BootReceiver"
             android:enabled="true"
-            android:exported="true" >
+            android:exported="false" >
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.sonara.app.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true" >
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths" />
+        </provider>
+
+        <activity
+            android:name="androidx.compose.ui.tooling.PreviewActivity"
+            android:exported="true" />
 
         <provider
             android:name="androidx.startup.InitializationProvider"
@@ -201,9 +221,12 @@
             </intent-filter>
         </receiver>
 
-        <activity
-            android:name="androidx.compose.ui.tooling.PreviewActivity"
-            android:exported="true" />
+        <uses-library
+            android:name="androidx.window.extensions"
+            android:required="false" />
+        <uses-library
+            android:name="androidx.window.sidecar"
+            android:required="false" />
 
         <service
             android:name="androidx.room.MultiInstanceInvalidationService"

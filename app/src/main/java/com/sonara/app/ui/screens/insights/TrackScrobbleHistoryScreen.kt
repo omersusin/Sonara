@@ -56,9 +56,11 @@ fun TrackScrobbleHistoryScreen(
                 if (username.isBlank() || apiKey.isBlank()) { isLoading = false; return@withContext }
 
                 val resp = LastFmClient.api.getUserTrackScrobbles(username, trackArtist, trackTitle, apiKey, limit = 200)
-                val apiTotal = resp.recenttracks?.attr?.total?.toIntOrNull()
+                // user.getTrackScrobbles returns "trackscrobbles" key, not "recenttracks"
+                val data = resp.trackscrobbles ?: resp.recenttracks
+                val apiTotal = data?.attr?.total?.toIntOrNull()
                 val sdf = SimpleDateFormat("d MMM yyyy, HH:mm", Locale.getDefault())
-                val entries = resp.recenttracks?.track
+                val entries = data?.track
                     ?.filter { it.date != null }
                     ?.map { t ->
                         val uts = t.date?.uts?.toLongOrNull() ?: 0L

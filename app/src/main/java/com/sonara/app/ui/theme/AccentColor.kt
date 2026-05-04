@@ -15,9 +15,16 @@ object AccentSeeds {
     val Coral    = AccentSeed("coral",    "Coral",    Color(0xFFE88060))
     val Ice      = AccentSeed("ice",      "Ice",      Color(0xFF60B8D4))
     val Pearl    = AccentSeed("pearl",    "Pearl",    Color(0xFFB0A898))
+    val Sunset   = AccentSeed("sunset",   "Sunset",   Color(0xFFFF6B4A))
+    val Mint     = AccentSeed("mint",     "Mint",     Color(0xFF4CAF82))
+    val Gold     = AccentSeed("gold",     "Gold",     Color(0xFFFFBD4A))
+    val Violet   = AccentSeed("violet",   "Violet",   Color(0xFF7B5EA7))
+    val Blush    = AccentSeed("blush",    "Blush",    Color(0xFFE87DA0))
+    val Azure    = AccentSeed("azure",    "Azure",    Color(0xFF3A8FD4))
+    val Slate    = AccentSeed("slate",    "Slate",    Color(0xFF637C8A))
 
-    val all      = listOf(Auto, Amber, Rose, Ocean, Sage, Lavender, Coral, Ice, Pearl)
-    val presets  = listOf(Amber, Rose, Ocean, Sage, Lavender, Coral, Ice, Pearl)
+    val all      = listOf(Auto, Amber, Rose, Ocean, Sage, Lavender, Coral, Ice, Pearl, Sunset, Mint, Gold, Violet, Blush, Azure, Slate)
+    val presets  = listOf(Amber, Rose, Ocean, Sage, Lavender, Coral, Ice, Pearl, Sunset, Mint, Gold, Violet, Blush, Azure, Slate)
 
     fun fromId(id: String): AccentSeed = all.find { it.id == id } ?: Amber
 
@@ -38,6 +45,13 @@ object AccentSeeds {
         "coral"    -> Coral.seed
         "ice"      -> Ice.seed
         "pearl"    -> Pearl.seed
+        "sunset"   -> Sunset.seed
+        "mint"     -> Mint.seed
+        "gold"     -> Gold.seed
+        "violet"   -> Violet.seed
+        "blush"    -> Blush.seed
+        "azure"    -> Azure.seed
+        "slate"    -> Slate.seed
         else       -> Amber.seed
     }
 }

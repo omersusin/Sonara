@@ -96,7 +96,9 @@ data class SettingsUiState(
     val lyricsAutoScroll: Boolean = true,
     val lyricsGlowEnabled: Boolean = false,
     val lyricsBackground: String = "solid",
-    val digestEnabled: Boolean = true
+    val digestEnabled: Boolean = true,
+    val selectedFont: String = "INTER",
+    val selectedPaletteStyle: String = "EXPRESSIVE"
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -193,6 +195,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.lyricsGlowEnabledFlow.collect { v -> _uiState.update { it.copy(lyricsGlowEnabled = v) } } }
         viewModelScope.launch { prefs.lyricsBackgroundFlow.collect { v -> _uiState.update { it.copy(lyricsBackground = v) } } }
         viewModelScope.launch { prefs.digestEnabledFlow.collect { v -> _uiState.update { it.copy(digestEnabled = v) } } }
+        viewModelScope.launch { prefs.selectedFontFlow.collect { v -> _uiState.update { it.copy(selectedFont = v) } } }
+        viewModelScope.launch { prefs.selectedPaletteStyleFlow.collect { v -> _uiState.update { it.copy(selectedPaletteStyle = v) } } }
 
         refreshCacheSize(); checkNotificationListener(); refreshPendingScrobbles()
         _uiState.update { it.copy(personalSamples = app.personalization.getTotalSamples()) }
@@ -639,6 +643,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setLyricsGlowEnabled(v: Boolean) { viewModelScope.launch { prefs.setLyricsGlowEnabled(v) } }
     fun setLyricsBackground(v: String) { viewModelScope.launch { prefs.setLyricsBackground(v) } }
     fun setDigestEnabled(e: Boolean) { viewModelScope.launch { prefs.setDigestEnabled(e) } }
+    fun setSelectedFont(font: String) { viewModelScope.launch { prefs.setSelectedFont(font) } }
+    fun setSelectedPaletteStyle(style: String) { viewModelScope.launch { prefs.setSelectedPaletteStyle(style) } }
 
     fun setSyncInterval(value: Int) {
         viewModelScope.launch {

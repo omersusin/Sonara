@@ -1,0 +1,8 @@
+com.sonara.app-pngs-0 C:\Users\hrida\AndroidStudioProjects\Sonara\app\build\generated\res\pngs\debug
+com.sonara.app-updated_navigation_xml-1 C:\Users\hrida\AndroidStudioProjects\Sonara\app\build\generated\updated_navigation_xml\debug
+com.sonara.app-packageDebugResources-2 C:\Users\hrida\AndroidStudioProjects\Sonara\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
+com.sonara.app-packageDebugResources-3 C:\Users\hrida\AndroidStudioProjects\Sonara\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
+com.sonara.app-debug-4 C:\Users\hrida\AndroidStudioProjects\Sonara\app\build\intermediates\merged_res\debug\mergeDebugResources
+com.sonara.app-debug-5 C:\Users\hrida\AndroidStudioProjects\Sonara\app\src\debug\res
+com.sonara.app-main-6 C:\Users\hrida\AndroidStudioProjects\Sonara\app\src\main\res
+gradleHome-0 C:\Users\hrida\.gradle

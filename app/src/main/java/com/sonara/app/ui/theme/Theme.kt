@@ -6,9 +6,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import com.materialkolor.PaletteStyle
 import com.materialkolor.rememberDynamicColorScheme
 
 @Composable
@@ -18,6 +18,8 @@ fun SonaraTheme(
     dynamicColor: Boolean = false,
     highContrast: Boolean = false,
     isAmoled: Boolean = false,
+    font: SonaraFont = SonaraFont.INTER,
+    paletteStyle: SonaraPaletteStyle = SonaraPaletteStyle.EXPRESSIVE,
     content: @Composable () -> Unit
 ) {
     val isDark = when (themeMode) {
@@ -26,19 +28,16 @@ fun SonaraTheme(
         else    -> isSystemInDarkTheme()
     }
 
-    // When dynamic color is on (Android 12+), extract the wallpaper primary as seed
     val effectiveSeed = if (dynamicColor && Build.VERSION.SDK_INT >= 31) {
         val ctx = LocalContext.current
         if (isDark) dynamicDarkColorScheme(ctx).primary
         else dynamicLightColorScheme(ctx).primary
-    } else {
-        seedColor
-    }
+    } else seedColor
 
     var scheme = rememberDynamicColorScheme(
         seedColor = effectiveSeed,
         isDark = isDark,
-        style = PaletteStyle.Expressive
+        style = paletteStyle.toMaterialKolor()
     )
 
     if (isAmoled && isDark) {
@@ -54,19 +53,16 @@ fun SonaraTheme(
 
     if (highContrast) {
         scheme = if (isDark) scheme.copy(
-            onBackground = Color.White,
-            onSurface = Color.White,
-            onSurfaceVariant = Color.White
+            onBackground = Color.White, onSurface = Color.White, onSurfaceVariant = Color.White
         ) else scheme.copy(
-            onBackground = Color.Black,
-            onSurface = Color.Black,
-            onSurfaceVariant = Color.Black
+            onBackground = Color.Black, onSurface = Color.Black, onSurfaceVariant = Color.Black
         )
     }
 
+    val typography = remember(font) { buildTypography(font) }
     MaterialTheme(
         colorScheme = scheme,
-        typography = SonaraTypography,
+        typography = typography,
         shapes = SonaraShapes,
         content = content
     )
