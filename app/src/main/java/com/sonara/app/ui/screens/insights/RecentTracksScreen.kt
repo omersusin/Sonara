@@ -33,8 +33,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Search
@@ -80,6 +78,7 @@ import com.sonara.app.SonaraApp
 import com.sonara.app.intelligence.deezer.DeezerImageResolver
 import com.sonara.app.intelligence.lastfm.LastFmClient
 import com.sonara.app.intelligence.odesli.OdesliHelper
+import com.sonara.app.ui.icons.SonaraIcons
 import com.sonara.app.ui.theme.SonaraCard
 import com.sonara.app.ui.theme.SonaraCardElevated
 import com.sonara.app.ui.theme.SonaraDivider
@@ -324,7 +323,7 @@ fun RecentTracksScreen(
                                             modifier = Modifier.size(32.dp)
                                         ) {
                                             Icon(
-                                                if (t.isLoved) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                                if (t.isLoved) SonaraIcons.HeartFilled else SonaraIcons.HeartOutline,
                                                 contentDescription = if (t.isLoved) "Unlove" else "Love",
                                                 tint = if (t.isLoved) p else SonaraTextTertiary,
                                                 modifier = Modifier.size(16.dp)

@@ -28,7 +28,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Cake
-import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Search
@@ -73,6 +72,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sonara.app.ui.components.FluentCard
+import com.sonara.app.ui.icons.SonaraIcons
 import com.sonara.app.ui.theme.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.ui.graphics.nativeCanvas
@@ -601,7 +601,7 @@ fun InsightsScreen(
                     } else {
                         s.lovedTracks.take(5).forEach { t ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Rounded.Favorite, null, tint = Color(0xFFE57373), modifier = Modifier.size(16.dp))
+                                Icon(SonaraIcons.HeartFilled, null, tint = Color(0xFFE57373), modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(t.title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)

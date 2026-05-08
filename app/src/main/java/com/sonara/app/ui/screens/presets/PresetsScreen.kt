@@ -21,8 +21,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -43,6 +41,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonara.app.preset.Preset
 import com.sonara.app.ui.components.EqCurve
 import com.sonara.app.ui.components.FluentCard
+import com.sonara.app.ui.icons.SonaraIcons
 import com.sonara.app.ui.theme.*
 
 @Composable
@@ -123,7 +122,7 @@ private fun PresetItem(preset: Preset, isActive: Boolean, onApply: () -> Unit, o
                 }
                 Row {
                     IconButton(onClick = onFav, Modifier.size(32.dp)) {
-                        Icon(if (preset.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, "Fav",
+                        Icon(if (preset.isFavorite) SonaraIcons.HeartFilled else SonaraIcons.HeartOutline, "Fav",
                             tint = if (preset.isFavorite) SonaraError else SonaraTextTertiary, modifier = Modifier.size(18.dp))
                     }
                     IconButton(onClick = onShare, Modifier.size(32.dp)) { Icon(Icons.Rounded.Share, "Share", tint = SonaraTextTertiary, modifier = Modifier.size(18.dp)) }

@@ -36,8 +36,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
@@ -76,6 +74,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.sonara.app.intelligence.artist.ArtistNameParser
+import com.sonara.app.ui.icons.SonaraIcons
 import com.sonara.app.ui.screens.share.LyricsShareScreen
 import com.sonara.app.intelligence.lyrics.LrcParser
 import com.sonara.app.intelligence.lyrics.LyricsAnimationStyle
@@ -268,8 +267,8 @@ fun NowPlayingBar(
             if (hasTrack) {
                 IconButton(onClick = onToggleLove, modifier = Modifier.size(32.dp)) {
                     Icon(
-                        if (isLoved) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                        contentDescription = "Love",
+                        if (isLoved) SonaraIcons.HeartFilled else SonaraIcons.HeartOutline,
+                        contentDescription = if (isLoved) "Unlove" else "Love",
                         tint = if (isLoved) Color(0xFFE91E63) else SonaraTextSecondary,
                         modifier = Modifier.size(20.dp)
                     )
