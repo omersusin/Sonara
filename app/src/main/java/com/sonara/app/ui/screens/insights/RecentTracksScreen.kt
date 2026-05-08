@@ -86,6 +86,9 @@ import com.sonara.app.ui.theme.SonaraSuccess
 import com.sonara.app.ui.theme.SonaraTextPrimary
 import com.sonara.app.ui.theme.SonaraTextTertiary
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -171,20 +174,28 @@ fun RecentTracksScreen(
                     val username = app.lastFmAuth.getConnectionInfo().username
                     if (apiKey.isBlank() || username.isBlank()) return@withContext emptyList()
                     val resp = LastFmClient.api.getRecentTracksRange(username, apiKey, 0L, oldestUts - 1, 200, 1)
-                    resp.recenttracks?.track
-                        ?.filter { it.date != null }
-                        ?.map { t ->
-                            RecentTrackItem(
-                                title = t.name, artist = t.artist?.text ?: "",
-                                album = t.album?.text ?: "",
-                                imageUrl = t.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") }
-                                    ?: DeezerImageResolver.getTrackImageWithFallback(t.name, t.artist?.text ?: "") ?: "",
-                                isNowPlaying = false,
-                                date = t.date?.text ?: "",
-                                uts = t.date?.uts?.toLongOrNull() ?: 0L,
-                                isLoved = t.loved == "1"
-                            )
-                        } ?: emptyList()
+                    val raw = resp.recenttracks?.track?.filter { it.date != null } ?: emptyList()
+                    // Resolve fallback images in parallel — previously each track waited for
+                    // the previous Deezer/iTunes lookup, turning a 200-row page into a
+                    // serial, multi-second wait.
+                    coroutineScope {
+                        raw.map { t ->
+                            async {
+                                val artist = t.artist?.text ?: ""
+                                val img = t.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") }
+                                    ?: DeezerImageResolver.getTrackImageWithFallback(t.name, artist) ?: ""
+                                RecentTrackItem(
+                                    title = t.name, artist = artist,
+                                    album = t.album?.text ?: "",
+                                    imageUrl = img,
+                                    isNowPlaying = false,
+                                    date = t.date?.text ?: "",
+                                    uts = t.date?.uts?.toLongOrNull() ?: 0L,
+                                    isLoved = t.loved == "1"
+                                )
+                            }
+                        }.awaitAll()
+                    }
                 } catch (_: Exception) { emptyList() }
             }
             if (newTracks.isEmpty()) {
