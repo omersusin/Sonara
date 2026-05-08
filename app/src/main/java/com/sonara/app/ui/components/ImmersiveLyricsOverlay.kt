@@ -72,7 +72,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withContext
+
 
 @Composable
 fun ImmersiveLyricsOverlay(
@@ -108,21 +108,7 @@ fun ImmersiveLyricsOverlay(
     var corrTitle by remember(title) { mutableStateOf(title) }
     var corrArtist by remember(artist) { mutableStateOf(artist) }
 
-    // Expressive accent from album art
-    var expressiveAccent by remember { mutableStateOf(Color.Unspecified) }
-    LaunchedEffect(albumArt) {
-        expressiveAccent = if (albumArt != null) {
-            withContext(Dispatchers.Default) {
-                try {
-                    val palette = androidx.palette.graphics.Palette.from(albumArt).generate()
-                    val rgb = palette.vibrantSwatch?.rgb
-                        ?: palette.mutedSwatch?.rgb
-                        ?: palette.dominantSwatch?.rgb
-                    if (rgb != null) Color(rgb) else Color.Unspecified
-                } catch (_: Exception) { Color.Unspecified }
-            }
-        } else Color.Unspecified
-    }
+    val expressiveAccent = Color.Unspecified
 
     BackHandler { if (showShareScreen) showShareScreen = false else onDismiss() }
 
