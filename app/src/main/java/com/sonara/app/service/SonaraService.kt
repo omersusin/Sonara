@@ -242,13 +242,17 @@ class SonaraService : Service() {
             .build()
 
         val heartIcon = Icon.createWithResource(this, if (isLoved) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
-        // Empty title → system renders the heart icon alone (matches Pano Scrobbler).
-        val heartAction = Notification.Action.Builder(heartIcon, "", love).build()
+        // A non-empty title is required — Android drops actions with an empty title from
+        // standard-style notifications. MediaStyle below renders compact-view actions as
+        // icon-only (matches Pano Scrobbler), so the label only appears in the expanded
+        // view as an accessibility/tooltip hint.
+        val heartAction = Notification.Action.Builder(heartIcon, if (isLoved) "Unlove" else "Love", love).build()
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play).setContentTitle(title).setContentText(sub)
             .setContentIntent(open).addAction(heartAction)
             .addAction(requestAction)
             .addAction(Notification.Action.Builder(null, "Stop", stop).build())
+            .setStyle(Notification.MediaStyle().setShowActionsInCompactView(0, 1, 2))
             .setOngoing(isPlaying).setShowWhen(false)
         if (art != null && !art.isRecycled) { try { builder.setLargeIcon(art) } catch (_: Exception) {} }
         return builder.build()
