@@ -117,7 +117,7 @@ class LastFmAuthManager(private val context: Context) {
         val apiKey = resolveApiKey()
         if (apiKey.isBlank()) {
             _authState.value = AuthState.ERROR
-            _errorMessage.value = "API key required. Enter in Settings."
+            _errorMessage.value = "Last.fm API key not configured in this build."
             return null
         }
 
@@ -292,6 +292,11 @@ class LastFmAuthManager(private val context: Context) {
             _authState.value = AuthState.CONNECTED
             Log.d(TAG, "State restored to CONNECTED")
         }
+    }
+
+    fun clearError() {
+        if (_authState.value == AuthState.ERROR) _authState.value = AuthState.DISCONNECTED
+        _errorMessage.value = ""
     }
 
     fun isConnected(): Boolean = secrets.getLastFmSessionKey().isNotBlank()

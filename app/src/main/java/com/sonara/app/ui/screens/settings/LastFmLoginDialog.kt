@@ -51,6 +51,9 @@ fun LastFmLoginDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
     var isLoading by remember { mutableStateOf(false) }
     var callbackReceived by remember { mutableStateOf(false) }
 
+    // Clear any stale error from a previous auth attempt when the dialog first opens
+    LaunchedEffect(Unit) { vm.clearLastFmAuthError() }
+
     // Close the dialog automatically when auth succeeds
     LaunchedEffect(state.lastFmConnected) {
         if (state.lastFmConnected) onDismiss()

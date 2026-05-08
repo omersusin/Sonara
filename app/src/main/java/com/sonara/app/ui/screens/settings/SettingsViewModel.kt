@@ -257,6 +257,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun clearLastFmAuthError() { app.lastFmAuth.clearError() }
+
     fun disconnectLastFm() {
         app.lastFmAuth.disconnect()
         viewModelScope.launch { _uiState.update { it.copy(lastFmConnected = false, lastFmUsername = "") } }
