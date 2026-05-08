@@ -9,17 +9,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import com.sonara.app.data.SonaraLogger
 import com.sonara.app.intelligence.lastfm.LastFmAuthManager
 import com.sonara.app.service.SonaraService
 import com.sonara.app.ui.navigation.SonaraNavigation
-import androidx.compose.ui.graphics.Color
-import com.sonara.app.ui.theme.AccentSeeds
-import com.sonara.app.ui.theme.SonaraFont
-import com.sonara.app.ui.theme.SonaraPaletteStyle
 import com.sonara.app.ui.theme.SonaraTheme
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -38,24 +32,7 @@ class MainActivity : ComponentActivity() {
         handleLastFmDeepLink(intent)
 
         setContent {
-            val prefs = (application as SonaraApp).preferences
-            val accentSeed by prefs.accentSeedFlow.collectAsState(initial = AccentSeeds.Amber.seed)
-            val themeMode by prefs.themeModeFlow.collectAsState(initial = "dark")
-            val dynamicColor by prefs.dynamicColorsFlow.collectAsState(initial = false)
-            val highContrast by prefs.highContrastFlow.collectAsState(initial = false)
-            val amoledMode by prefs.amoledModeFlow.collectAsState(initial = false)
-            val selectedFont by prefs.selectedFontFlow.collectAsState(initial = "INTER")
-            val selectedPaletteStyle by prefs.selectedPaletteStyleFlow.collectAsState(initial = "EXPRESSIVE")
-
-            SonaraTheme(
-                seedColor = accentSeed,
-                themeMode = themeMode,
-                dynamicColor = dynamicColor,
-                highContrast = highContrast,
-                isAmoled = amoledMode,
-                font = SonaraFont.fromId(selectedFont),
-                paletteStyle = SonaraPaletteStyle.fromId(selectedPaletteStyle)
-            ) {
+            SonaraTheme {
                 SonaraNavigation()
             }
         }

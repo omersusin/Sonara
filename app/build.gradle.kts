@@ -110,8 +110,6 @@ dependencies {
     implementation(libs.workmanager.runtime)
     implementation(libs.coil.compose)
     implementation(libs.compose.google.fonts)
-    implementation(libs.materialkolor)
-    implementation("androidx.palette:palette-ktx:1.0.0")
 
     debugImplementation(libs.compose.ui.tooling)
 }

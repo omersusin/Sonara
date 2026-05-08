@@ -47,7 +47,6 @@ import com.sonara.app.ui.screens.settings.PrivacyScreen
 import com.sonara.app.ui.screens.settings.AppPickerScreen
 import com.sonara.app.ui.screens.settings.BackupSettingsScreen
 import com.sonara.app.ui.screens.settings.BehaviorSettingsScreen
-import com.sonara.app.ui.screens.settings.LookAndFeelSettingsScreen
 import com.sonara.app.ui.screens.settings.LyricsSettingsScreen
 import com.sonara.app.ui.screens.settings.NotificationsSettingsScreen
 import com.sonara.app.ui.screens.onboarding.HearTheDifferenceScreen
@@ -67,7 +66,6 @@ sealed class Screen(val route: String, val label: String) {
     data object DebugLog : Screen("debug_log", "Debug")
     data object DebugPipeline : Screen("debug_pipeline", "Pipeline Debug")
     data object AppPicker : Screen("app_picker", "Choose Apps")
-    data object SettingsLookAndFeel : Screen("settings_look_feel", "Look & Feel")
     data object SettingsBehavior : Screen("settings_behavior", "Audio & AI")
     data object SettingsNotifications : Screen("settings_notifications", "Notifications")
     data object SettingsBackup : Screen("settings_backup", "Backup & Restore")
@@ -181,7 +179,6 @@ fun SonaraNavigation() {
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(
-                    onNavigateLookAndFeel = { navController.navigate(Screen.SettingsLookAndFeel.route) },
                     onNavigateBehavior = { navController.navigate(Screen.SettingsBehavior.route) },
                     onNavigateNotifications = { navController.navigate(Screen.SettingsNotifications.route) },
                     onNavigateBackup = { navController.navigate(Screen.SettingsBackup.route) },
@@ -195,7 +192,6 @@ fun SonaraNavigation() {
             }
             composable(Screen.SettingsPrivacy.route) { PrivacyScreen(onBack = { navController.popBackStack() }) }
             composable(Screen.AppPicker.route) { AppPickerScreen(onBack = { navController.popBackStack() }) }
-            composable(Screen.SettingsLookAndFeel.route) { LookAndFeelSettingsScreen(onBack = { navController.popBackStack() }) }
             composable(Screen.SettingsBehavior.route) {
                 BehaviorSettingsScreen(
                     onBack = { navController.popBackStack() },
