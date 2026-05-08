@@ -93,8 +93,8 @@ fun ArtistAvatarCircle(
     val imageUrl by produceState<String?>(null, artistName) {
         value = withContext(Dispatchers.IO) {
             try {
-                DeezerImageResolver.getArtistDetail(artistName)
-                    ?.imageUrl?.takeIf { it.isNotBlank() }
+                // Persistent cache → stable image across screens and sessions
+                DeezerImageResolver.getArtistImageWithFallback(artistName)
                     ?: TheAudioDbClient.searchArtist(artistName)
                         ?.strThumb?.takeIf { it.isNotBlank() }
             } catch (_: Exception) { null }

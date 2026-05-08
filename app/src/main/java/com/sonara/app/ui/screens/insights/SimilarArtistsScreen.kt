@@ -21,10 +21,12 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sonara.app.SonaraApp
+import com.sonara.app.intelligence.artist.ArtistNameParser
 import com.sonara.app.intelligence.deezer.DeezerImageResolver
 import com.sonara.app.intelligence.lastfm.LastFmClient
 import com.sonara.app.intelligence.lastfm.LastFmImage
 import com.sonara.app.intelligence.lastfm.LastFmSimilarArtist
+import com.sonara.app.ui.components.MultiArtistAvatarRow
 import com.sonara.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -50,8 +52,12 @@ fun SimilarArtistsScreen(
                     val resp = LastFmClient.api.getSimilarArtists(artistName, apiKey, 20)
                     val raw = resp.similarartists?.artist ?: emptyList()
                     artists = raw.map { a ->
-                        val img = a.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") }
-                            ?: DeezerImageResolver.getArtistImageWithFallback(a.name) ?: ""
+                        val existing = a.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") }
+                        // Multi-artist names rarely have a single matching image — resolve
+                        // against the first parsed name so we get something meaningful.
+                        val lookupName = ArtistNameParser.resolve(a.name).firstOrNull() ?: a.name
+                        val img = existing
+                            ?: DeezerImageResolver.getArtistImageWithFallback(lookupName) ?: ""
                         a.copy(image = if (img.isNotBlank()) listOf(LastFmImage(img, "large")) else a.image)
                     }
                 }
@@ -85,13 +91,19 @@ fun SimilarArtistsScreen(
             ) {
                 itemsIndexed(artists) { i, artist ->
                     val imgUrl = artist.imageUrl ?: ""
+                    val parsedNames = remember(artist.name) { ArtistNameParser.resolve(artist.name) }
                     Row(
                         Modifier.fillMaxWidth().clickable { onArtistClick(artist.name) }.padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Text("${i + 1}", style = MaterialTheme.typography.labelLarge, color = if (i < 3) p else SonaraTextTertiary, modifier = Modifier.width(26.dp))
-                        if (imgUrl.isNotBlank()) {
+                        if (parsedNames.size > 1) {
+                            MultiArtistAvatarRow(
+                                artists = parsedNames,
+                                onArtistClick = onArtistClick
+                            )
+                        } else if (imgUrl.isNotBlank()) {
                             AsyncImage(
                                 model = ImageRequest.Builder(ctx).data(imgUrl).crossfade(true).build(),
                                 contentDescription = artist.name,

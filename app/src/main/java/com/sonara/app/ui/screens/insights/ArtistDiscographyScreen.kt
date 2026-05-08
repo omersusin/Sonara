@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.sonara.app.intelligence.deezer.DeezerImageResolver
 import com.sonara.app.intelligence.theaudiodb.AudioDbAlbum
 import com.sonara.app.intelligence.theaudiodb.TheAudioDbClient
 import com.sonara.app.ui.theme.*
@@ -71,13 +72,22 @@ fun ArtistDiscographyScreen(
                     artUrls[idx] = inline
                     return@forEachIndexed
                 }
-                // Tier 2: name-based search — unique query per album, avoids stale IDs
+                // Tier 2: TheAudioDB name-based search — unique per album, avoids stale IDs
                 try {
                     val found = TheAudioDbClient.searchAlbum(artistName, album.strAlbum)
                     val url = found?.strThumbHQ ?: found?.strThumb
+                    if (!url.isNullOrBlank()) {
+                        artUrls[idx] = url
+                        delay(400L)
+                        return@forEachIndexed
+                    }
+                } catch (_: Exception) {}
+                // Tier 3: Deezer/iTunes — broader catalog coverage when TheAudioDB has gaps
+                try {
+                    val url = DeezerImageResolver.getAlbumImageWithFallback(artistName, album.strAlbum)
                     if (!url.isNullOrBlank()) artUrls[idx] = url
                 } catch (_: Exception) {}
-                delay(400L)
+                delay(250L)
             }
         }
     }
