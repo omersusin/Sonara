@@ -153,8 +153,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             if (np.title.isNotBlank()) {
                 val normArtist = TitleNormalizer.normalizeArtist(np.artist)
                 val cached = LoveStateCache.isLoved(np.title, normArtist)
-                if (cached != null) _uiState.update { it.copy(isLoved = cached) }
-                else _uiState.update { it.copy(isLoved = false) }
+                _uiState.update { it.copy(isLoved = cached ?: false) }
+                // Refresh from Last.fm so externally-loved tracks (Pano Scrobbler, web, etc.) catch up.
+                viewModelScope.launch {
+                    val fresh = LoveStateCache.refresh(np.title, normArtist) ?: return@launch
+                    val cur = _uiState.value
+                    if (cur.title == np.title && cur.artist == np.artist && cur.isLoved != fresh) {
+                        _uiState.update { it.copy(isLoved = fresh) }
+                    }
+                }
             }
         } }
         viewModelScope.launch { SonaraNotificationListener.currentGenre.collect { g -> if (g.isNotBlank()) _uiState.update { it.copy(genre = DisplayLabelMapper.formatGenre(g)) } } }

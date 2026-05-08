@@ -10,7 +10,8 @@ data class LastFmTrack(
     val toptags: LastFmTopTags? = null,
     val duration: String? = null,
     val listeners: String? = null,
-    val playcount: String? = null
+    val playcount: String? = null,
+    @SerializedName("userloved") val userloved: String? = null
 )
 data class LastFmArtist(val name: String = "")
 data class LastFmAlbum(

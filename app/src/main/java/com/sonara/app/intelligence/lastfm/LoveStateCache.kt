@@ -2,6 +2,9 @@ package com.sonara.app.intelligence.lastfm
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.sonara.app.SonaraApp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
 object LoveStateCache {
@@ -23,6 +26,27 @@ object LoveStateCache {
         val k = key(title, artist)
         cache[k] = loved
         prefs?.edit()?.putBoolean(k, loved)?.apply()
+    }
+
+    /**
+     * Hits Last.fm `track.getInfo?username=…` to read `userloved`, which reflects
+     * loves made from any client (Pano Scrobbler, the Last.fm site, etc.). Returns
+     * the freshly resolved state, or the cached value if the call fails.
+     */
+    suspend fun refresh(title: String, artist: String): Boolean? = withContext(Dispatchers.IO) {
+        if (title.isBlank() || artist.isBlank()) return@withContext null
+        try {
+            val app = SonaraApp.instance
+            val apiKey = app.lastFmAuth.getActiveApiKey()
+            val username = app.lastFmAuth.getConnectionInfo().username
+            if (apiKey.isBlank() || username.isBlank()) return@withContext cache[key(title, artist)]
+            val resp = LastFmClient.api.getTrackInfo(title, artist, apiKey, username)
+            val loved = resp.track?.userloved == "1"
+            setLoved(title, artist, loved)
+            loved
+        } catch (_: Exception) {
+            cache[key(title, artist)]
+        }
     }
 
     fun clear() = cache.clear()

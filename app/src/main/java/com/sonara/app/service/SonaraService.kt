@@ -18,6 +18,7 @@ import com.sonara.app.ai.SonaraAi
 import com.sonara.app.ai.bridge.AudioSessionTracker
 import com.sonara.app.data.SonaraDatabase
 import com.sonara.app.data.SonaraLogger
+import com.sonara.app.intelligence.lastfm.LoveStateCache
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -66,7 +67,11 @@ class SonaraService : Service() {
                 .collect { (np, art) ->
                     val key = "${np.title}::${np.artist}"
                     if (key != lastTrackKey) {
-                        isLoved = false; lastTrackKey = key
+                        // Seed from local cache first so the notification icon doesn't flash
+                        // the wrong state, then refresh from Last.fm to pick up loves made
+                        // from other clients (Pano Scrobbler, last.fm/loved, etc).
+                        isLoved = LoveStateCache.isLoved(np.title, np.artist) ?: false
+                        lastTrackKey = key
                         if (np.title.isNotBlank()) {
                             // Track change → AI'a bildir (session ID tracker'dan)
                             sonaraAi?.onTrackChanged(
@@ -75,6 +80,15 @@ class SonaraService : Service() {
                                 albumArt = null,
                                 audioSessionId = AudioSessionTracker.get().takeIf { it > 0 }
                             )
+                            scope.launch(Dispatchers.IO) {
+                                val fresh = LoveStateCache.refresh(np.title, np.artist)
+                                val current = SonaraNotificationListener.nowPlaying.value
+                                val stillSameTrack = "${current.title}::${current.artist}" == key
+                                if (fresh != null && stillSameTrack && fresh != isLoved) {
+                                    isLoved = fresh
+                                    scope.launch(Dispatchers.Main) { updateNotification() }
+                                }
+                            }
                         }
                     }
                     val n = buildNotification(np.title.ifBlank { "Sonara" }, np.artist, np.isPlaying, art)
@@ -166,13 +180,21 @@ class SonaraService : Service() {
             ACTION_LOVE -> {
                 val np = SonaraNotificationListener.nowPlaying.value
                 if (np.title.isNotBlank()) {
-                    isLoved = !isLoved; updateNotification()
-                    if (hasSessionKey) {
-                        scope.launch(Dispatchers.IO) {
-                            try {
-                                val ok = (application as SonaraApp).loveTrack(np.title, np.artist, isLoved)
-                                if (!ok) { isLoved = !isLoved; scope.launch(Dispatchers.Main) { updateNotification() } }
-                            } catch (_: Exception) { isLoved = !isLoved; scope.launch(Dispatchers.Main) { updateNotification() } }
+                    isLoved = !isLoved
+                    LoveStateCache.setLoved(np.title, np.artist, isLoved)
+                    updateNotification()
+                    scope.launch(Dispatchers.IO) {
+                        try {
+                            val ok = (application as SonaraApp).loveTrack(np.title, np.artist, isLoved)
+                            if (!ok) {
+                                isLoved = !isLoved
+                                LoveStateCache.setLoved(np.title, np.artist, isLoved)
+                                scope.launch(Dispatchers.Main) { updateNotification() }
+                            }
+                        } catch (_: Exception) {
+                            isLoved = !isLoved
+                            LoveStateCache.setLoved(np.title, np.artist, isLoved)
+                            scope.launch(Dispatchers.Main) { updateNotification() }
                         }
                     }
                 }
@@ -220,7 +242,8 @@ class SonaraService : Service() {
             .build()
 
         val heartIcon = Icon.createWithResource(this, if (isLoved) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
-        val heartAction = Notification.Action.Builder(heartIcon, if (isLoved) "Loved" else "Love", love).build()
+        // Empty title → system renders the heart icon alone (matches Pano Scrobbler).
+        val heartAction = Notification.Action.Builder(heartIcon, "", love).build()
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play).setContentTitle(title).setContentText(sub)
             .setContentIntent(open).addAction(heartAction)

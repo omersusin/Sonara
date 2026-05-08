@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,8 +44,10 @@ fun SimilarArtistsScreen(
     val app = SonaraApp.instance
     var artists by remember { mutableStateOf<List<LastFmSimilarArtist>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var refreshTick by remember { mutableStateOf(0) }
 
-    LaunchedEffect(artistName) {
+    LaunchedEffect(artistName, refreshTick) {
+        loading = true
         withContext(Dispatchers.IO) {
             try {
                 val apiKey = app.lastFmAuth.getActiveApiKey()
@@ -76,17 +79,22 @@ fun SimilarArtistsScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        if (loading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+        PullToRefreshBox(
+            isRefreshing = loading,
+            onRefresh = { refreshTick++ },
+            modifier = Modifier.fillMaxSize().padding(padding)
+        ) {
+        if (loading && artists.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = p)
             }
         } else if (artists.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No similar artists found", style = MaterialTheme.typography.bodyMedium, color = SonaraTextTertiary)
             }
         } else {
             LazyColumn(
-                Modifier.fillMaxSize().padding(padding),
+                Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 itemsIndexed(artists) { i, artist ->
@@ -136,6 +144,7 @@ fun SimilarArtistsScreen(
                 }
                 item { Spacer(Modifier.height(16.dp)) }
             }
+        }
         }
     }
 }

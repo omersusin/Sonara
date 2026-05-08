@@ -9,6 +9,7 @@ interface LastFmApi {
         @Query("track") track: String,
         @Query("artist") artist: String,
         @Query("api_key") apiKey: String,
+        @Query("username") username: String = "",
         @Query("autocorrect") autocorrect: Int = 1
     ): LastFmTrackResponse
 

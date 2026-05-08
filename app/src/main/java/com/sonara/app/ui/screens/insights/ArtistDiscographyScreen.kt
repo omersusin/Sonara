@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,12 +41,14 @@ fun ArtistDiscographyScreen(
     val p = MaterialTheme.colorScheme.primary
     var albums by remember { mutableStateOf<List<AudioDbAlbum>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var refreshTick by remember { mutableStateOf(0) }
     // Key = strAlbum (unique per discography; idAlbum can be blank/shared across albums)
     // Keyed by index so duplicate album names don't share/overwrite each other's art
     val artUrls = remember { mutableStateMapOf<Int, String>() }
 
     // Step 1: load album list
-    LaunchedEffect(artistName) {
+    LaunchedEffect(artistName, refreshTick) {
+        if (refreshTick == 0) loading = true
         artUrls.clear()
         withContext(Dispatchers.IO) {
             try {
@@ -102,18 +105,23 @@ fun ArtistDiscographyScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        if (loading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+        PullToRefreshBox(
+            isRefreshing = loading,
+            onRefresh = { loading = true; refreshTick++ },
+            modifier = Modifier.fillMaxSize().padding(padding)
+        ) {
+        if (loading && albums.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = p)
             }
         } else if (albums.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No albums found", style = MaterialTheme.typography.bodyMedium, color = SonaraTextTertiary)
             }
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -160,6 +168,7 @@ fun ArtistDiscographyScreen(
                     }
                 }
             }
+        }
         }
     }
 }
