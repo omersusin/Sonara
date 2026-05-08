@@ -154,6 +154,20 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
 
+        // React immediately to writes from the notification toggle / Last.fm refresh /
+        // any other surface that touches LoveStateCache.
+        viewModelScope.launch {
+            LoveStateCache.updates.collect { (artistKey, titleKey, loved) ->
+                val cur = _uiState.value
+                if (cur.title.isBlank() || cur.artist.isBlank()) return@collect
+                val curArtistKey = TitleNormalizer.normalizeArtist(cur.artist).lowercase().trim()
+                val curTitleKey = cur.title.lowercase().trim()
+                if (curArtistKey == artistKey && curTitleKey == titleKey && cur.isLoved != loved) {
+                    _uiState.update { it.copy(isLoved = loved) }
+                }
+            }
+        }
+
         viewModelScope.launch { app.preferences.legacyAnalysisFlow.collect { v -> _uiState.update { it.copy(legacyAnalysis = v) } } }
         viewModelScope.launch { app.preferences.hearTheDiffEnabledFlow.collect { v -> _uiState.update { it.copy(hearTheDiffEnabled = v) } } }
         viewModelScope.launch {
