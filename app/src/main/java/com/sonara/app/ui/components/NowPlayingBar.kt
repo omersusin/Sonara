@@ -75,7 +75,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.palette.graphics.Palette
 import com.sonara.app.intelligence.artist.ArtistNameParser
 import com.sonara.app.ui.screens.share.LyricsShareScreen
 import com.sonara.app.intelligence.lyrics.LrcParser
@@ -89,7 +88,7 @@ import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withContext
+
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -126,21 +125,7 @@ fun NowPlayingBar(
     val hasTrack = title != "No music playing" && title.isNotBlank()
     var lyricsExpanded by remember { mutableStateOf(false) }
 
-    // FEAT-10: Derive expressive accent from album art via Palette
-    var expressiveAccent by remember { mutableStateOf(Color.Unspecified) }
-    LaunchedEffect(albumArt) {
-        expressiveAccent = if (albumArt != null) {
-            withContext(Dispatchers.Default) {
-                try {
-                    val palette = Palette.from(albumArt).generate()
-                    val rgb = palette.vibrantSwatch?.rgb
-                        ?: palette.mutedSwatch?.rgb
-                        ?: palette.dominantSwatch?.rgb
-                    if (rgb != null) Color(rgb) else Color.Unspecified
-                } catch (_: Exception) { Color.Unspecified }
-            }
-        } else Color.Unspecified
-    }
+    val expressiveAccent = Color.Unspecified
 
     // CROSS-02: Lyrics correction dialog state
     var showLyricsCorrection by remember { mutableStateOf(false) }

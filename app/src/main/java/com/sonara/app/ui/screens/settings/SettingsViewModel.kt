@@ -11,8 +11,6 @@ import com.sonara.app.data.BackupManager
 import com.sonara.app.preset.PresetExporter
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ai.SonaraAi
-import androidx.compose.ui.graphics.Color
-import com.sonara.app.ui.theme.AccentSeeds
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,7 +28,6 @@ import java.util.concurrent.TimeUnit
 data class SettingsUiState(
     val lastFmApiKey: String = "", val lastFmSharedSecret: String = "",
     val isApiKeySet: Boolean = false, val isSharedSecretSet: Boolean = false,
-    val accentSeed: Color = AccentSeeds.Amber.seed,
     val aiEnabled: Boolean = true, val autoEqEnabled: Boolean = true,
     val smoothTransitions: Boolean = true, val safetyLimiter: Boolean = true,
     val scrobblingEnabled: Boolean = false, val autoPreset: Boolean = true,
@@ -45,10 +42,6 @@ data class SettingsUiState(
     val geminiEnabled: Boolean = false,
     val geminiModel: String = "fast",
     val geminiKeyInput: String = "",
-    // New: Theme
-    val themeMode: String = "system",
-    val dynamicColors: Boolean = true,
-    val highContrast: Boolean = false,
     // New: Notification
     val keepNotificationPaused: Boolean = true,
     // New: Personalization
@@ -56,7 +49,6 @@ data class SettingsUiState(
     val sourceLastFm: Boolean = true,
     val sourceLocalAi: Boolean = true,
     val sourceLyrics: Boolean = true,
-    val amoledMode: Boolean = false,
     val aiProvider: String = "gemini",
     val openRouterApiKey: String = "", val openRouterKeyInput: String = "",
     val openRouterModel: String = "google/gemini-2.5-flash",
@@ -96,9 +88,7 @@ data class SettingsUiState(
     val lyricsAutoScroll: Boolean = true,
     val lyricsGlowEnabled: Boolean = false,
     val lyricsBackground: String = "solid",
-    val digestEnabled: Boolean = true,
-    val selectedFont: String = "INTER",
-    val selectedPaletteStyle: String = "EXPRESSIVE"
+    val digestEnabled: Boolean = true
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -113,7 +103,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     init {
         _uiState.update { it.copy(isGithubTokenSet = secrets.getGitHubTokenInstance().isNotBlank()) }
 
-        viewModelScope.launch { prefs.accentSeedFlow.collect { seed -> _uiState.update { it.copy(accentSeed = seed) } } }
         // Read key status from SecureSecrets directly
         _uiState.update { it.copy(
             isApiKeySet = secrets.getLastFmApiKey().isNotBlank(),
@@ -135,16 +124,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
         }
         viewModelScope.launch { prefs.geminiApiKeyFlow.collect { k -> _uiState.update { it.copy(geminiApiKey = k) } } }
-        // Theme
-        viewModelScope.launch { prefs.themeModeFlow.collect { m -> _uiState.update { it.copy(themeMode = m) } } }
-        viewModelScope.launch { prefs.dynamicColorsFlow.collect { e -> _uiState.update { it.copy(dynamicColors = e) } } }
-        viewModelScope.launch { prefs.highContrastFlow.collect { e -> _uiState.update { it.copy(highContrast = e) } } }
         // AI Sources
         viewModelScope.launch { prefs.sourceLastFmEnabledFlow.collect { e -> _uiState.update { it.copy(sourceLastFm = e) } } }
         viewModelScope.launch { prefs.sourceLocalAiEnabledFlow.collect { e -> _uiState.update { it.copy(sourceLocalAi = e) } } }
         viewModelScope.launch { prefs.sourceLyricsEnabledFlow.collect { e -> _uiState.update { it.copy(sourceLyrics = e) } } }
-        // AMOLED
-        viewModelScope.launch { prefs.amoledModeFlow.collect { e -> _uiState.update { it.copy(amoledMode = e) } } }
         // Provider
         viewModelScope.launch { prefs.aiProviderFlow.collect { v -> _uiState.update { it.copy(aiProvider = v) } } }
         viewModelScope.launch { prefs.openRouterApiKeyFlow.collect { v -> _uiState.update { it.copy(openRouterApiKey = v) } } }
@@ -195,8 +178,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { prefs.lyricsGlowEnabledFlow.collect { v -> _uiState.update { it.copy(lyricsGlowEnabled = v) } } }
         viewModelScope.launch { prefs.lyricsBackgroundFlow.collect { v -> _uiState.update { it.copy(lyricsBackground = v) } } }
         viewModelScope.launch { prefs.digestEnabledFlow.collect { v -> _uiState.update { it.copy(digestEnabled = v) } } }
-        viewModelScope.launch { prefs.selectedFontFlow.collect { v -> _uiState.update { it.copy(selectedFont = v) } } }
-        viewModelScope.launch { prefs.selectedPaletteStyleFlow.collect { v -> _uiState.update { it.copy(selectedPaletteStyle = v) } } }
 
         refreshCacheSize(); checkNotificationListener(); refreshPendingScrobbles()
         _uiState.update { it.copy(personalSamples = app.personalization.getTotalSamples()) }
@@ -239,7 +220,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun setAccentSeed(seed: Color) { viewModelScope.launch { prefs.setAccentSeed(seed) } }
     fun setAiEnabled(e: Boolean) { viewModelScope.launch { prefs.setAiEnabled(e) } }
     fun setAutoEqEnabled(e: Boolean) { viewModelScope.launch { prefs.setAutoEqEnabled(e) } }
     fun setSmoothTransitions(e: Boolean) { viewModelScope.launch { prefs.setSmoothTransitions(e) } }
@@ -253,9 +233,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             app.geminiEngine.customModelId = m.takeIf { it.contains("gemini", ignoreCase = true) }
         }
     }
-    fun setThemeMode(m: String) { viewModelScope.launch { prefs.setThemeMode(m) } }
-    fun setDynamicColors(e: Boolean) { viewModelScope.launch { prefs.setDynamicColors(e) } }
-    fun setHighContrast(e: Boolean) { viewModelScope.launch { prefs.setHighContrast(e) } }
     fun setKeepNotificationPaused(e: Boolean) { viewModelScope.launch { prefs.setKeepNotificationPaused(e) } }
 
     fun connectLastFm(onIntent: (android.content.Intent) -> Unit) {
@@ -287,7 +264,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setSourceLastFm(e: Boolean) { viewModelScope.launch { prefs.setSourceLastFmEnabled(e) } }
     fun setSourceLocalAi(e: Boolean) { viewModelScope.launch { prefs.setSourceLocalAiEnabled(e) } }
     fun setSourceLyrics(e: Boolean) { viewModelScope.launch { prefs.setSourceLyricsEnabled(e) } }
-    fun setAmoledMode(e: Boolean) { viewModelScope.launch { prefs.setAmoledMode(e) } }
 
     fun setAiProvider(v: String) {
         viewModelScope.launch {
@@ -643,8 +619,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setLyricsGlowEnabled(v: Boolean) { viewModelScope.launch { prefs.setLyricsGlowEnabled(v) } }
     fun setLyricsBackground(v: String) { viewModelScope.launch { prefs.setLyricsBackground(v) } }
     fun setDigestEnabled(e: Boolean) { viewModelScope.launch { prefs.setDigestEnabled(e) } }
-    fun setSelectedFont(font: String) { viewModelScope.launch { prefs.setSelectedFont(font) } }
-    fun setSelectedPaletteStyle(style: String) { viewModelScope.launch { prefs.setSelectedPaletteStyle(style) } }
 
     fun setSyncInterval(value: Int) {
         viewModelScope.launch {

@@ -9,8 +9,6 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import androidx.compose.ui.graphics.Color
-import com.sonara.app.ui.theme.AccentSeeds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -18,8 +16,6 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 class SonaraPreferences(private val context: Context) {
 
-    private val ACCENT_COLOR = stringPreferencesKey("accent_color")  // legacy key – kept for migration
-    private val ACCENT_SEED  = stringPreferencesKey("accent_seed")
     private val LASTFM_API_KEY = stringPreferencesKey("lastfm_api_key")
     private val LASTFM_SHARED_SECRET = stringPreferencesKey("lastfm_shared_secret")
     private val LASTFM_SESSION_KEY = stringPreferencesKey("lastfm_session_key")
@@ -47,14 +43,10 @@ class SonaraPreferences(private val context: Context) {
     private val GROQ_MODEL = stringPreferencesKey("groq_model")
     private val HF_API_KEY = stringPreferencesKey("hf_api_key")
     private val HF_MODEL = stringPreferencesKey("hf_model")
-    private val THEME_MODE = stringPreferencesKey("theme_mode")
-    private val DYNAMIC_COLORS_ENABLED = booleanPreferencesKey("dynamic_colors_enabled")
-    private val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
     private val KEEP_NOTIFICATION_PAUSED = booleanPreferencesKey("keep_notification_paused")
     private val SOURCE_LASTFM_ENABLED = booleanPreferencesKey("source_lastfm_enabled")
     private val SOURCE_LOCAL_AI_ENABLED = booleanPreferencesKey("source_local_ai_enabled")
     private val SOURCE_LYRICS_ENABLED = booleanPreferencesKey("source_lyrics_enabled")
-    private val AMOLED_MODE = booleanPreferencesKey("amoled_mode")
     private val LEGACY_ANALYSIS = booleanPreferencesKey("legacy_analysis_layout")
     private val HEAR_THE_DIFF_ENABLED = booleanPreferencesKey("hear_the_difference_enabled")
     private val KEY_HAS_SEEN_HEAR_DIFF = booleanPreferencesKey("has_seen_hear_the_difference")
@@ -64,27 +56,6 @@ class SonaraPreferences(private val context: Context) {
     private val KEY_LYRICS_SYNC_OFFSET = intPreferencesKey("lyrics_sync_offset_ms")
     private val KEY_LYRICS_SHOW_TRANSLATED = booleanPreferencesKey("lyrics_show_translated")
     private val KEY_LYRICS_TARGET_LANGUAGE = stringPreferencesKey("lyrics_target_language")
-    private val SELECTED_FONT          = stringPreferencesKey("selected_font")
-    private val SELECTED_PALETTE_STYLE = stringPreferencesKey("selected_palette_style")
-
-    // Seed-based accent (MD3E). On first read, migrates legacy enum name to hex seed.
-    val accentSeedFlow: Flow<Color> = context.dataStore.data.map { p ->
-        val hex = p[ACCENT_SEED]
-        if (hex != null) {
-            AccentSeeds.fromHex(hex)
-        } else {
-            // Migrate from old enum name, default to Amber
-            AccentSeeds.fromLegacyName(p[ACCENT_COLOR] ?: "amber")
-        }
-    }
-
-    suspend fun setAccentSeed(seed: Color) {
-        context.dataStore.edit {
-            it[ACCENT_SEED] = AccentSeeds.toHex(seed)
-            it.remove(ACCENT_COLOR)  // clear legacy key after first write
-        }
-    }
-
     // VULN-25 note: prefer SecureSecrets for sensitive keys. These DataStore flows
     // are kept for backward compatibility in NLS/Onboarding/scrobbling code paths.
     val lastFmApiKeyFlow: Flow<String> = context.dataStore.data.map { it[LASTFM_API_KEY] ?: "" }
@@ -153,15 +124,6 @@ class SonaraPreferences(private val context: Context) {
     val geminiModelFlow: Flow<String> = context.dataStore.data.map { it[GEMINI_MODEL] ?: "fast" }
     suspend fun setGeminiModel(m: String) { context.dataStore.edit { it[GEMINI_MODEL] = m } }
 
-    val themeModeFlow: Flow<String> = context.dataStore.data.map { it[THEME_MODE] ?: "dark" }
-    suspend fun setThemeMode(m: String) { context.dataStore.edit { it[THEME_MODE] = m } }
-
-    val dynamicColorsFlow: Flow<Boolean> = context.dataStore.data.map { it[DYNAMIC_COLORS_ENABLED] ?: false }
-    suspend fun setDynamicColors(e: Boolean) { context.dataStore.edit { it[DYNAMIC_COLORS_ENABLED] = e } }
-
-    val highContrastFlow: Flow<Boolean> = context.dataStore.data.map { it[HIGH_CONTRAST] ?: false }
-    suspend fun setHighContrast(e: Boolean) { context.dataStore.edit { it[HIGH_CONTRAST] = e } }
-
     val keepNotificationPausedFlow: Flow<Boolean> = context.dataStore.data.map { it[KEEP_NOTIFICATION_PAUSED] ?: true }
     suspend fun setKeepNotificationPaused(e: Boolean) { context.dataStore.edit { it[KEEP_NOTIFICATION_PAUSED] = e } }
 
@@ -174,14 +136,12 @@ class SonaraPreferences(private val context: Context) {
     val sourceLyricsEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[SOURCE_LYRICS_ENABLED] ?: true }
     suspend fun setSourceLyricsEnabled(e: Boolean) { context.dataStore.edit { it[SOURCE_LYRICS_ENABLED] = e } }
 
-    val amoledModeFlow: Flow<Boolean> = context.dataStore.data.map { it[AMOLED_MODE] ?: false }
     val legacyAnalysisFlow: Flow<Boolean> = context.dataStore.data.map { it[LEGACY_ANALYSIS] ?: false }
     val hearTheDiffEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[HEAR_THE_DIFF_ENABLED] ?: true }
     suspend fun setLegacyAnalysis(v: Boolean) { context.dataStore.edit { it[LEGACY_ANALYSIS] = v } }
     suspend fun setHearTheDiffEnabled(v: Boolean) { context.dataStore.edit { it[HEAR_THE_DIFF_ENABLED] = v } }
 
     val hasSeenHearTheDifferenceFlow: Flow<Boolean> = context.dataStore.data.map { it[KEY_HAS_SEEN_HEAR_DIFF] ?: false }
-    suspend fun setAmoledMode(e: Boolean) { context.dataStore.edit { it[AMOLED_MODE] = e } }
 
     val aiProviderFlow: Flow<String> = context.dataStore.data.map { it[AI_PROVIDER] ?: "gemini" }
     suspend fun setAiProvider(v: String) { context.dataStore.edit { it[AI_PROVIDER] = v } }
@@ -294,12 +254,6 @@ class SonaraPreferences(private val context: Context) {
             prefs[HIDDEN_TAGS_KEY] = current.joinToString("|||")
         }
     }
-
-    val selectedFontFlow: Flow<String> = context.dataStore.data.map { it[SELECTED_FONT] ?: "INTER" }
-    suspend fun setSelectedFont(font: String) { context.dataStore.edit { it[SELECTED_FONT] = font } }
-
-    val selectedPaletteStyleFlow: Flow<String> = context.dataStore.data.map { it[SELECTED_PALETTE_STYLE] ?: "EXPRESSIVE" }
-    suspend fun setSelectedPaletteStyle(style: String) { context.dataStore.edit { it[SELECTED_PALETTE_STYLE] = style } }
 
     suspend fun resetAll() { context.dataStore.edit { it.clear() } }
 
