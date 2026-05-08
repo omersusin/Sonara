@@ -115,12 +115,6 @@ class LastFmAuthManager(private val context: Context) {
         if (_authState.value == AuthState.AUTHENTICATING && pendingToken != null) return null
 
         val apiKey = resolveApiKey()
-        if (apiKey.isBlank()) {
-            _authState.value = AuthState.ERROR
-            _errorMessage.value = "Last.fm API key not configured in this build."
-            return null
-        }
-
         _authState.value = AuthState.AUTHENTICATING
         _errorMessage.value = ""
 
@@ -168,9 +162,6 @@ class LastFmAuthManager(private val context: Context) {
         }
         val apiKey = resolveApiKey()
         val sharedSecret = resolveSharedSecret()
-
-        if (apiKey.isBlank()) { _authState.value = AuthState.ERROR; _errorMessage.value = "API key not found"; return false }
-        if (sharedSecret.isBlank()) { _authState.value = AuthState.ERROR; _errorMessage.value = "Shared secret required."; return false }
 
         return withContext(Dispatchers.IO) {
             try {
@@ -221,11 +212,6 @@ class LastFmAuthManager(private val context: Context) {
     suspend fun directLogin(username: String, password: String): Boolean {
         val apiKey = resolveApiKey()
         val sharedSecret = resolveSharedSecret()
-        if (apiKey.isBlank() || sharedSecret.isBlank()) {
-            _authState.value = AuthState.ERROR
-            _errorMessage.value = "Save API key and secret first"
-            return false
-        }
         _authState.value = AuthState.AUTHENTICATING
         _errorMessage.value = ""
 
