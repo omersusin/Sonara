@@ -242,7 +242,10 @@ class SonaraService : Service() {
             .build()
 
         val heartIcon = Icon.createWithResource(this, if (isLoved) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
-        val heartAction = Notification.Action.Builder(heartIcon, if (isLoved) "Unlove" else "Love", love).build()
+        // Whitespace label keeps the action alive (an empty string makes Android drop it)
+        // while collapsing the visible text — the heart drawable is the only thing the
+        // user actually sees, matching Pano Scrobbler's icon-only love button.
+        val heartAction = Notification.Action.Builder(heartIcon, " ", love).build()
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play).setContentTitle(title).setContentText(sub)
             .setContentIntent(open).addAction(heartAction)
