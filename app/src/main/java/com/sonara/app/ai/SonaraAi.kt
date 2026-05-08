@@ -156,11 +156,25 @@ class SonaraAi private constructor(
                         applied = true
                     }
                 } catch (e: Exception) { Log.w(TAG, "AI call failed: ${e.message}") }
-                // Fallback: local NLP
+                // Fallback: local NLP — apply the delta straight away so the user sees an
+                // audible change even when no AI provider is configured. Previously we only
+                // recorded the feedback and re-ran the classifier, which tended to discard
+                // the user's intent.
                 if (!applied) {
                     val mapped = mapCustomFeedback(text.lowercase())
                     personalizer.recordFeedback(mapped, current, _state.value.route)
-                    regenerateEq(current)
+                    val deltas = quickDeltas(mapped)
+                    val currentBands = app.eqState.value.bands.copyOf()
+                    val newBands = FloatArray(10) { i -> (currentBands[i] + deltas[i]).coerceIn(-12f, 12f) }
+                    val louder = text.contains("loud") || text.contains("yüksek")
+                    app.applyEq(
+                        newBands, eq.presetName, manual = false,
+                        bassBoost = if (louder) (eq.bassBoost + 200).coerceAtMost(1000) else eq.bassBoost,
+                        virtualizer = eq.virtualizer,
+                        loudness = if (louder) (eq.loudness + 500).coerceAtMost(3000) else eq.loudness,
+                        preamp = eq.preamp
+                    )
+                    Log.d(TAG, "NLP fallback applied delta for '$mapped'")
                 }
             } else {
                 personalizer.recordFeedback(type, current, _state.value.route)

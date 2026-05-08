@@ -313,7 +313,7 @@ fun ArtistDetailScreen(
                                     val adb = audioDbArtist
                                     val meta = listOfNotNull(
                                         adb?.strCountry?.takeIf { it.isNotBlank() },
-                                        adb?.intFormedYear?.let { "est. $it" }
+                                        adb?.intFormedYear?.takeIf { it.isNotBlank() && it != "0" }?.let { "est. $it" }
                                     ).joinToString(" · ")
                                     if (meta.isNotBlank()) {
                                         Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
@@ -326,8 +326,10 @@ fun ArtistDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                val imageUrl = audioDbArtist?.strThumb?.takeIf { it.isNotBlank() }
-                                    ?: d?.imageUrl?.takeIf { it.isNotBlank() }
+                                // Prefer the cached Deezer image so the same artist looks the
+                                // same on every screen and across sessions; AudioDB is fallback.
+                                val imageUrl = d?.imageUrl?.takeIf { it.isNotBlank() }
+                                    ?: audioDbArtist?.strThumb?.takeIf { it.isNotBlank() }
                                 if (!imageUrl.isNullOrBlank()) {
                                     AsyncImage(
                                         model = ImageRequest.Builder(ctx).data(imageUrl).crossfade(true).build(),
@@ -347,7 +349,7 @@ fun ArtistDetailScreen(
                                     val adb = audioDbArtist
                                     val meta = listOfNotNull(
                                         adb?.strCountry?.takeIf { it.isNotBlank() },
-                                        adb?.intFormedYear?.let { "est. $it" }
+                                        adb?.intFormedYear?.takeIf { it.isNotBlank() && it != "0" }?.let { "est. $it" }
                                     ).joinToString(" · ")
                                     if (meta.isNotBlank()) {
                                         Spacer(Modifier.height(2.dp))

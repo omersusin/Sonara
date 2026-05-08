@@ -52,7 +52,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,7 +79,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import java.text.NumberFormat
 import java.util.Locale
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun InsightsScreen(
     onArtistClick: (name: String, imageUrl: String) -> Unit = { _, _ -> },
@@ -99,7 +103,21 @@ fun InsightsScreen(
     val art by vm.albumArt.collectAsState()
     val p = MaterialTheme.colorScheme.primary
     val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
+    var refreshing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = {
+            refreshing = true
+            scope.launch {
+                vm.refreshAll()
+                kotlinx.coroutines.delay(1500)
+                refreshing = false
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
         // Search icon row
@@ -718,6 +736,7 @@ fun InsightsScreen(
         }
 
         item { Spacer(Modifier.height(16.dp)) }
+    }
     }
 }
 

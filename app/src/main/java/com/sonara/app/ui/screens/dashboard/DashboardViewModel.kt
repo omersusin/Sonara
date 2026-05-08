@@ -137,6 +137,22 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     init {
 
+        // Periodic love-state refresh — picks up loves/unloves done in other clients
+        // (Pano Scrobbler, last.fm/loved, etc.) without requiring the track to change.
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(20_000)
+                val s = _uiState.value
+                if (s.title.isNotBlank() && s.artist.isNotBlank()) {
+                    val normArtist = TitleNormalizer.normalizeArtist(s.artist)
+                    val fresh = LoveStateCache.refresh(s.title, normArtist) ?: continue
+                    val cur = _uiState.value
+                    if (cur.title == s.title && cur.artist == s.artist && cur.isLoved != fresh) {
+                        _uiState.update { it.copy(isLoved = fresh) }
+                    }
+                }
+            }
+        }
 
         viewModelScope.launch { app.preferences.legacyAnalysisFlow.collect { v -> _uiState.update { it.copy(legacyAnalysis = v) } } }
         viewModelScope.launch { app.preferences.hearTheDiffEnabledFlow.collect { v -> _uiState.update { it.copy(hearTheDiffEnabled = v) } } }

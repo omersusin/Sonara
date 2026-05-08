@@ -121,20 +121,31 @@ object DeezerImageResolver {
         if (artist.isBlank() || album.isBlank()) return@withContext null
         val key = "album::${artist.lowercase()}::${album.lowercase()}"
         cache[key]?.let { return@withContext it }
-        try {
-            val q = URLEncoder.encode("artist:\"$artist\" album:\"$album\"", "UTF-8")
-            val conn = URL("$BASE/search/album?q=$q&limit=1").openConnection() as HttpURLConnection
-            conn.connectTimeout = 5000; conn.readTimeout = 5000
-            if (conn.responseCode != 200) { conn.disconnect(); return@withContext null }
-            val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
-            val data = JSONObject(json).optJSONArray("data")
-            if (data != null && data.length() > 0) {
-                val obj = data.getJSONObject(0)
+        // Plain text search hits more cases than the structured artist:"X" album:"Y" form,
+        // which Deezer rejects often when names contain quotes/punctuation. Try structured
+        // first for accuracy, then plain text as a fallback.
+        for (query in listOf("artist:\"$artist\" album:\"$album\"", "$artist $album")) {
+            try {
+                val q = URLEncoder.encode(query, "UTF-8")
+                val conn = URL("$BASE/search/album?q=$q&limit=5").openConnection() as HttpURLConnection
+                conn.connectTimeout = 5000; conn.readTimeout = 5000
+                if (conn.responseCode != 200) { conn.disconnect(); continue }
+                val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
+                val data = JSONObject(json).optJSONArray("data") ?: continue
+                if (data.length() == 0) continue
+                // Pick the first hit whose artist matches; otherwise fall back to top result.
+                var picked: JSONObject? = null
+                for (i in 0 until data.length()) {
+                    val obj = data.getJSONObject(i)
+                    val artistName = obj.optJSONObject("artist")?.optString("name", "") ?: ""
+                    if (artistName.equals(artist, ignoreCase = true)) { picked = obj; break }
+                }
+                val obj = picked ?: data.getJSONObject(0)
                 val img = obj.optString("cover_big", "").ifBlank { obj.optString("cover_medium", "") }
                 if (img.isNotBlank()) { put(key, img); return@withContext img }
-            }
-            null
-        } catch (e: Exception) { Log.w(TAG, "Album lookup: ${e.message}"); null }
+            } catch (e: Exception) { Log.w(TAG, "Album lookup: ${e.message}") }
+        }
+        null
     }
 
 
