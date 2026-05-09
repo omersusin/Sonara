@@ -43,10 +43,13 @@ class EffectsChain {
         if (!force && sessionId == currentSessionId && bassBoost != null) return
         release()
         currentSessionId = sessionId
+        // Android docs: configure parameters BEFORE enabling, otherwise the
+        // first frames pass through unaffected and on some chips the strength
+        // setter is silently dropped while the effect is enabled.
         try {
             bassBoost = BassBoost(Int.MAX_VALUE, sessionId).apply {
-                enabled = isEnabled && currentBassStrength > 0
                 if (strengthSupported) setStrength(currentBassStrength.toShort())
+                enabled = isEnabled && currentBassStrength > 0
             }
             SonaraLogger.eq("BassBoost attached to session $sessionId")
         } catch (e: Exception) {
@@ -56,8 +59,8 @@ class EffectsChain {
 
         try {
             virtualizer = Virtualizer(Int.MAX_VALUE, sessionId).apply {
-                enabled = isEnabled && currentVirtStrength > 0
                 setStrength(currentVirtStrength.toShort())
+                enabled = isEnabled && currentVirtStrength > 0
             }
             SonaraLogger.eq("Virtualizer attached to session $sessionId")
         } catch (e: Exception) {
@@ -67,8 +70,8 @@ class EffectsChain {
 
         try {
             loudnessEnhancer = LoudnessEnhancer(sessionId).apply {
-                enabled = isEnabled && currentLoudnessGain > 0
                 setTargetGain(currentLoudnessGain)
+                enabled = isEnabled && currentLoudnessGain > 0
             }
             SonaraLogger.eq("LoudnessEnhancer attached to session $sessionId")
         } catch (e: Exception) {
@@ -88,12 +91,16 @@ class EffectsChain {
         }
     }
 
+    // Same set-then-enable order as in attach(): some chipsets silently drop a
+    // setStrength/setTargetGain that arrives while the effect is already enabled.
     fun setBassBoost(strength: Int) {
         currentBassStrength = strength.coerceIn(0, 1000)
         try {
             bassBoost?.let {
+                val wantEnabled = isEnabled && currentBassStrength > 0
+                it.enabled = false
                 if (it.strengthSupported) it.setStrength(currentBassStrength.toShort())
-                it.enabled = isEnabled && currentBassStrength > 0
+                it.enabled = wantEnabled
             }
         } catch (e: Exception) { Log.w(TAG, "setBassBoost: ${e.message}") }
     }
@@ -102,8 +109,10 @@ class EffectsChain {
         currentVirtStrength = strength.coerceIn(0, 1000)
         try {
             virtualizer?.let {
+                val wantEnabled = isEnabled && currentVirtStrength > 0
+                it.enabled = false
                 it.setStrength(currentVirtStrength.toShort())
-                it.enabled = isEnabled && currentVirtStrength > 0
+                it.enabled = wantEnabled
             }
         } catch (e: Exception) { Log.w(TAG, "setVirtualizer: ${e.message}") }
     }
@@ -112,8 +121,10 @@ class EffectsChain {
         currentLoudnessGain = gainMb.coerceIn(0, 3000)
         try {
             loudnessEnhancer?.let {
+                val wantEnabled = isEnabled && currentLoudnessGain > 0
+                it.enabled = false
                 it.setTargetGain(currentLoudnessGain)
-                it.enabled = isEnabled && currentLoudnessGain > 0
+                it.enabled = wantEnabled
             }
         } catch (e: Exception) { Log.w(TAG, "setLoudness: ${e.message}") }
     }
@@ -122,8 +133,10 @@ class EffectsChain {
         currentReverbPreset = preset.coerceIn(0, 6)
         try {
             presetReverb?.let {
+                val wantEnabled = isEnabled && currentReverbPreset > 0
+                it.enabled = false
                 it.preset = currentReverbPreset.toShort()
-                it.enabled = isEnabled && currentReverbPreset > 0
+                it.enabled = wantEnabled
             }
         } catch (e: Exception) { Log.w(TAG, "setReverb: ${e.message}") }
     }
