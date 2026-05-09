@@ -113,7 +113,8 @@ fun AlbumDetailScreen(
                         LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 500)
                             .toptracks?.track
                             ?.filter { it.artist?.name.equals(artistName, ignoreCase = true) }
-                            ?.associate { it.name.lowercase() to it.playcount } ?: emptyMap()
+                            ?.associate { (it.name ?: "").lowercase() to (it.playcount ?: "") }
+                            ?.filterKeys { it.isNotBlank() } ?: emptyMap()
                     }.getOrDefault(emptyMap())
                 }
                 val albumInfoD = async {
@@ -123,20 +124,29 @@ fun AlbumDetailScreen(
 
                 imageUrl = artworkD.await()
                 userPlayMap.putAll(userMapD.await())
-                albumInfoD.await()?.album?.let { album ->
-                    listeners = album.listeners
-                    if (album.playcount.isNotBlank()) totalPlays = album.playcount
-                    if (!album.imageUrl.isNullOrBlank() && !album.imageUrl!!.isPlaceholder()) {
-                        imageUrl = album.imageUrl!!
+                runCatching {
+                    albumInfoD.await()?.album?.let { album ->
+                        listeners = album.listeners
+                        if (album.playcount.isNotBlank()) totalPlays = album.playcount
+                        val albImg = album.imageUrl
+                        if (!albImg.isNullOrBlank() && !albImg.isPlaceholder()) {
+                            imageUrl = albImg
+                        }
+                        // GSON ignores Kotlin defaults for missing/null fields, so any
+                        // String declared non-null in the model can be a runtime null —
+                        // we make name/duration nullable in the model and treat them
+                        // defensively here. The runCatching wrap is a final safety net.
+                        parsed = album.tracks?.track?.mapIndexed { idx, t ->
+                            val rawName = t.name ?: ""
+                            val rawDuration = t.duration ?: "0"
+                            AlbumTrackItem(
+                                rank = t.attr?.rank?.toIntOrNull() ?: (idx + 1),
+                                title = rawName,
+                                durationSec = rawDuration.toIntOrNull() ?: 0,
+                                userPlays = userPlayMap[rawName.lowercase()] ?: ""
+                            )
+                        }?.sortedBy { it.rank } ?: emptyList()
                     }
-                    parsed = album.tracks?.track?.mapIndexed { idx, t ->
-                        AlbumTrackItem(
-                            rank = t.attr?.rank?.toIntOrNull() ?: (idx + 1),
-                            title = t.name,
-                            durationSec = t.duration.toIntOrNull() ?: 0,
-                            userPlays = userPlayMap[t.name.lowercase()] ?: ""
-                        )
-                    }?.sortedBy { it.rank } ?: emptyList()
                 }
             }
 

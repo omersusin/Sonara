@@ -117,11 +117,14 @@ data class LastFmAlbumInfo(
 }
 data class LastFmAlbumTracks(val track: List<LastFmAlbumTrack> = emptyList())
 data class LastFmAlbumTrack(
-    val name: String = "",
-    val duration: String = "0",
+    // GSON ignores Kotlin defaults for missing / explicit-null JSON fields, so any
+    // String declared non-null here can become a runtime null and trigger an NPE on
+    // the next .lowercase() / .toIntOrNull() call. Keep these nullable.
+    val name: String? = null,
+    val duration: String? = "0",
     @SerializedName("@attr") val attr: LastFmAlbumTrackAttr? = null,
     val artist: LastFmArtist? = null,
-    val url: String = ""
+    val url: String? = ""
 )
 data class LastFmAlbumTrackAttr(val rank: String = "0")
 data class LastFmWiki(val summary: String = "")
