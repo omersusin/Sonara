@@ -36,7 +36,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.geometry.Rect
@@ -105,6 +104,14 @@ fun InsightsScreen(
     val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    // Consolidated genres map — computed in composable scope so remember() is legal.
+    // Prefer Last.fm user.getTopTags (richer, 20+ tags) over the top-5-artists derivative.
+    val genreMap = remember(s.topGenres, s.genreDistribution, s.hiddenTags) {
+        val source = if (s.topGenres.isNotEmpty()) s.topGenres.associate { it.first to it.second }
+        else s.genreDistribution
+        source.filterKeys { it.lowercase() !in s.hiddenTags }
+    }
 
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(
         isRefreshing = refreshing,
@@ -402,15 +409,7 @@ fun InsightsScreen(
             }
         }
 
-        // ═══ GENRES — consolidated single section ═══
-        // Prefer the user's actual top tags from Last.fm (richer, up to 20+) and fall
-        // back to the genres derived from top-5 artists when that endpoint is empty.
-        val genreMap = remember(s.topGenres, s.genreDistribution, s.hiddenTags) {
-            val source = if (s.topGenres.isNotEmpty())
-                s.topGenres.associate { it.first to it.second }
-            else s.genreDistribution
-            source.filterKeys { it.lowercase() !in s.hiddenTags }
-        }
+        // ═══ GENRES — consolidated single section (data source built above) ═══
         if (genreMap.isNotEmpty()) {
             item { SectionHeader("Genres") { onSeeAllGenres() } }
             item {
