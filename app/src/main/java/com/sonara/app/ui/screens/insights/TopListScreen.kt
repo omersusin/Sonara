@@ -41,6 +41,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -155,8 +156,9 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
     var viewMode by rememberSaveable { mutableStateOf(ViewMode.LIST) }
     var showViewMenu by remember { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var refreshTick by remember { mutableStateOf(0) }
 
-    LaunchedEffect(period) {
+    LaunchedEffect(period, refreshTick) {
         loading = true
         withContext(Dispatchers.IO) {
             val apiKey = app.lastFmAuth.getActiveApiKey()
@@ -208,7 +210,12 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
         Column(Modifier.fillMaxSize().padding(pad)) {
             TabPeriodRow(period, p, { period = it })
             ListSearchBar(searchQuery, { searchQuery = it })
-            if (loading) {
+            PullToRefreshBox(
+                isRefreshing = loading,
+                onRefresh = { refreshTick++ },
+                modifier = Modifier.weight(1f)
+            ) {
+            if (loading && artists.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p) }
             } else if (viewMode == ViewMode.LIST) {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
@@ -264,6 +271,7 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
                     }
                 }
             }
+            }
         }
     }
 }
@@ -282,8 +290,9 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
     var viewMode by rememberSaveable { mutableStateOf(ViewMode.LIST) }
     var showViewMenu by remember { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var refreshTick by remember { mutableStateOf(0) }
 
-    LaunchedEffect(period) {
+    LaunchedEffect(period, refreshTick) {
         loading = true
         withContext(Dispatchers.IO) {
             val apiKey = app.lastFmAuth.getActiveApiKey()
@@ -335,7 +344,12 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
         Column(Modifier.fillMaxSize().padding(pad)) {
             TabPeriodRow(period, p, { period = it })
             ListSearchBar(searchQuery, { searchQuery = it })
-            if (loading) {
+            PullToRefreshBox(
+                isRefreshing = loading,
+                onRefresh = { refreshTick++ },
+                modifier = Modifier.weight(1f)
+            ) {
+            if (loading && tracks.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p) }
             } else if (viewMode == ViewMode.LIST) {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
@@ -395,6 +409,7 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
                     }
                 }
             }
+            }
         }
     }
 }
@@ -416,8 +431,9 @@ fun TopAlbumsListScreen(
     var viewMode by rememberSaveable { mutableStateOf(ViewMode.LIST) }
     var showViewMenu by remember { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var refreshTick by remember { mutableStateOf(0) }
 
-    LaunchedEffect(period) {
+    LaunchedEffect(period, refreshTick) {
         loading = true
         withContext(Dispatchers.IO) {
             val apiKey = app.lastFmAuth.getActiveApiKey()
@@ -469,7 +485,12 @@ fun TopAlbumsListScreen(
         Column(Modifier.fillMaxSize().padding(pad)) {
             TabPeriodRow(period, p, { period = it })
             ListSearchBar(searchQuery, { searchQuery = it })
-            if (loading) {
+            PullToRefreshBox(
+                isRefreshing = loading,
+                onRefresh = { refreshTick++ },
+                modifier = Modifier.weight(1f)
+            ) {
+            if (loading && albums.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p) }
             } else if (viewMode == ViewMode.LIST) {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
@@ -537,6 +558,7 @@ fun TopAlbumsListScreen(
                         }
                     }
                 }
+            }
             }
         }
     }

@@ -50,8 +50,9 @@ fun GlobalChartsScreen(
     var artists by remember { mutableStateOf<List<ChartArtistItem>>(emptyList()) }
     var tracks by remember { mutableStateOf<List<ChartTrackItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var refreshTick by remember { mutableStateOf(0) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(refreshTick) {
         loading = true
         val apiKey = app.lastFmAuth.getActiveApiKey()
         if (apiKey.isNotBlank()) {
@@ -86,7 +87,12 @@ fun GlobalChartsScreen(
                 }
             }
 
-            if (loading) {
+            androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+                isRefreshing = loading,
+                onRefresh = { refreshTick++ },
+                modifier = Modifier.weight(1f)
+            ) {
+            if (loading && artists.isEmpty() && tracks.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p) }
             } else {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
@@ -151,6 +157,7 @@ fun GlobalChartsScreen(
                     }
                     item { Spacer(Modifier.height(16.dp)) }
                 }
+            }
             }
         }
     }

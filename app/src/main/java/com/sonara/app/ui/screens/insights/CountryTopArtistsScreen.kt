@@ -52,8 +52,9 @@ fun CountryTopArtistsScreen(
     var dropdownExpanded by remember { mutableStateOf(false) }
     var artists by remember { mutableStateOf<List<GeoArtistItem>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
+    var refreshTick by remember { mutableStateOf(0) }
 
-    LaunchedEffect(selectedCountry) {
+    LaunchedEffect(selectedCountry, refreshTick) {
         loading = true
         val apiKey = app.lastFmAuth.getActiveApiKey()
         if (apiKey.isNotBlank()) {
@@ -101,7 +102,12 @@ fun CountryTopArtistsScreen(
                 }
             }
 
-            if (loading) {
+            androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+                isRefreshing = loading,
+                onRefresh = { refreshTick++ },
+                modifier = Modifier.weight(1f)
+            ) {
+            if (loading && artists.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p) }
             } else {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
@@ -135,6 +141,7 @@ fun CountryTopArtistsScreen(
                     }
                     item { Spacer(Modifier.height(16.dp)) }
                 }
+            }
             }
         }
     }
