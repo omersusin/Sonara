@@ -342,18 +342,23 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
             val (count, days) = try {
                 when {
                     period == "overall" -> {
-                        // Lifetime average from registration. If reg date is missing, fall
-                        // back to a 365-day window so the figure is still meaningful.
-                        if (regUnix > 0 && totalLifetime > 0) {
+                        // For long-time users, dividing lifetime scrobbles by years-since-
+                        // registration produces a stale "average" that doesn't reflect
+                        // current activity at all. Always use the trailing 365-day window
+                        // so "All time" tracks the user's actual rate the way the other
+                        // chips do, and gracefully fall back to lifetime/days if the
+                        // network call fails so we still show *something*.
+                        val days = 365
+                        val from = nowSec - days.toLong() * 86400
+                        val total = runCatching {
+                            LastFmClient.api.getRecentTracksRange(username, apiKey, from, nowSec, 1, 1)
+                                .recenttracks?.attr?.total?.toLongOrNull() ?: 0L
+                        }.getOrDefault(0L)
+                        if (total > 0) total to days
+                        else if (regUnix > 0 && totalLifetime > 0) {
                             val daysSince = ((nowSec - regUnix) / 86400).toInt().coerceAtLeast(1)
                             totalLifetime to daysSince
-                        } else {
-                            val days = 365
-                            val from = nowSec - days.toLong() * 86400
-                            val total = LastFmClient.api.getRecentTracksRange(username, apiKey, from, nowSec, 1, 1)
-                                .recenttracks?.attr?.total?.toLongOrNull() ?: 0L
-                            total to days
-                        }
+                        } else 0L to 1
                     }
                     else -> {
                         val days = periodDays(period) ?: return@launch
