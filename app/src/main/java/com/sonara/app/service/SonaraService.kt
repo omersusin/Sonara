@@ -240,7 +240,8 @@ class SonaraService : Service() {
         val remoteInput = android.app.RemoteInput.Builder(EXTRA_REQUEST_TEXT)
             .setLabel("e.g. more bass, cleaner vocals")
             .build()
-        val requestAction = Notification.Action.Builder(null, "Ask AI", requestIntent)
+        val requestIcon = Icon.createWithResource(this, android.R.drawable.ic_menu_edit)
+        val requestAction = Notification.Action.Builder(requestIcon, "Ask AI", requestIntent)
             .addRemoteInput(remoteInput)
             .build()
 
@@ -252,11 +253,12 @@ class SonaraService : Service() {
             setSpan(AbsoluteSizeSpan(0, true), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
         val heartAction = Notification.Action.Builder(heartIcon, heartTitle, love).build()
+        val stopIcon = Icon.createWithResource(this, android.R.drawable.ic_menu_close_clear_cancel)
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play).setContentTitle(title).setContentText(sub)
             .setContentIntent(open).addAction(heartAction)
             .addAction(requestAction)
-            .addAction(Notification.Action.Builder(null, "Stop", stop).build())
+            .addAction(Notification.Action.Builder(stopIcon, "Stop", stop).build())
             .setOngoing(isPlaying).setShowWhen(false)
             .setStyle(
                 Notification.MediaStyle()
