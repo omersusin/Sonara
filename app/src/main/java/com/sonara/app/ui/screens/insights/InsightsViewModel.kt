@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
 import com.sonara.app.ai.SonaraAi
 import com.sonara.app.ai.SonaraAiState
+import com.sonara.app.data.SonaraLogger
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.intelligence.lastfm.LastFmAuthManager
@@ -335,20 +336,33 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
             val totalLifetime = _uiState.value.totalScrobbles.toLongOrNull() ?: 0L
             val nowSec = System.currentTimeMillis() / 1000
 
-            val (count, days) = when {
-                period == "overall" -> {
-                    val daysSince = if (regUnix > 0) ((nowSec - regUnix) / 86400).toInt().coerceAtLeast(1) else 1
-                    totalLifetime to daysSince
-                }
-                else -> {
-                    val days = periodDays(period) ?: return@launch
-                    val from = nowSec - days.toLong() * 86400
-                    val total = try {
-                        LastFmClient.api.getRecentTracksRange(username, apiKey, from, nowSec, 1, 1)
+            val (count, days) = try {
+                when {
+                    period == "overall" -> {
+                        // Lifetime average from registration. If reg date is missing, fall
+                        // back to a 365-day window so the figure is still meaningful.
+                        if (regUnix > 0 && totalLifetime > 0) {
+                            val daysSince = ((nowSec - regUnix) / 86400).toInt().coerceAtLeast(1)
+                            totalLifetime to daysSince
+                        } else {
+                            val days = 365
+                            val from = nowSec - days.toLong() * 86400
+                            val total = LastFmClient.api.getRecentTracksRange(username, apiKey, from, nowSec, 1, 1)
+                                .recenttracks?.attr?.total?.toLongOrNull() ?: 0L
+                            total to days
+                        }
+                    }
+                    else -> {
+                        val days = periodDays(period) ?: return@launch
+                        val from = nowSec - days.toLong() * 86400
+                        val total = LastFmClient.api.getRecentTracksRange(username, apiKey, from, nowSec, 1, 1)
                             .recenttracks?.attr?.total?.toLongOrNull() ?: 0L
-                    } catch (_: Exception) { 0L }
-                    total to days
+                        total to days
+                    }
                 }
+            } catch (e: Exception) {
+                SonaraLogger.w("Insights", "refreshPeriodStats failed: ${e.message}")
+                return@launch
             }
             val avgDaily = if (days > 0) (count / days).toInt() else 0
             // Average track length ≈ 3.5 min — Last.fm's own "scrobbles → hours" estimate.

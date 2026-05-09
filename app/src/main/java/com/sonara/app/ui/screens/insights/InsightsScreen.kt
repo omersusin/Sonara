@@ -142,7 +142,7 @@ fun InsightsScreen(
                             StatColumn(if (s.listeningHours > 24) "${s.listeningHours / 24}d ${s.listeningHours % 24}h" else "${s.listeningHours}h", "listening", p)
                             StatColumn(try { fmt.format(s.totalArtists.toLong()) } catch (_: Exception) { s.totalArtists }, "artists", p)
                             StatColumn(try { fmt.format(s.trackCount.toLong()) } catch (_: Exception) { s.trackCount }, "tracks", p)
-                            StatColumn("~${s.avgDailyScrobbles}", "per day", p)
+                            StatColumn("~${s.avgDailyScrobbles}", periodPerDayLabel(s.selectedPeriod), p)
                         }
                         if (s.scrobblesToday > 0) {
                             Spacer(Modifier.height(8.dp))
@@ -839,6 +839,17 @@ private fun StatColumn(value: String, label: String, p: Color) {
         Text(value, style = MaterialTheme.typography.titleMedium, color = p, maxLines = 1)
         Text(label, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
     }
+}
+
+/** Suffixes "per day" with the active period token so users can see the figure update. */
+private fun periodPerDayLabel(period: String): String = when (period) {
+    "7day" -> "per day · 7d"
+    "1month" -> "per day · 1mo"
+    "3month" -> "per day · 3mo"
+    "6month" -> "per day · 6mo"
+    "12month" -> "per day · 1y"
+    "custom" -> "per day · range"
+    else -> "per day · all time"
 }
 
 @Composable
