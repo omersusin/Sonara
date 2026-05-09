@@ -19,7 +19,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Save
@@ -81,7 +81,7 @@ fun DebugLogScreen(onBack: () -> Unit) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Rounded.ArrowBack, "Back", tint = SonaraTextPrimary)
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = SonaraTextPrimary)
                 }
                 Column {
                     Text("Debug Log", style = MaterialTheme.typography.titleLarge)

@@ -19,9 +19,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Launch
+import androidx.compose.material.icons.automirrored.rounded.Launch
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -180,7 +180,7 @@ fun TrackDetailScreen(
         topBar = {
             TopAppBar(
                 title = { Text(trackTitle, maxLines = 1) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
@@ -394,7 +394,7 @@ fun TrackDetailScreen(
                                 ) {
                                     val iconRes = platformIconRes(link.key)
                                     if (iconRes != null) Icon(painterResource(iconRes), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface)
-                                    else Icon(Icons.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
+                                    else Icon(Icons.AutoMirrored.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
                                     Text(link.name, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
                                 }
                             }

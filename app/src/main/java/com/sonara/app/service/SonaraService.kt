@@ -130,7 +130,7 @@ class SonaraService : Service() {
             ACTION_REQUEST -> {
                 val remoteResults = android.app.RemoteInput.getResultsFromIntent(intent)
                 val text = remoteResults?.getCharSequence(EXTRA_REQUEST_TEXT)?.toString()
-                    ?: intent?.getStringExtra(EXTRA_REQUEST_TEXT)
+                    ?: intent.getStringExtra(EXTRA_REQUEST_TEXT)
                 if (!text.isNullOrBlank()) {
                     SonaraLogger.ai("Notification request: $text")
                     scope.launch(Dispatchers.IO) {
@@ -156,9 +156,10 @@ class SonaraService : Service() {
                                     currentLoudness = eq.loudness
                                 )
                             )
-                            if (result.success && result.eqAdjustment != null) {
+                            val adjustment = result.eqAdjustment
+                            if (result.success && adjustment != null) {
                                 app.applyEq(
-                                    bands = result.eqAdjustment!!,
+                                    bands = adjustment,
                                     presetName = "AI Request",
                                     manual = false,
                                     bassBoost = result.bassBoost ?: eq.bassBoost,

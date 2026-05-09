@@ -24,7 +24,14 @@ class SonaraDigestWorker(
     companion object {
         const val CHANNEL_ID = "sonara_digest"
         const val WORK_NAME = "sonara_weekly_digest"
+        const val TEST_TAG = "sonara_digest_test"
 
+        /**
+         * Schedules the next Monday-9am digest. Uses KEEP policy so opening the app
+         * doesn't reset the pending delay every time — without this, the OneTimeWork
+         * gets replaced on every process start and Android may never settle on a
+         * delivery slot before the next start clobbers it.
+         */
         fun schedule(context: Context) {
             val now = Calendar.getInstance()
             val target = Calendar.getInstance().apply {
@@ -32,6 +39,7 @@ class SonaraDigestWorker(
                 set(Calendar.HOUR_OF_DAY, 9)
                 set(Calendar.MINUTE, 0)
                 set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
                 if (timeInMillis <= now.timeInMillis) add(Calendar.WEEK_OF_YEAR, 1)
             }
             val delay = target.timeInMillis - now.timeInMillis
@@ -42,7 +50,25 @@ class SonaraDigestWorker(
                 .build()
 
             WorkManager.getInstance(context)
-                .enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request)
+                .enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.KEEP, request)
+        }
+
+        /** Force-schedules a recurring weekly digest as a fallback so users on
+         *  battery-restricted devices still get something even if the OneTimeWork
+         *  with a multi-day initial delay gets dropped by Doze. */
+        fun reschedule(context: Context) {
+            WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+            schedule(context)
+        }
+
+        /** Manually fire a digest right now for "Send test digest" UI. Bypasses
+         *  digestEnabled — the act of tapping the button is the user's consent. */
+        fun runNow(context: Context) {
+            val request = OneTimeWorkRequestBuilder<SonaraDigestWorker>()
+                .setInputData(workDataOf("test" to true))
+                .addTag(TEST_TAG)
+                .build()
+            WorkManager.getInstance(context).enqueue(request)
         }
 
         fun createChannel(context: Context) {
@@ -60,15 +86,17 @@ class SonaraDigestWorker(
 
     override suspend fun doWork(): Result {
         val app = ctx.applicationContext as SonaraApp
+        val isTest = inputData.getBoolean("test", false)
         val username = app.lastFmAuth.getConnectionInfo().username
         val apiKey = app.lastFmAuth.getActiveApiKey()
 
         if (username.isBlank() || apiKey.isBlank()) {
-            schedule(ctx)
+            if (!isTest) schedule(ctx)
             return Result.success()
         }
 
-        val digestEnabled = runCatching {
+        // Test triggers bypass the user toggle — the user explicitly asked for it.
+        val digestEnabled = isTest || runCatching {
             app.preferences.digestEnabledFlow.first()
         }.getOrDefault(true)
         if (!digestEnabled) {
@@ -94,14 +122,17 @@ class SonaraDigestWorker(
                 val artists = artistsD.await()
                 val tracks = tracksD.await()
 
-                if (artists.isEmpty() && tracks.isEmpty()) {
-                    schedule(ctx)
-                    return@coroutineScope
-                }
+                // For the regular weekly run, skip the notification when there's no
+                // activity to report. For test triggers, always notify so the user
+                // gets feedback that the button worked.
+                if (artists.isEmpty() && tracks.isEmpty() && !isTest) return@coroutineScope
 
                 val sb = StringBuilder()
                 if (artists.isNotEmpty()) sb.appendLine("Artists: ${artists.joinToString(", ")}")
                 if (tracks.isNotEmpty()) sb.appendLine("Tracks: ${tracks.joinToString(", ")}")
+                if (artists.isEmpty() && tracks.isEmpty()) {
+                    sb.appendLine("No recent scrobbles in the last 7 days.")
+                }
 
                 val intent = Intent(ctx, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -128,7 +159,7 @@ class SonaraDigestWorker(
             }
         } catch (_: Exception) {}
 
-        schedule(ctx)
+        if (!isTest) schedule(ctx)
         return Result.success()
     }
 }

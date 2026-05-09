@@ -8,11 +8,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -41,7 +45,7 @@ fun NotificationsSettingsScreen(onBack: () -> Unit = {}) {
         topBar = {
             TopAppBar(
                 title = { Text("Notifications") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
@@ -72,6 +76,22 @@ fun NotificationsSettingsScreen(onBack: () -> Unit = {}) {
                         checked = s.digestEnabled,
                         onChange = { vm.setDigestEnabled(it) }
                     )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            com.sonara.app.intelligence.lastfm.SonaraDigestWorker.runNow(ctx)
+                            android.widget.Toast.makeText(
+                                ctx,
+                                "Test digest queued — should arrive in a few seconds.",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(0.5f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("Send test digest")
+                    }
                 }
             }
             item { Spacer(Modifier.height(16.dp)) }

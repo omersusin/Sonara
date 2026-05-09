@@ -77,7 +77,10 @@ class GitHubSync(private val context: Context, private val queue: ContributionQu
     }
 
     private fun getFileSha(path: String, token: String): String? {
-        return try { val r = httpGetAuth("$API_BASE/repos/$REPO_OWNER/$REPO_NAME/contents/$path?ref=$BRANCH", token) ?: return null; JSONObject(r).optString("sha", null) } catch (_: Exception) { null }
+        return try {
+            val r = httpGetAuth("$API_BASE/repos/$REPO_OWNER/$REPO_NAME/contents/$path?ref=$BRANCH", token) ?: return null
+            JSONObject(r).optString("sha", "").takeIf { it.isNotBlank() }
+        } catch (_: Exception) { null }
     }
 
     private fun httpGet(url: String): String? {

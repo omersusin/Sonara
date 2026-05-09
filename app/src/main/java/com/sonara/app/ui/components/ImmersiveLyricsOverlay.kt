@@ -22,7 +22,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -248,7 +248,7 @@ fun ImmersiveLyricsOverlay(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Rounded.ArrowBack, "Close", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Close", tint = Color.White)
                 }
                 Column(Modifier.weight(1f)) {
                     Text(title, style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 1)

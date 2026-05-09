@@ -24,8 +24,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Launch
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.Launch
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.AssistChip
@@ -264,7 +264,7 @@ fun ArtistDetailScreen(
         topBar = {
             TopAppBar(
                 title = { Text(artistName) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
@@ -443,7 +443,7 @@ fun ArtistDetailScreen(
                                         leadingIcon = {
                                             val iconRes = platformIconRes(key)
                                             if (iconRes != null) Icon(painterResource(iconRes), null, Modifier.size(14.dp), tint = p)
-                                            else Icon(Icons.Rounded.Launch, null, Modifier.size(14.dp))
+                                            else Icon(Icons.AutoMirrored.Rounded.Launch, null, Modifier.size(14.dp))
                                         },
                                         colors = AssistChipDefaults.assistChipColors(containerColor = p.copy(0.1f), labelColor = p),
                                         border = null
@@ -685,7 +685,7 @@ fun ArtistDetailScreen(
                                 ) {
                                     val iconRes = platformIconRes(link.key)
                                     if (iconRes != null) Icon(painterResource(iconRes), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface)
-                                    else Icon(Icons.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
+                                    else Icon(Icons.AutoMirrored.Rounded.Launch, null, Modifier.size(18.dp), tint = p)
                                     Text(link.name, style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary)
                                 }
                             }

@@ -20,7 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -53,6 +54,8 @@ import com.sonara.app.ui.theme.SonaraCardElevated
 import com.sonara.app.ui.theme.SonaraDivider
 import com.sonara.app.ui.theme.SonaraTextPrimary
 import com.sonara.app.ui.theme.SonaraTextTertiary
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -63,9 +66,20 @@ fun AllGenresScreen(onBack: () -> Unit) {
     val p = MaterialTheme.colorScheme.primary
 
     var searchQuery by remember { mutableStateOf("") }
+    var refreshing by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     val hiddenTags = s.hiddenTags
-    val sorted = s.genreDistribution.entries
+    // Prefer the richer Last.fm user.getTopTags response (often 20+ tags); the
+    // top-5-artists derivative (genreDistribution) caps out around 10 entries
+    // which is what made "See all" look truncated.
+    val combined = remember(s.topGenres, s.genreDistribution) {
+        val acc = mutableMapOf<String, Int>()
+        s.topGenres.forEach { (name, count) -> acc[name] = (acc[name] ?: 0) + count }
+        s.genreDistribution.forEach { (name, count) -> acc[name] = maxOf(acc[name] ?: 0, count) }
+        acc
+    }
+    val sorted = combined.entries
         .filter { it.key.lowercase() !in hiddenTags }
         .sortedByDescending { it.value }
     val displayed = if (searchQuery.isBlank()) sorted
@@ -77,7 +91,7 @@ fun AllGenresScreen(onBack: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text("Your Genres (${sorted.size})") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
@@ -113,8 +127,20 @@ fun AllGenresScreen(onBack: () -> Unit) {
                 textStyle = MaterialTheme.typography.bodyMedium
             )
 
+            PullToRefreshBox(
+                isRefreshing = refreshing,
+                onRefresh = {
+                    refreshing = true
+                    vm.loadTopGenres()
+                    scope.launch {
+                        kotlinx.coroutines.delay(1500)
+                        refreshing = false
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            ) {
             LazyColumn(
-                Modifier.weight(1f),
+                Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -137,6 +163,7 @@ fun AllGenresScreen(onBack: () -> Unit) {
                     }
                 }
                 item { Spacer(Modifier.height(8.dp)) }
+            }
             }
 
             // Hidden tags restore section

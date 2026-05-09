@@ -104,10 +104,21 @@ class AudioSessionManager(private val context: Context) {
      * Apply BassBoost + Virtualizer + Loudness from FinalEqProfile
      */
     fun applyEffects(bassBoost: Int, virtualizer: Int, loudness: Int, reverb: Int = 0) {
-        if (!effectsChain.isAttached && sessionEqualizers.keys.isNotEmpty()) {
-            val realSession = sessionEqualizers.keys.first()
+        // Effects on session 0 are silently no-ops on most modern devices (the
+        // global output mix doesn't accept BassBoost/Virtualizer/etc.). Whenever
+        // a real per-app session is available, migrate to it before applying so
+        // slider drags and presets actually take effect.
+        val realSession = sessionEqualizers.keys.firstOrNull { it > 0 }
+        if (realSession != null && (!effectsChain.isAttached ||
+                effectsChain.attachedSession == 0 ||
+                effectsChain.attachedSession != realSession)) {
             effectsChain.forceReattach(realSession)
             effectsAttachedSession = realSession
+        } else if (realSession == null && !effectsChain.isAttached) {
+            // No real session yet — fall back to session 0 so we at least
+            // remember the values and apply them once a session opens.
+            effectsChain.forceReattach(0)
+            effectsAttachedSession = 0
         }
         effectsChain.applyProfile(bassBoost, virtualizer, loudness, reverb)
         SonaraLogger.eq("Effects applied: bass=$bassBoost virt=$virtualizer loud=$loudness reverb=$reverb sid=${effectsChain.attachedSession}")

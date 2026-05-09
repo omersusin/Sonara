@@ -14,7 +14,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -54,7 +54,7 @@ fun CollageScreen(
     Scaffold(topBar = {
         TopAppBar(
             title = { Text("Album Collage") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
             actions = {
                 IconButton(
                     onClick = {

@@ -158,7 +158,7 @@ interface LastFmApi {
     suspend fun getUserTopTags(
         @Query("user") user: String,
         @Query("api_key") apiKey: String,
-        @Query("limit") limit: Int = 20
+        @Query("limit") limit: Int = 100
     ): LastFmUserTopTagsResponse
 
     @GET("?method=track.search&format=json")

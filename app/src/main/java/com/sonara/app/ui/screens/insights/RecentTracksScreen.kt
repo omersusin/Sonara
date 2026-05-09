@@ -30,11 +30,11 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.OpenInNew
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -240,7 +240,7 @@ fun RecentTracksScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Recently Played") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
@@ -359,7 +359,7 @@ fun RecentTracksScreen(
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Open in streaming app") },
-                                    leadingIcon = { Icon(Icons.Rounded.OpenInNew, null, modifier = Modifier.size(18.dp)) },
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, modifier = Modifier.size(18.dp)) },
                                     onClick = {
                                         expandedMenuTrack = null
                                         streamingDialogTrack = t

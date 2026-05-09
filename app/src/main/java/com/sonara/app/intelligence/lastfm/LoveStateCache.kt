@@ -51,7 +51,10 @@ object LoveStateCache {
     suspend fun refresh(title: String, artist: String): Boolean? = withContext(Dispatchers.IO) {
         if (title.isBlank() || artist.isBlank()) return@withContext null
         try {
-            val app = SonaraApp.instance
+            // SonaraApp.instance is lateinit — access can throw if the cache is hit before
+            // Application.onCreate completes (e.g. content provider warmup). Guard with a
+            // catch-all so the calling loops never die.
+            val app = try { SonaraApp.instance } catch (_: Throwable) { return@withContext cache[key(title, artist)] }
             val apiKey = app.lastFmAuth.getActiveApiKey()
             val username = app.lastFmAuth.getConnectionInfo().username
             if (apiKey.isBlank() || username.isBlank()) return@withContext cache[key(title, artist)]
@@ -59,7 +62,7 @@ object LoveStateCache {
             val loved = resp.track?.userloved == "1"
             setLoved(title, artist, loved)
             loved
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             cache[key(title, artist)]
         }
     }

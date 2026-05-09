@@ -36,7 +36,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.geometry.Rect
@@ -106,6 +105,14 @@ fun InsightsScreen(
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
+    // Consolidated genres map — computed in composable scope so remember() is legal.
+    // Prefer Last.fm user.getTopTags (richer, 20+ tags) over the top-5-artists derivative.
+    val genreMap = remember(s.topGenres, s.genreDistribution, s.hiddenTags) {
+        val source = if (s.topGenres.isNotEmpty()) s.topGenres.associate { it.first to it.second }
+        else s.genreDistribution
+        source.filterKeys { it.lowercase() !in s.hiddenTags }
+    }
+
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(
         isRefreshing = refreshing,
         onRefresh = {
@@ -142,7 +149,7 @@ fun InsightsScreen(
                             StatColumn(if (s.listeningHours > 24) "${s.listeningHours / 24}d ${s.listeningHours % 24}h" else "${s.listeningHours}h", "listening", p)
                             StatColumn(try { fmt.format(s.totalArtists.toLong()) } catch (_: Exception) { s.totalArtists }, "artists", p)
                             StatColumn(try { fmt.format(s.trackCount.toLong()) } catch (_: Exception) { s.trackCount }, "tracks", p)
-                            StatColumn("~${s.avgDailyScrobbles}", "per day", p)
+                            StatColumn("~${s.avgDailyScrobbles}", periodPerDayLabel(s.selectedPeriod), p)
                         }
                         if (s.scrobblesToday > 0) {
                             Spacer(Modifier.height(8.dp))
@@ -402,23 +409,29 @@ fun InsightsScreen(
             }
         }
 
-        // ═══ GENRE DISTRIBUTION ═══
-        if (s.genreDistribution.isNotEmpty()) {
-            item { SectionHeader("Your Genres") { onSeeAllGenres() } }
+        // ═══ GENRES — consolidated single section (data source built above) ═══
+        if (genreMap.isNotEmpty()) {
+            item { SectionHeader("Genres") { onSeeAllGenres() } }
             item {
                 FluentCard {
-                    val sorted = s.genreDistribution.entries.sortedByDescending { it.value }.take(7)
+                    val sorted = genreMap.entries.sortedByDescending { it.value }.take(8)
                     val total = sorted.sumOf { it.value }.toFloat().coerceAtLeast(1f)
                     val maxVal = sorted.firstOrNull()?.value?.toFloat() ?: 1f
                     sorted.forEach { (genre, count) ->
                         val pct = (count / total * 100).toInt()
                         Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(genre, style = MaterialTheme.typography.labelMedium, color = SonaraTextPrimary, modifier = Modifier.width(80.dp), maxLines = 1)
+                            Text(genre.replaceFirstChar { it.uppercase() },
+                                style = MaterialTheme.typography.labelMedium, color = SonaraTextPrimary,
+                                modifier = Modifier.width(96.dp), maxLines = 1)
                             Box(Modifier.weight(1f).height(22.dp).clip(RoundedCornerShape(6.dp)).background(SonaraCardElevated)) {
                                 Box(Modifier.fillMaxWidth(count / maxVal).height(22.dp).clip(RoundedCornerShape(6.dp)).background(p.copy(alpha = 0.6f)))
                                 Text("$pct%", style = MaterialTheme.typography.labelSmall, color = SonaraTextPrimary, modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
                             }
                         }
+                    }
+                    if (genreMap.size >= 4) {
+                        Spacer(Modifier.height(12.dp))
+                        TagCloudCanvas(genreMap, p)
                     }
                 }
             }
@@ -427,11 +440,6 @@ fun InsightsScreen(
         // ═══ LISTENING HEATMAP ═══
         if (s.heatmap.isNotEmpty()) {
             item { ListeningHeatmap(s.heatmap, p) }
-        }
-
-        // ═══ TAG CLOUD ═══
-        if (s.genreDistribution.size >= 4) {
-            item { TagCloudCard(s.genreDistribution, p) }
         }
 
         // ═══ LISTENING ACTIVITY (weekly bar chart) ═══
@@ -615,40 +623,20 @@ fun InsightsScreen(
             }
         }
 
-        // INSIGHT-02: Top Genres
-        if (s.topGenres.isNotEmpty()) {
-            item {
-                FluentCard {
-                    Text("Top Genres", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                    Spacer(Modifier.height(12.dp))
-                    val maxCount = s.topGenres.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
-                    s.topGenres.take(8).forEach { (name, count) ->
-                        Column(Modifier.padding(vertical = 4.dp)) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(name.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                                Text("$count", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Spacer(Modifier.height(4.dp))
-                            LinearProgressIndicator(
-                                progress = { count.toFloat() / maxCount },
-                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(3.dp)),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.primary.copy(0.12f)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
         // INSIGHT-03: Weekly Artist Chart
         if (s.weeklyArtists.isNotEmpty()) {
             item {
                 FluentCard {
-                    Text("This Week's Top Artists", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("This Week's Top Artists", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text("See all >", style = MaterialTheme.typography.labelMedium, color = p, modifier = Modifier.clickable { onSeeAllArtists() })
+                    }
                     Spacer(Modifier.height(8.dp))
                     s.weeklyArtists.take(5).forEachIndexed { i, (name, plays, _) ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            Modifier.fillMaxWidth().clickable { onArtistClick(name, "") }.padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text("#${i + 1}", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.width(28.dp))
                             Text(name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, modifier = Modifier.weight(1f))
                             Text("$plays plays", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -663,7 +651,7 @@ fun InsightsScreen(
         if (s.dailyScrobbleChart.isNotEmpty() && s.dailyScrobbleChart.any { it.second > 0 }) {
             item {
                 FluentCard {
-                    Text("Weekly Activity", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Text("Last 7 Days", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(Modifier.height(16.dp))
                     val maxVal = s.dailyScrobbleChart.maxOf { it.second }.coerceAtLeast(1)
                     Row(Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Bottom) {
@@ -743,20 +731,27 @@ fun InsightsScreen(
 @Composable
 internal fun TagCloudCard(genres: Map<String, Int>, p: Color) {
     if (genres.isEmpty()) return
-    val sorted = remember(genres) {
-        genres.entries.sortedByDescending { it.value }.take(30)
-    }
-    val maxCount = sorted.firstOrNull()?.value?.toFloat() ?: 1f
-    val minTextSp = 10f
-    val maxTextSp = 38f
-
     FluentCard {
         Text("Genre Cloud", style = MaterialTheme.typography.titleMedium, color = SonaraTextPrimary)
         Spacer(Modifier.height(12.dp))
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(CircleShape)
-        ) {
+        TagCloudCanvas(genres, p)
+        Spacer(Modifier.height(4.dp))
+        Text("Based on Last.fm tag data", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, modifier = Modifier.align(Alignment.End))
+    }
+}
+
+/** Bare tag-cloud canvas, used both standalone (TagCloudCard) and inside the Genres section. */
+@Composable
+internal fun TagCloudCanvas(genres: Map<String, Int>, p: Color) {
+    if (genres.isEmpty()) return
+    val sorted = remember(genres) { genres.entries.sortedByDescending { it.value }.take(30) }
+    val maxCount = sorted.firstOrNull()?.value?.toFloat() ?: 1f
+    val minTextSp = 10f
+    val maxTextSp = 38f
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(CircleShape)
+    ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val cx = size.width / 2f
                 val cy = size.height / 2f
@@ -805,9 +800,6 @@ internal fun TagCloudCard(genres: Map<String, Int>, p: Color) {
                     }
                 }
             }
-        }
-        Spacer(Modifier.height(4.dp))
-        Text("Based on Last.fm tag data", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, modifier = Modifier.align(Alignment.End))
     }
 }
 
@@ -839,6 +831,17 @@ private fun StatColumn(value: String, label: String, p: Color) {
         Text(value, style = MaterialTheme.typography.titleMedium, color = p, maxLines = 1)
         Text(label, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
     }
+}
+
+/** Suffixes "per day" with the active period token so users can see the figure update. */
+private fun periodPerDayLabel(period: String): String = when (period) {
+    "7day" -> "per day · 7d"
+    "1month" -> "per day · 1mo"
+    "3month" -> "per day · 3mo"
+    "6month" -> "per day · 6mo"
+    "12month" -> "per day · 1y"
+    "custom" -> "per day · range"
+    else -> "per day · all time"
 }
 
 @Composable

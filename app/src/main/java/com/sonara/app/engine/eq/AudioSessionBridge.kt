@@ -70,7 +70,7 @@ class AudioSessionBridge(private val context: Context) {
         handler.postAtTime({ val s = currentState; if (s.confidence >= 0.4f) scope.launch { learner.onAccepted(s.title, s.artist, s.genre, s.appliedBands, s.route, s.confidence) } }, acceptToken, android.os.SystemClock.uptimeMillis() + AUTO_ACCEPT)
     }
 
-    private fun extractSessionId(c: MediaController): Int = try { val pi = c.playbackInfo; if (pi != null) { val f = pi.javaClass.getDeclaredField("mAudioSessionId"); f.isAccessible = true; f.getInt(pi).takeIf { it > 0 } ?: 0 } else 0 } catch (_: Exception) { 0 }
+    private fun extractSessionId(c: MediaController): Int = try { val pi = c.playbackInfo; val f = pi.javaClass.getDeclaredField("mAudioSessionId"); f.isAccessible = true; f.getInt(pi).takeIf { it > 0 } ?: 0 } catch (_: Exception) { 0 }
     private fun detach() { metaCb?.let { try { activeController?.unregisterCallback(it) } catch (_: Exception) {} }; metaCb = null; activeController = null }
 
     private fun getDefault(genre: String, energy: Float): ShortArray {

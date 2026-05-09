@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.sonara.app.SonaraApp
 import com.sonara.app.ai.SonaraAi
 import com.sonara.app.ai.SonaraAiState
+import com.sonara.app.data.SonaraLogger
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.intelligence.lastfm.LastFmAuthManager
@@ -178,11 +179,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                         val info = LastFmClient.api.getUserInfo(username, apiKey)
                         info.user?.let { u ->
                             val regUnix = u.registered?.unixtime?.toLongOrNull() ?: 0L
-                            val daysSince = if (regUnix > 0) ((System.currentTimeMillis() / 1000 - regUnix) / 86400).toInt().coerceAtLeast(1) else 1
-                            val totalSc = u.playcount.toLongOrNull() ?: 0
-                            val avgDaily = (totalSc / daysSince).toInt()
-                            val hours = (totalSc * 3.5 / 60).toInt()
-                            _uiState.update { it.copy(totalScrobbles = u.playcount, totalArtists = u.artist_count, trackCount = u.track_count, registeredUnix = regUnix, avgDailyScrobbles = avgDaily, listeningHours = hours) }
+                            _uiState.update { it.copy(totalScrobbles = u.playcount, totalArtists = u.artist_count, trackCount = u.track_count, registeredUnix = regUnix) }
                         }
                     } catch (_: Exception) {}
                 }
@@ -280,13 +277,16 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
 
                 // Genre tags: parallel per artist
                 try {
-                    val topForGenre = topArtists.take(5)
+                    // Sample more artists and more tags per artist so the derivative
+                    // genre map has enough breadth to feed the AllGenresScreen even when
+                    // Last.fm's user.getTopTags endpoint is empty.
+                    val topForGenre = topArtists.take(20)
                     val genreMap = mutableMapOf<String, Int>()
                     topForGenre.map { (name, _, _) ->
                         async {
                             try {
                                 val tagsResp = LastFmClient.api.getArtistTags(name, apiKey)
-                                tagsResp.toptags?.tag?.take(3)?.forEach { tag ->
+                                tagsResp.toptags?.tag?.take(5)?.forEach { tag ->
                                     val tagName = tag.name.lowercase().replaceFirstChar { it.uppercase() }
                                     if (tagName.isNotBlank() && tagName.lowercase() != "seen live" && tagName.lowercase() != "favorites") {
                                         synchronized(genreMap) { genreMap[tagName] = (genreMap[tagName] ?: 0) + tag.count.coerceAtLeast(1) }
@@ -306,7 +306,71 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 loadFriends()
                 loadMonthlyTimeline()
                 fetchScrobblesToday(username)
+                refreshPeriodStats()
             }
+        }
+    }
+
+    /** Days covered by a Last.fm period token, or null when overall (compute from regUnix). */
+    private fun periodDays(period: String): Int? = when (period) {
+        "7day" -> 7
+        "1month" -> 30
+        "3month" -> 90
+        "6month" -> 180
+        "12month" -> 365
+        "overall" -> null
+        else -> null
+    }
+
+    /**
+     * Recomputes "per day" and "listening" stats for the currently selected period.
+     * For 7day/1month/etc. we ask Last.fm for the scrobble total in the date range
+     * and divide by the period length; for "overall" we fall back to the lifetime
+     * playcount divided by days-since-registration.
+     */
+    private fun refreshPeriodStats() {
+        val state = _uiState.value
+        val username = state.lastFmUsername
+        val apiKey = app.lastFmAuth.getActiveApiKey()
+        if (username.isBlank() || apiKey.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val period = _uiState.value.selectedPeriod
+            val regUnix = _uiState.value.registeredUnix
+            val totalLifetime = _uiState.value.totalScrobbles.toLongOrNull() ?: 0L
+            val nowSec = System.currentTimeMillis() / 1000
+
+            val (count, days) = try {
+                when {
+                    period == "overall" -> {
+                        // Lifetime average from registration. If reg date is missing, fall
+                        // back to a 365-day window so the figure is still meaningful.
+                        if (regUnix > 0 && totalLifetime > 0) {
+                            val daysSince = ((nowSec - regUnix) / 86400).toInt().coerceAtLeast(1)
+                            totalLifetime to daysSince
+                        } else {
+                            val days = 365
+                            val from = nowSec - days.toLong() * 86400
+                            val total = LastFmClient.api.getRecentTracksRange(username, apiKey, from, nowSec, 1, 1)
+                                .recenttracks?.attr?.total?.toLongOrNull() ?: 0L
+                            total to days
+                        }
+                    }
+                    else -> {
+                        val days = periodDays(period) ?: return@launch
+                        val from = nowSec - days.toLong() * 86400
+                        val total = LastFmClient.api.getRecentTracksRange(username, apiKey, from, nowSec, 1, 1)
+                            .recenttracks?.attr?.total?.toLongOrNull() ?: 0L
+                        total to days
+                    }
+                }
+            } catch (e: Exception) {
+                SonaraLogger.w("Insights", "refreshPeriodStats failed: ${e.message}")
+                return@launch
+            }
+            val avgDaily = if (days > 0) (count / days).toInt() else 0
+            // Average track length ≈ 3.5 min — Last.fm's own "scrobbles → hours" estimate.
+            val hours = (count * 3.5 / 60).toInt()
+            _uiState.update { it.copy(avgDailyScrobbles = avgDaily, listeningHours = hours) }
         }
     }
 
@@ -369,6 +433,17 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(selectedPeriod = "custom", selectedPeriodLabel = label) }
         val u = _uiState.value.lastFmUsername; val k = app.lastFmAuth.getActiveApiKey()
         if (u.isBlank() || k.isBlank()) return
+        // Custom range: refresh "per day" and "listening" using the picked window length.
+        viewModelScope.launch(Dispatchers.IO) {
+            val days = ((toSec - fromSec) / 86400).toInt().coerceAtLeast(1)
+            val total = try {
+                LastFmClient.api.getRecentTracksRange(u, k, fromSec, toSec, 1, 1)
+                    .recenttracks?.attr?.total?.toLongOrNull() ?: 0L
+            } catch (_: Exception) { 0L }
+            val avgDaily = (total / days).toInt()
+            val hours = (total * 3.5 / 60).toInt()
+            _uiState.update { it.copy(avgDailyScrobbles = avgDaily, listeningHours = hours) }
+        }
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val resp = LastFmClient.api.getRecentTracksRange(u, k, fromSec, toSec, 200)
@@ -407,6 +482,7 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
             "6month" -> "6 Months"; "12month" -> "1 Year"; else -> "All Time"
         }
         _uiState.update { it.copy(selectedPeriod = period, selectedPeriodLabel = label) }
+        refreshPeriodStats()
         val u = _uiState.value.lastFmUsername; val k = app.lastFmAuth.getActiveApiKey()
         if (u.isBlank() || k.isBlank()) return
         viewModelScope.launch(Dispatchers.IO) {

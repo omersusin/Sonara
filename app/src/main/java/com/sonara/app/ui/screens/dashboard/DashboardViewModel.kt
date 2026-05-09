@@ -142,15 +142,17 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             while (true) {
                 kotlinx.coroutines.delay(20_000)
-                val s = _uiState.value
-                if (s.title.isNotBlank() && s.artist.isNotBlank()) {
-                    val normArtist = TitleNormalizer.normalizeArtist(s.artist)
-                    val fresh = LoveStateCache.refresh(s.title, normArtist) ?: continue
-                    val cur = _uiState.value
-                    if (cur.title == s.title && cur.artist == s.artist && cur.isLoved != fresh) {
-                        _uiState.update { it.copy(isLoved = fresh) }
+                try {
+                    val s = _uiState.value
+                    if (s.title.isNotBlank() && s.artist.isNotBlank()) {
+                        val normArtist = TitleNormalizer.normalizeArtist(s.artist)
+                        val fresh = LoveStateCache.refresh(s.title, normArtist) ?: continue
+                        val cur = _uiState.value
+                        if (cur.title == s.title && cur.artist == s.artist && cur.isLoved != fresh) {
+                            _uiState.update { it.copy(isLoved = fresh) }
+                        }
                     }
-                }
+                } catch (_: Throwable) { /* keep the loop alive across hiccups */ }
             }
         }
 
@@ -158,13 +160,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         // any other surface that touches LoveStateCache.
         viewModelScope.launch {
             LoveStateCache.updates.collect { (artistKey, titleKey, loved) ->
-                val cur = _uiState.value
-                if (cur.title.isBlank() || cur.artist.isBlank()) return@collect
-                val curArtistKey = TitleNormalizer.normalizeArtist(cur.artist).lowercase().trim()
-                val curTitleKey = cur.title.lowercase().trim()
-                if (curArtistKey == artistKey && curTitleKey == titleKey && cur.isLoved != loved) {
-                    _uiState.update { it.copy(isLoved = loved) }
-                }
+                try {
+                    val cur = _uiState.value
+                    if (cur.title.isBlank() || cur.artist.isBlank()) return@collect
+                    val curArtistKey = TitleNormalizer.normalizeArtist(cur.artist).lowercase().trim()
+                    val curTitleKey = cur.title.lowercase().trim()
+                    if (curArtistKey == artistKey && curTitleKey == titleKey && cur.isLoved != loved) {
+                        _uiState.update { it.copy(isLoved = loved) }
+                    }
+                } catch (_: Throwable) { /* don't tear down the collector */ }
             }
         }
 
