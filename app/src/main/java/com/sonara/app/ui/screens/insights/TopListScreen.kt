@@ -24,13 +24,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.ViewList
+import androidx.compose.material.icons.automirrored.rounded.ViewList
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
@@ -182,11 +182,11 @@ fun TopArtistsListScreen(onBack: () -> Unit, onArtistClick: (String) -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text("Top Artists") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 actions = {
                     Box {
                         IconButton(onClick = { showViewMenu = true }) {
-                            Icon(if (viewMode == ViewMode.LIST) Icons.Rounded.ViewList else Icons.Rounded.GridView, "View mode", tint = p)
+                            Icon(if (viewMode == ViewMode.LIST) Icons.AutoMirrored.Rounded.ViewList else Icons.Rounded.GridView, "View mode", tint = p)
                         }
                         DropdownMenu(expanded = showViewMenu, onDismissRequest = { showViewMenu = false }) {
                             ViewMode.entries.forEach { mode ->
@@ -316,11 +316,11 @@ fun TopTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> Un
         topBar = {
             TopAppBar(
                 title = { Text("Top Tracks") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 actions = {
                     Box {
                         IconButton(onClick = { showViewMenu = true }) {
-                            Icon(if (viewMode == ViewMode.LIST) Icons.Rounded.ViewList else Icons.Rounded.GridView, "View mode", tint = p)
+                            Icon(if (viewMode == ViewMode.LIST) Icons.AutoMirrored.Rounded.ViewList else Icons.Rounded.GridView, "View mode", tint = p)
                         }
                         DropdownMenu(expanded = showViewMenu, onDismissRequest = { showViewMenu = false }) {
                             ViewMode.entries.forEach { mode ->
@@ -457,11 +457,11 @@ fun TopAlbumsListScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Top Albums") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 actions = {
                     Box {
                         IconButton(onClick = { showViewMenu = true }) {
-                            Icon(if (viewMode == ViewMode.LIST) Icons.Rounded.ViewList else Icons.Rounded.GridView, "View mode", tint = p)
+                            Icon(if (viewMode == ViewMode.LIST) Icons.AutoMirrored.Rounded.ViewList else Icons.Rounded.GridView, "View mode", tint = p)
                         }
                         DropdownMenu(expanded = showViewMenu, onDismissRequest = { showViewMenu = false }) {
                             ViewMode.entries.forEach { mode ->
@@ -660,7 +660,7 @@ fun LovedTracksListScreen(onBack: () -> Unit, onTrackClick: (String, String) -> 
         topBar = {
             TopAppBar(
                 title = { Text("Loved Tracks") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },

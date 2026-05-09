@@ -19,7 +19,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -145,8 +145,9 @@ fun AlbumDetailScreen(
                 try {
                     val adbAlbum = TheAudioDbClient.searchAlbum(artistName, albumName)
                     if (adbAlbum != null) {
-                        if (imageUrl.isPlaceholder() && !adbAlbum.strThumb.isNullOrBlank()) {
-                            imageUrl = adbAlbum.strThumbHQ ?: adbAlbum.strThumb!!
+                        val thumb = adbAlbum.strThumb
+                        if (imageUrl.isPlaceholder() && !thumb.isNullOrBlank()) {
+                            imageUrl = adbAlbum.strThumbHQ ?: thumb
                         }
                         albumYear = adbAlbum.intYearReleased?.toString() ?: ""
                         albumGenre = adbAlbum.strGenre ?: ""
@@ -203,7 +204,7 @@ fun AlbumDetailScreen(
         topBar = {
             TopAppBar(
                 title = { Text(albumName, maxLines = 1) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },

@@ -67,13 +67,13 @@ fun DebugPipelineScreen() {
         item { DebugRow("Detected Artist", np.artist.ifBlank { "—" }) }
         item { DebugRow("Package", np.packageName.ifBlank { "—" }) }
         item { DebugRow("Duration", if (np.duration > 0) "${np.duration / 1000}s" else "—") }
-        item { Divider(Modifier.padding(vertical = 4.dp), color = SonaraDivider.copy(0.3f)) }
+        item { HorizontalDivider(Modifier.padding(vertical = 4.dp), color = SonaraDivider.copy(0.3f)) }
         item { DebugRow("Genre", DisplayLabelMapper.formatGenre(genre)) }
         item { DebugRow("Mood", DisplayLabelMapper.formatMood(mood)) }
         item { DebugRow("Energy", "%.0f%%".format(energy * 100)) }
         item { DebugRow("Confidence", "%.0f%%".format(confidence * 100)) }
         item { DebugRow("Source", DisplayLabelMapper.formatSource(source)) }
-        item { Divider(Modifier.padding(vertical = 4.dp), color = SonaraDivider.copy(0.3f)) }
+        item { HorizontalDivider(Modifier.padding(vertical = 4.dp), color = SonaraDivider.copy(0.3f)) }
         item { DebugRow("Audio Route", route.displayName) }
         item { DebugRow("EQ Enabled", if (eqState.isEnabled) "YES" else "NO") }
         item { DebugRow("EQ Preset", eqState.presetName) }

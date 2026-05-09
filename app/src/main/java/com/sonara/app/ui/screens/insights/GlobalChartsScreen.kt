@@ -8,7 +8,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.*
@@ -74,7 +74,7 @@ fun GlobalChartsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Global Charts") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
@@ -150,7 +150,7 @@ fun GlobalChartsScreen(
                                     Text(t.name ?: "", style = MaterialTheme.typography.bodyMedium, color = SonaraTextPrimary, maxLines = 1)
                                     Text(t.artist?.name ?: "", style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary, maxLines = 1)
                                 }
-                                if (!t.listeners.isNullOrBlank()) Text(try { fmt.format(t.listeners.toLong()) } catch (_: Exception) { t.listeners ?: "" }, style = MaterialTheme.typography.labelMedium, color = p)
+                                if (!t.listeners.isNullOrBlank()) Text(try { fmt.format(t.listeners.toLong()) } catch (_: Exception) { t.listeners }, style = MaterialTheme.typography.labelMedium, color = p)
                             }
                             if (i < tracks.lastIndex) Box(Modifier.fillMaxWidth().padding(start = 86.dp).height(0.5.dp).background(SonaraDivider.copy(0.1f)))
                         }

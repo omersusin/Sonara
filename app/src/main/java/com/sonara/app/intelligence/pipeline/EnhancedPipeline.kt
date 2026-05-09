@@ -123,20 +123,22 @@ class EnhancedPipeline(private val lastFmApiKey: String?) {
         // Layer 3: Lyrics insight
         var insight: LyricsInsightEngine.LyricsInsight? = null
         lyricsResult?.let { lyrics ->
-            insight = LyricsInsightEngine.analyze(lyrics.plainLyrics)
-            _lyricsInsight.value = insight
-            SonaraLogger.ai("Lyrics: tone=${insight?.tone} theme=${insight?.theme} polarity=${insight?.polarity}")
+            val analyzed = LyricsInsightEngine.analyze(lyrics.plainLyrics)
+            insight = analyzed
+            _lyricsInsight.value = analyzed
+            SonaraLogger.ai("Lyrics: tone=${analyzed.tone} theme=${analyzed.theme} polarity=${analyzed.polarity}")
         }
 
         // Merge all signals
         val prediction = SignalMerger.merge(lastFmSignal, localResult)
 
         // Add lyrics source if present
-        val finalPrediction = if (insight != null && (insight?.confidence ?: 0f) > 0.2f) {
+        val capturedInsight = insight
+        val finalPrediction = if (capturedInsight != null && capturedInsight.confidence > 0.2f) {
             val hasLyrics = true
             val sourceDisplay = PredictionSourceMapper.map(prediction, hasLyrics)
             prediction.copy(
-                reasoning = prediction.reasoning + "Lyrics: ${insight?.tone} (${insight?.theme})"
+                reasoning = prediction.reasoning + "Lyrics: ${capturedInsight.tone} (${capturedInsight.theme})"
             )
         } else prediction
 

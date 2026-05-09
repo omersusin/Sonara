@@ -277,13 +277,16 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
 
                 // Genre tags: parallel per artist
                 try {
-                    val topForGenre = topArtists.take(5)
+                    // Sample more artists and more tags per artist so the derivative
+                    // genre map has enough breadth to feed the AllGenresScreen even when
+                    // Last.fm's user.getTopTags endpoint is empty.
+                    val topForGenre = topArtists.take(20)
                     val genreMap = mutableMapOf<String, Int>()
                     topForGenre.map { (name, _, _) ->
                         async {
                             try {
                                 val tagsResp = LastFmClient.api.getArtistTags(name, apiKey)
-                                tagsResp.toptags?.tag?.take(3)?.forEach { tag ->
+                                tagsResp.toptags?.tag?.take(5)?.forEach { tag ->
                                     val tagName = tag.name.lowercase().replaceFirstChar { it.uppercase() }
                                     if (tagName.isNotBlank() && tagName.lowercase() != "seen live" && tagName.lowercase() != "favorites") {
                                         synchronized(genreMap) { genreMap[tagName] = (genreMap[tagName] ?: 0) + tag.count.coerceAtLeast(1) }
