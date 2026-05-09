@@ -11,12 +11,12 @@ import java.util.concurrent.TimeUnit
 
 /**
  * TheAudioDB API istemcisi.
- * Free tier: key = "2", 30 req/dk, kayıt gerekmez.
+ * Free tier: key = "123", 30 req/dk, kayıt gerekmez.
  * Kullanım: sanatçı görseli, albüm kapağı, tracklist, diskografi.
  */
 object TheAudioDbClient {
     private const val TAG = "TheAudioDb"
-    private const val BASE = "https://www.theaudiodb.com/api/v1/json/2"
+    private const val BASE = "https://www.theaudiodb.com/api/v1/json/123"
 
     private val http = OkHttpClient.Builder()
         .connectTimeout(6, TimeUnit.SECONDS)

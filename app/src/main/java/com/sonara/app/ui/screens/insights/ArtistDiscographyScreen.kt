@@ -72,7 +72,7 @@ fun ArtistDiscographyScreen(
                 // Tier 1: inline art embedded in the discography response (often absent)
                 val inline = album.strThumbHQ ?: album.strThumb
                 if (!inline.isNullOrBlank()) {
-                    artUrls[idx] = inline
+                    withContext(Dispatchers.Main) { artUrls[idx] = inline }
                     return@forEachIndexed
                 }
                 // Tier 2: TheAudioDB name-based search — unique per album, avoids stale IDs
@@ -80,15 +80,17 @@ fun ArtistDiscographyScreen(
                     val found = TheAudioDbClient.searchAlbum(artistName, album.strAlbum)
                     val url = found?.strThumbHQ ?: found?.strThumb
                     if (!url.isNullOrBlank()) {
-                        artUrls[idx] = url
-                        delay(400L)
+                        withContext(Dispatchers.Main) { artUrls[idx] = url }
+                        delay(2000L)
                         return@forEachIndexed
                     }
                 } catch (_: Exception) {}
                 // Tier 3: Deezer/iTunes — broader catalog coverage when TheAudioDB has gaps
                 try {
                     val url = DeezerImageResolver.getAlbumImageWithFallback(artistName, album.strAlbum)
-                    if (!url.isNullOrBlank()) artUrls[idx] = url
+                    if (!url.isNullOrBlank()) {
+                        withContext(Dispatchers.Main) { artUrls[idx] = url }
+                    }
                 } catch (_: Exception) {}
                 delay(250L)
             }

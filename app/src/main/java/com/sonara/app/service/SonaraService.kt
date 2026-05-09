@@ -8,13 +8,8 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.drawable.Icon
 import android.os.IBinder
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.AbsoluteSizeSpan
 import com.sonara.app.MainActivity
-import com.sonara.app.R
 import com.sonara.app.SonaraApp
 import com.sonara.app.ai.AiStatus
 import com.sonara.app.ai.SonaraAi
@@ -244,14 +239,11 @@ class SonaraService : Service() {
             .addRemoteInput(remoteInput)
             .build()
 
-        val heartIcon = Icon.createWithResource(this, if (isLoved) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
-        // Whitespace label keeps the action alive (an empty string makes Android drop it)
-        // while collapsing the visible text — the heart drawable is the only thing the
-        // user actually sees, matching Pano Scrobbler's icon-only love button.
-        val heartTitle = SpannableString(" ").apply {
-            setSpan(AbsoluteSizeSpan(0, true), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        }
-        val heartAction = Notification.Action.Builder(heartIcon, heartTitle, love).build()
+        // API 24+ standard notifications render action titles only (no icon), so the
+        // heart is rendered as a unicode glyph instead of a drawable — keeps it visible
+        // alongside the "Ask AI" and "Stop" text actions.
+        val heartTitle = if (isLoved) "♥" else "♡"
+        val heartAction = Notification.Action.Builder(null, heartTitle, love).build()
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play).setContentTitle(title).setContentText(sub)
             .setContentIntent(open).addAction(heartAction)
