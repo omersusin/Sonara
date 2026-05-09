@@ -54,6 +54,8 @@ import com.sonara.app.intelligence.theaudiodb.TheAudioDbClient
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.util.Locale
@@ -95,47 +97,47 @@ fun AlbumDetailScreen(
     LaunchedEffect(albumName, artistName) {
         withContext(Dispatchers.IO) {
             val apiKey = app.lastFmAuth.getActiveApiKey()
+            val username = if (apiKey.isNotBlank()) app.lastFmAuth.getConnectionInfo().username else ""
 
-            // ── Resolve artwork: Last.fm → TheAudioDB → Deezer ─────────────────
-            if (imageUrl.isPlaceholder()) {
-                imageUrl = tryResolveAlbumArt(albumName, artistName, apiKey)
-            }
-
-            // ── User play map (for cross-referencing) ────────────────────────────
+            // Stage 1: artwork, user-track map, and album.getInfo are independent — fan out.
             val userPlayMap = mutableMapOf<String, String>()
-            if (apiKey.isNotBlank()) {
-                val username = app.lastFmAuth.getConnectionInfo().username
-                if (username.isNotBlank()) {
-                    try {
-                        val topTracks = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 500)
-                        topTracks.toptracks?.track
-                            ?.filter { it.artist?.name.equals(artistName, ignoreCase = true) }
-                            ?.forEach { t -> userPlayMap[t.name.lowercase()] = t.playcount }
-                    } catch (_: Exception) {}
-                }
-            }
-
-            // ── Source 1: Last.fm album.getInfo ──────────────────────────────────
             var parsed: List<AlbumTrackItem> = emptyList()
-            if (apiKey.isNotBlank()) {
-                try {
-                    val info = LastFmClient.api.getAlbumInfo(artistName, albumName, apiKey)
-                    info.album?.let { album ->
-                        listeners = album.listeners
-                        if (album.playcount.isNotBlank()) totalPlays = album.playcount
-                        if (!album.imageUrl.isNullOrBlank() && !album.imageUrl!!.isPlaceholder()) {
-                            imageUrl = album.imageUrl!!
-                        }
-                        parsed = album.tracks?.track?.mapIndexed { idx, t ->
-                            AlbumTrackItem(
-                                rank = t.attr?.rank?.toIntOrNull() ?: (idx + 1),
-                                title = t.name,
-                                durationSec = t.duration.toIntOrNull() ?: 0,
-                                userPlays = userPlayMap[t.name.lowercase()] ?: ""
-                            )
-                        }?.sortedBy { it.rank } ?: emptyList()
+            coroutineScope {
+                val artworkD = async {
+                    if (imageUrl.isPlaceholder()) tryResolveAlbumArt(albumName, artistName, apiKey)
+                    else imageUrl
+                }
+                val userMapD = async {
+                    if (apiKey.isBlank() || username.isBlank()) emptyMap<String, String>()
+                    else runCatching {
+                        LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 500)
+                            .toptracks?.track
+                            ?.filter { it.artist?.name.equals(artistName, ignoreCase = true) }
+                            ?.associate { it.name.lowercase() to it.playcount } ?: emptyMap()
+                    }.getOrDefault(emptyMap())
+                }
+                val albumInfoD = async {
+                    if (apiKey.isBlank()) null
+                    else runCatching { LastFmClient.api.getAlbumInfo(artistName, albumName, apiKey) }.getOrNull()
+                }
+
+                imageUrl = artworkD.await()
+                userPlayMap.putAll(userMapD.await())
+                albumInfoD.await()?.album?.let { album ->
+                    listeners = album.listeners
+                    if (album.playcount.isNotBlank()) totalPlays = album.playcount
+                    if (!album.imageUrl.isNullOrBlank() && !album.imageUrl!!.isPlaceholder()) {
+                        imageUrl = album.imageUrl!!
                     }
-                } catch (_: Exception) {}
+                    parsed = album.tracks?.track?.mapIndexed { idx, t ->
+                        AlbumTrackItem(
+                            rank = t.attr?.rank?.toIntOrNull() ?: (idx + 1),
+                            title = t.name,
+                            durationSec = t.duration.toIntOrNull() ?: 0,
+                            userPlays = userPlayMap[t.name.lowercase()] ?: ""
+                        )
+                    }?.sortedBy { it.rank } ?: emptyList()
+                }
             }
 
             // ── Source 2: TheAudioDB fallback ─────────────────────────────────────

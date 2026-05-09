@@ -28,7 +28,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Cake
-import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Search
@@ -52,7 +51,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,13 +72,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sonara.app.ui.components.FluentCard
+import com.sonara.app.ui.icons.SonaraIcons
 import com.sonara.app.ui.theme.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.ui.graphics.nativeCanvas
 import java.text.NumberFormat
 import java.util.Locale
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun InsightsScreen(
     onArtistClick: (name: String, imageUrl: String) -> Unit = { _, _ -> },
@@ -99,7 +103,21 @@ fun InsightsScreen(
     val art by vm.albumArt.collectAsState()
     val p = MaterialTheme.colorScheme.primary
     val fmt = NumberFormat.getNumberInstance(Locale.getDefault())
+    var refreshing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = {
+            refreshing = true
+            scope.launch {
+                vm.refreshAll()
+                kotlinx.coroutines.delay(1500)
+                refreshing = false
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
         // Search icon row
@@ -583,7 +601,7 @@ fun InsightsScreen(
                     } else {
                         s.lovedTracks.take(5).forEach { t ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Rounded.Favorite, null, tint = Color(0xFFE57373), modifier = Modifier.size(16.dp))
+                                Icon(SonaraIcons.HeartFilled, null, tint = Color(0xFFE57373), modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(t.title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
@@ -718,6 +736,7 @@ fun InsightsScreen(
         }
 
         item { Spacer(Modifier.height(16.dp)) }
+    }
     }
 }
 

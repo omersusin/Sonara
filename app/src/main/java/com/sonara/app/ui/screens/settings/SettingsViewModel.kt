@@ -257,6 +257,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun completeLastFmBrowserLogin() {
+        viewModelScope.launch {
+            val ok = app.lastFmAuth.handleCallback(token = null)
+            if (ok) app.reloadPipeline()
+        }
+    }
+
     fun clearLastFmAuthError() { app.lastFmAuth.clearError() }
 
     fun disconnectLastFm() {

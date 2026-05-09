@@ -12,6 +12,7 @@ import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +30,8 @@ import com.sonara.app.intelligence.lastfm.LastFmTopArtist
 import com.sonara.app.intelligence.lastfm.LastFmTopTrack
 import com.sonara.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.util.Locale
@@ -53,24 +56,27 @@ fun FriendProfileScreen(
     var topTracks by remember { mutableStateOf<List<LastFmTopTrack>>(emptyList()) }
     var totalScrobbles by remember { mutableStateOf(playcount) }
     var loading by remember { mutableStateOf(true) }
+    var refreshTick by remember { mutableStateOf(0) }
 
-    LaunchedEffect(username) {
+    LaunchedEffect(username, refreshTick) {
         loading = true
         val apiKey = app.lastFmAuth.getActiveApiKey()
         if (apiKey.isNotBlank()) {
             withContext(Dispatchers.IO) {
-                try {
-                    val info = LastFmClient.api.getUserInfo(username, apiKey)
-                    totalScrobbles = info.user?.playcount ?: playcount
-                } catch (_: Exception) {}
-                try {
-                    val artists = LastFmClient.api.getUserTopArtists(username, apiKey, "overall", 10)
-                    topArtists = artists.topartists?.artist ?: emptyList()
-                } catch (_: Exception) {}
-                try {
-                    val tracks = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 10)
-                    topTracks = tracks.toptracks?.track ?: emptyList()
-                } catch (_: Exception) {}
+                coroutineScope {
+                    val infoD = async {
+                        try { LastFmClient.api.getUserInfo(username, apiKey).user?.playcount } catch (_: Exception) { null }
+                    }
+                    val artistsD = async {
+                        try { LastFmClient.api.getUserTopArtists(username, apiKey, "overall", 10).topartists?.artist ?: emptyList() } catch (_: Exception) { emptyList() }
+                    }
+                    val tracksD = async {
+                        try { LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 10).toptracks?.track ?: emptyList() } catch (_: Exception) { emptyList() }
+                    }
+                    totalScrobbles = infoD.await() ?: playcount
+                    topArtists = artistsD.await()
+                    topTracks = tracksD.await()
+                }
             }
         }
         loading = false
@@ -86,13 +92,18 @@ fun FriendProfileScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        if (loading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+        PullToRefreshBox(
+            isRefreshing = loading,
+            onRefresh = { refreshTick++ },
+            modifier = Modifier.fillMaxSize().padding(padding)
+        ) {
+        if (loading && topArtists.isEmpty() && topTracks.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = p)
             }
         } else {
             LazyColumn(
-                Modifier.fillMaxSize().padding(padding),
+                Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -172,6 +183,7 @@ fun FriendProfileScreen(
 
                 item { Spacer(Modifier.height(16.dp)) }
             }
+        }
         }
     }
 }

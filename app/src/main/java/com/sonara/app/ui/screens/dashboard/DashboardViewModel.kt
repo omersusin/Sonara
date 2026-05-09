@@ -137,6 +137,36 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     init {
 
+        // Periodic love-state refresh — picks up loves/unloves done in other clients
+        // (Pano Scrobbler, last.fm/loved, etc.) without requiring the track to change.
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(20_000)
+                val s = _uiState.value
+                if (s.title.isNotBlank() && s.artist.isNotBlank()) {
+                    val normArtist = TitleNormalizer.normalizeArtist(s.artist)
+                    val fresh = LoveStateCache.refresh(s.title, normArtist) ?: continue
+                    val cur = _uiState.value
+                    if (cur.title == s.title && cur.artist == s.artist && cur.isLoved != fresh) {
+                        _uiState.update { it.copy(isLoved = fresh) }
+                    }
+                }
+            }
+        }
+
+        // React immediately to writes from the notification toggle / Last.fm refresh /
+        // any other surface that touches LoveStateCache.
+        viewModelScope.launch {
+            LoveStateCache.updates.collect { (artistKey, titleKey, loved) ->
+                val cur = _uiState.value
+                if (cur.title.isBlank() || cur.artist.isBlank()) return@collect
+                val curArtistKey = TitleNormalizer.normalizeArtist(cur.artist).lowercase().trim()
+                val curTitleKey = cur.title.lowercase().trim()
+                if (curArtistKey == artistKey && curTitleKey == titleKey && cur.isLoved != loved) {
+                    _uiState.update { it.copy(isLoved = loved) }
+                }
+            }
+        }
 
         viewModelScope.launch { app.preferences.legacyAnalysisFlow.collect { v -> _uiState.update { it.copy(legacyAnalysis = v) } } }
         viewModelScope.launch { app.preferences.hearTheDiffEnabledFlow.collect { v -> _uiState.update { it.copy(hearTheDiffEnabled = v) } } }
@@ -153,8 +183,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             if (np.title.isNotBlank()) {
                 val normArtist = TitleNormalizer.normalizeArtist(np.artist)
                 val cached = LoveStateCache.isLoved(np.title, normArtist)
-                if (cached != null) _uiState.update { it.copy(isLoved = cached) }
-                else _uiState.update { it.copy(isLoved = false) }
+                _uiState.update { it.copy(isLoved = cached ?: false) }
+                // Refresh from Last.fm so externally-loved tracks (Pano Scrobbler, web, etc.) catch up.
+                viewModelScope.launch {
+                    val fresh = LoveStateCache.refresh(np.title, normArtist) ?: return@launch
+                    val cur = _uiState.value
+                    if (cur.title == np.title && cur.artist == np.artist && cur.isLoved != fresh) {
+                        _uiState.update { it.copy(isLoved = fresh) }
+                    }
+                }
             }
         } }
         viewModelScope.launch { SonaraNotificationListener.currentGenre.collect { g -> if (g.isNotBlank()) _uiState.update { it.copy(genre = DisplayLabelMapper.formatGenre(g)) } } }

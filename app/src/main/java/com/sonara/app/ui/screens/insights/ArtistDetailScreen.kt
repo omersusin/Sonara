@@ -1,6 +1,5 @@
 package com.sonara.app.ui.screens.insights
 
-import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,9 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -41,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -54,7 +51,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -82,29 +78,13 @@ import com.sonara.app.ui.components.ArtistAvatarCircle
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.components.MultiArtistAvatarRow
 import com.sonara.app.ui.theme.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.util.Locale
-
-@Composable
-private fun BlurredArtBackground(imageUrl: String?, blurRadius: Dp = 24.dp) {
-    if (imageUrl.isNullOrBlank()) return
-    val ctx = LocalContext.current
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        AsyncImage(
-            model = ImageRequest.Builder(ctx).data(imageUrl).crossfade(true).build(),
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { alpha = 0.99f }
-                .blur(blurRadius),
-            contentScale = ContentScale.Crop,
-            alpha = 0.35f
-        )
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -150,73 +130,96 @@ fun ArtistDetailScreen(
     var upcomingEvents by remember { mutableStateOf<List<BandsintownEvent>>(emptyList()) }
     var similarArtists by remember { mutableStateOf<List<LastFmSimilarArtist>>(emptyList()) }
     var mbUrls by remember { mutableStateOf<MusicBrainzClient.MbArtistUrls?>(null) }
+    var refreshTick by remember { mutableStateOf(0) }
     // Keyed by index so duplicate album names don't share/overwrite each other's art
     val discographyArtUrls = remember { mutableStateMapOf<Int, String>() }
 
-    LaunchedEffect(artistName) {
+    LaunchedEffect(artistName, refreshTick) {
+        if (refreshTick > 0) {
+            loading = true
+            discographyArtUrls.clear()
+        }
         withContext(Dispatchers.IO) {
-            detail = DeezerImageResolver.getArtistDetail(artistName)
-            deezerTopTracks = detail?.topTracks ?: emptyList<DeezerImageResolver.TrackItem>()
-
-            try { audioDbArtist = TheAudioDbClient.searchArtist(artistName) } catch (_: Exception) {}
-            try { mbUrls = MusicBrainzClient.searchArtistUrls(artistName) } catch (_: Exception) {}
-            try { upcomingEvents = BandsintownClient.getUpcomingEvents(artistName) } catch (_: Exception) {}
-            try {
-                discography = TheAudioDbClient.getDiscography(artistName)
-                    .sortedByDescending { it.intYearReleased ?: 0 }
-            } catch (_: Exception) {}
-
             val apiKey = app.lastFmAuth.getActiveApiKey()
             val username = app.lastFmAuth.getConnectionInfo().username
-            if (apiKey.isNotBlank()) {
-                try {
-                    val info = LastFmClient.api.getArtistInfo(artistName, apiKey, username)
-                    info.artist?.let { a ->
-                        artistListeners = a.stats?.listeners ?: ""
-                        globalPlayCount = a.stats?.playcount ?: ""
-                        val raw = a.bio?.content?.takeIf { it.isNotBlank() } ?: a.bio?.summary ?: ""
-                        artistBio = raw.substringBefore("<a href=\"https://www.last.fm").trim()
-                    }
-                } catch (_: Exception) {}
-                try {
-                    artistTags = LastFmClient.api.getArtistTags(artistName, apiKey)
-                        .toptags?.tag?.take(10)?.map { it.name }?.filter { it.isNotBlank() } ?: emptyList()
-                } catch (_: Exception) {}
-                try {
-                    val sim = LastFmClient.api.getSimilarArtists(artistName, apiKey, 8)
-                    val raw = sim.similarartists?.artist ?: emptyList()
-                    val enriched = raw.map { a ->
-                        val img = a.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") }
-                            ?: DeezerImageResolver.getArtistImageWithFallback(a.name) ?: ""
-                        a.copy(image = if (img.isNotBlank()) listOf(
-                            com.sonara.app.intelligence.lastfm.LastFmImage(img, "large")
-                        ) else a.image)
-                    }
-                    similarArtists = enriched
-                } catch (_: Exception) {}
-                if (username.isNotBlank()) {
-                    try {
-                        val top = LastFmClient.api.getUserTopArtists(username, apiKey, "overall", 50)
-                        userPlayCount = top.topartists?.artist
-                            ?.find { it.name.equals(artistName, ignoreCase = true) }?.playcount ?: ""
-                    } catch (_: Exception) {}
+
+            coroutineScope {
+                // Independent network calls — fire all in parallel and await as they finish.
+                val deezerD = async { runCatching { DeezerImageResolver.getArtistDetail(artistName) }.getOrNull() }
+                val audioDbD = async { runCatching { TheAudioDbClient.searchArtist(artistName) }.getOrNull() }
+                val mbD = async { runCatching { MusicBrainzClient.searchArtistUrls(artistName) }.getOrNull() }
+                val eventsD = async { runCatching { BandsintownClient.getUpcomingEvents(artistName) }.getOrDefault(emptyList()) }
+                val discographyD = async {
+                    runCatching {
+                        TheAudioDbClient.getDiscography(artistName)
+                            .sortedByDescending { it.intYearReleased ?: 0 }
+                    }.getOrDefault(emptyList())
                 }
-            }
+                val platformsD = async { runCatching { OdesliHelper.getArtistLinks(artistName) }.getOrDefault(emptyList()) }
 
-            if (username.isNotBlank() && apiKey.isNotBlank()) {
-                try {
-                    val topTr = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 200)
-                    userTopTracks = topTr.toptracks?.track
-                        ?.filter { it.artist?.name.equals(artistName, ignoreCase = true) }
-                        ?.take(15)
-                        ?.map { t ->
-                            val img = t.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") } ?: ""
-                            Triple(t.name, t.playcount, img)
-                        } ?: emptyList()
-                } catch (_: Exception) {}
-            }
+                val artistInfoD = async {
+                    if (apiKey.isBlank()) null
+                    else runCatching { LastFmClient.api.getArtistInfo(artistName, apiKey, username) }.getOrNull()
+                }
+                val tagsD = async {
+                    if (apiKey.isBlank()) emptyList()
+                    else runCatching {
+                        LastFmClient.api.getArtistTags(artistName, apiKey)
+                            .toptags?.tag?.take(10)?.map { it.name }?.filter { it.isNotBlank() } ?: emptyList()
+                    }.getOrDefault(emptyList())
+                }
+                val similarRawD = async {
+                    if (apiKey.isBlank()) emptyList()
+                    else runCatching {
+                        LastFmClient.api.getSimilarArtists(artistName, apiKey, 8)
+                            .similarartists?.artist ?: emptyList()
+                    }.getOrDefault(emptyList())
+                }
+                val userTopArtistsD = async {
+                    if (apiKey.isBlank() || username.isBlank()) null
+                    else runCatching { LastFmClient.api.getUserTopArtists(username, apiKey, "overall", 50) }.getOrNull()
+                }
+                val userTopTracksD = async {
+                    if (apiKey.isBlank() || username.isBlank()) null
+                    else runCatching { LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 200) }.getOrNull()
+                }
 
-            try { platformLinks = OdesliHelper.getArtistLinks(artistName) } catch (_: Exception) {}
+                detail = deezerD.await()
+                deezerTopTracks = detail?.topTracks ?: emptyList()
+                audioDbArtist = audioDbD.await()
+                mbUrls = mbD.await()
+                upcomingEvents = eventsD.await()
+                discography = discographyD.await()
+                platformLinks = platformsD.await()
+
+                artistInfoD.await()?.artist?.let { a ->
+                    artistListeners = a.stats?.listeners ?: ""
+                    globalPlayCount = a.stats?.playcount ?: ""
+                    val raw = a.bio?.content?.takeIf { it.isNotBlank() } ?: a.bio?.summary ?: ""
+                    artistBio = raw.substringBefore("<a href=\"https://www.last.fm").trim()
+                }
+                artistTags = tagsD.await()
+
+                val raw = similarRawD.await()
+                similarArtists = raw.map { a ->
+                    val img = a.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") }
+                        ?: DeezerImageResolver.getArtistImageWithFallback(a.name) ?: ""
+                    a.copy(image = if (img.isNotBlank()) listOf(
+                        com.sonara.app.intelligence.lastfm.LastFmImage(img, "large")
+                    ) else a.image)
+                }
+
+                userPlayCount = userTopArtistsD.await()?.topartists?.artist
+                    ?.find { it.name.equals(artistName, ignoreCase = true) }?.playcount ?: ""
+
+                userTopTracks = userTopTracksD.await()?.toptracks?.track
+                    ?.filter { it.artist?.name.equals(artistName, ignoreCase = true) }
+                    ?.take(15)
+                    ?.map { t ->
+                        val img = t.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") } ?: ""
+                        Triple(t.name, t.playcount, img)
+                    } ?: emptyList()
+            }
             loading = false
         }
     }
@@ -237,39 +240,49 @@ fun ArtistDetailScreen(
                     discographyArtUrls[idx] = inline
                     continue
                 }
-                // Tier 2: name-based search — unique query per album, avoids stale IDs
+                // Tier 2: TheAudioDB name-based search — unique per album, avoids stale IDs
                 try {
                     val found = TheAudioDbClient.searchAlbum(artistName, album.strAlbum)
                     val url = found?.strThumbHQ ?: found?.strThumb
+                    if (!url.isNullOrBlank()) {
+                        discographyArtUrls[idx] = url
+                        delay(350L)
+                        continue
+                    }
+                } catch (_: Exception) {}
+                // Tier 3: Deezer/iTunes fallback for catalogs TheAudioDB doesn't cover
+                try {
+                    val url = DeezerImageResolver.getAlbumImageWithFallback(artistName, album.strAlbum)
                     if (!url.isNullOrBlank()) discographyArtUrls[idx] = url
                 } catch (_: Exception) {}
-                delay(350L)
+                delay(200L)
             }
         }
     }
 
-    val artImageUrl = audioDbArtist?.strThumb?.takeIf { it.isNotBlank() } ?: detail?.imageUrl
-
-    Box(Modifier.fillMaxSize()) {
-        BlurredArtBackground(artImageUrl)
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(artistName) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") } },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
-        containerColor = Color.Transparent
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        if (loading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+        PullToRefreshBox(
+            isRefreshing = loading,
+            onRefresh = { refreshTick++ },
+            modifier = Modifier.fillMaxSize().padding(padding)
+        ) {
+        if (loading && detail == null && audioDbArtist == null) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = p)
             }
         } else {
             val d = detail
             LazyColumn(
-                Modifier.fillMaxSize().padding(padding),
+                Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -300,7 +313,7 @@ fun ArtistDetailScreen(
                                     val adb = audioDbArtist
                                     val meta = listOfNotNull(
                                         adb?.strCountry?.takeIf { it.isNotBlank() },
-                                        adb?.intFormedYear?.let { "est. $it" }
+                                        adb?.intFormedYear?.takeIf { it.isNotBlank() && it != "0" }?.let { "est. $it" }
                                     ).joinToString(" · ")
                                     if (meta.isNotBlank()) {
                                         Text(meta, style = MaterialTheme.typography.labelSmall, color = SonaraTextTertiary)
@@ -313,8 +326,10 @@ fun ArtistDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                val imageUrl = audioDbArtist?.strThumb?.takeIf { it.isNotBlank() }
-                                    ?: d?.imageUrl?.takeIf { it.isNotBlank() }
+                                // Prefer the cached Deezer image so the same artist looks the
+                                // same on every screen and across sessions; AudioDB is fallback.
+                                val imageUrl = d?.imageUrl?.takeIf { it.isNotBlank() }
+                                    ?: audioDbArtist?.strThumb?.takeIf { it.isNotBlank() }
                                 if (!imageUrl.isNullOrBlank()) {
                                     AsyncImage(
                                         model = ImageRequest.Builder(ctx).data(imageUrl).crossfade(true).build(),
@@ -334,7 +349,7 @@ fun ArtistDetailScreen(
                                     val adb = audioDbArtist
                                     val meta = listOfNotNull(
                                         adb?.strCountry?.takeIf { it.isNotBlank() },
-                                        adb?.intFormedYear?.let { "est. $it" }
+                                        adb?.intFormedYear?.takeIf { it.isNotBlank() && it != "0" }?.let { "est. $it" }
                                     ).joinToString(" · ")
                                     if (meta.isNotBlank()) {
                                         Spacer(Modifier.height(2.dp))
@@ -681,8 +696,8 @@ fun ArtistDetailScreen(
                 item { Spacer(Modifier.height(16.dp)) }
             }
         }
+        }
     }
-    } // end Box
 }
 
 @Composable

@@ -4,7 +4,6 @@ package com.sonara.app.ui.screens.settings
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
@@ -484,121 +483,6 @@ internal fun LastFmCard(state: SettingsUiState, vm: SettingsViewModel, ctx: Cont
                     border = BorderStroke(1.dp, p),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = p)
                 ) { Text("Log In") }
-
-                // --- API Key guide + inputs ---
-                var showApiGuide by remember { mutableStateOf(false) }
-                if (showApiGuide) {
-                    AlertDialog(
-                        onDismissRequest = { showApiGuide = false },
-                        containerColor = SonaraCard,
-                        title = { Text("How to get Last.fm API Key") },
-                        text = {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    "1. Open last.fm/api/account/create",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = SonaraTextPrimary
-                                )
-                                Text(
-                                    "2. Application Name: Sonara",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = SonaraTextPrimary
-                                )
-                                Text(
-                                    "3. Leave Callback URL empty",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = SonaraTextPrimary
-                                )
-                                Text(
-                                    "4. Click Submit",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = SonaraTextPrimary
-                                )
-                                Text(
-                                    "5. Copy API Key and Shared Secret",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = SonaraTextPrimary
-                                )
-                                Text(
-                                    "6. Paste them below and tap Save Keys",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = SonaraTextPrimary
-                                )
-                            }
-                        },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                showApiGuide = false
-                                ctx.startActivity(
-                                    Intent(
-                                        Intent.ACTION_VIEW,
-                                        Uri.parse("https://www.last.fm/api/account/create")
-                                    )
-                                )
-                            }) { Text("Open Last.fm") }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = {
-                                showApiGuide = false
-                            }) { Text("Close") }
-                        }
-                    )
-                }
-                if (!state.lastFmConnected) {
-                    TextButton(onClick = { showApiGuide = true }) {
-                        Text(
-                            "How to get API keys?",
-                            color = p,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
-
-                    OutlinedTextField(
-                        value = state.apiKeyInput,
-                        onValueChange = { vm.updateApiKeyInput(it) },
-                        label = { Text(if (state.isApiKeySet) "API Key ✓ Saved" else "API Key") },
-                        placeholder = {
-                            Text(
-                                if (state.isApiKeySet) "••••••••" else "Enter API Key",
-                                color = SonaraTextTertiary
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        colors = tfColors()
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = state.sharedSecretInput,
-                        onValueChange = { vm.updateSharedSecretInput(it) },
-                        label = { Text(if (state.isSharedSecretSet) "Shared Secret ✓ Saved" else "Shared Secret") },
-                        placeholder = {
-                            Text(
-                                if (state.isSharedSecretSet) "••••••••" else "Enter Secret",
-                                color = SonaraTextTertiary
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        colors = tfColors()
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    OutlinedButton(
-                        onClick = { vm.saveApiKey(); vm.saveSharedSecret() },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = state.apiKeyInput.isNotBlank() && state.sharedSecretInput.isNotBlank()
-                    ) {
-                        Text("Save Keys")
-                    }
-                }
-
             }
         }
     }

@@ -310,6 +310,15 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    /** Pull-to-refresh entry point: re-fetches stats, recent tracks, friends, etc. */
+    fun refreshAll() {
+        val username = _uiState.value.lastFmUsername
+        if (username.isBlank()) return
+        fetchLastFmStats(username)
+        loadTopGenres()
+        loadFriends()
+    }
+
     fun refreshAllRecentTracks() {
         val u = _uiState.value.lastFmUsername
         val k = app.lastFmAuth.getActiveApiKey()

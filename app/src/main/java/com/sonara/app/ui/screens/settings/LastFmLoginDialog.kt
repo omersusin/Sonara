@@ -150,6 +150,26 @@ fun LastFmLoginDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
                                                     if (handleCallbackUrl(url)) return
                                                     super.onPageStarted(view, url, favicon)
                                                 }
+
+                                                // When Last.fm doesn't honor the custom-scheme callback,
+                                                // it lands on its own "Application authenticated" page.
+                                                // Detect that and complete the flow with the stored token.
+                                                override fun onPageFinished(view: WebView, url: String) {
+                                                    super.onPageFinished(view, url)
+                                                    if (url.contains("/api/auth", ignoreCase = true)) {
+                                                        view.evaluateJavascript(
+                                                            "(function(){return (document.title||'')+'|'+((document.body&&document.body.innerText)||'').slice(0,400);})();"
+                                                        ) { result ->
+                                                            val text = result?.lowercase() ?: ""
+                                                            if (text.contains("application authenticated") ||
+                                                                text.contains("granted permission")) {
+                                                                vm.handleLastFmWebViewCallback("")
+                                                                showWebView = false
+                                                                callbackReceived = true
+                                                            }
+                                                        }
+                                                    }
+                                                }
                                             }
                                             loadUrl(currentAuthUrl)
                                         }
@@ -162,6 +182,17 @@ fun LastFmLoginDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
                         }
 
                         Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                vm.completeLastFmBrowserLogin()
+                                showWebView = false
+                                callbackReceived = true
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("I've authorized — Complete login")
+                        }
+                        Spacer(Modifier.height(4.dp))
                         TextButton(
                             onClick = { showWebView = false },
                             modifier = Modifier.fillMaxWidth()

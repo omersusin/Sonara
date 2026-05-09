@@ -1,5 +1,7 @@
 package com.sonara.app.intelligence.deezer
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,11 +14,31 @@ import java.util.concurrent.ConcurrentHashMap
 object DeezerImageResolver {
     private const val TAG = "DeezerImg"
     private const val BASE = "https://api.deezer.com"
+    private const val PREFS = "sonara_image_cache"
     private val cache = ConcurrentHashMap<String, String>()
+    @Volatile private var prefs: SharedPreferences? = null
+
+    /** Call once at app startup so resolved URLs survive process restarts. */
+    fun init(context: Context) {
+        if (prefs != null) return
+        val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs = p
+        // Hydrate the in-memory cache from disk
+        for ((k, v) in p.all) {
+            if (v is String && v.isNotBlank()) cache[k] = v
+        }
+    }
+
+    private fun put(key: String, value: String) {
+        if (value.isBlank()) return
+        cache[key] = value
+        prefs?.edit()?.putString(key, value)?.apply()
+    }
 
     suspend fun getArtistImage(name: String): String? = withContext(Dispatchers.IO) {
         if (name.isBlank()) return@withContext null
-        cache[name.lowercase()]?.let { return@withContext it }
+        val key = "artist::${name.lowercase()}"
+        cache[key]?.let { return@withContext it }
         try {
             val q = URLEncoder.encode(name, "UTF-8")
             val conn = URL("$BASE/search/artist?q=$q&limit=1").openConnection() as HttpURLConnection
@@ -25,8 +47,9 @@ object DeezerImageResolver {
             val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
             val data = JSONObject(json).optJSONArray("data")
             if (data != null && data.length() > 0) {
-                val img = data.getJSONObject(0).optString("picture_medium", "")
-                if (img.isNotBlank()) { cache[name.lowercase()] = img; return@withContext img }
+                val img = data.getJSONObject(0).optString("picture_big", "")
+                    .ifBlank { data.getJSONObject(0).optString("picture_medium", "") }
+                if (img.isNotBlank()) { put(key, img); return@withContext img }
             }
             null
         } catch (e: Exception) { Log.w(TAG, "${e.message}"); null }
@@ -42,8 +65,10 @@ object DeezerImageResolver {
             val data = JSONObject(json).optJSONArray("data")
             if (data != null && data.length() > 0) {
                 val a = data.getJSONObject(0); val id = a.optInt("id", 0)
+                val img = a.optString("picture_big", "").ifBlank { a.optString("picture_medium", "") }
+                if (img.isNotBlank()) put("artist::${name.lowercase()}", img)
                 val d = ArtistDetail(name = a.optString("name", name),
-                    imageUrl = a.optString("picture_big", "").ifBlank { a.optString("picture_medium", "") },
+                    imageUrl = img,
                     fans = a.optInt("nb_fan", 0), albums = a.optInt("nb_album", 0), topTracks = emptyList())
                 if (id > 0) {
                     try {
@@ -73,7 +98,7 @@ object DeezerImageResolver {
     data class TrackItem(val title: String, val durationSec: Int, val rank: Int, val albumArt: String? = null)
 
     suspend fun getTrackImage(title: String, artist: String): String? = withContext(Dispatchers.IO) {
-        val key = "${artist.lowercase()}::${title.lowercase()}"
+        val key = "track::${artist.lowercase()}::${title.lowercase()}"
         cache[key]?.let { return@withContext it }
         try {
             val q = URLEncoder.encode("$artist $title", "UTF-8")
@@ -84,11 +109,43 @@ object DeezerImageResolver {
             val data = JSONObject(json).optJSONArray("data")
             if (data != null && data.length() > 0) {
                 val album = data.getJSONObject(0).optJSONObject("album")
-                val img = album?.optString("cover_medium", "") ?: ""
-                if (img.isNotBlank()) { cache[key] = img; return@withContext img }
+                val img = album?.optString("cover_big", "")?.ifBlank { album.optString("cover_medium", "") } ?: ""
+                if (img.isNotBlank()) { put(key, img); return@withContext img }
             }
             null
         } catch (e: Exception) { Log.w(TAG, "${e.message}"); null }
+    }
+
+    /** Album artwork via Deezer's album search — much higher hit rate than TheAudioDB for non-mainstream catalogs. */
+    suspend fun getAlbumImage(artist: String, album: String): String? = withContext(Dispatchers.IO) {
+        if (artist.isBlank() || album.isBlank()) return@withContext null
+        val key = "album::${artist.lowercase()}::${album.lowercase()}"
+        cache[key]?.let { return@withContext it }
+        // Plain text search hits more cases than the structured artist:"X" album:"Y" form,
+        // which Deezer rejects often when names contain quotes/punctuation. Try structured
+        // first for accuracy, then plain text as a fallback.
+        for (query in listOf("artist:\"$artist\" album:\"$album\"", "$artist $album")) {
+            try {
+                val q = URLEncoder.encode(query, "UTF-8")
+                val conn = URL("$BASE/search/album?q=$q&limit=5").openConnection() as HttpURLConnection
+                conn.connectTimeout = 5000; conn.readTimeout = 5000
+                if (conn.responseCode != 200) { conn.disconnect(); continue }
+                val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
+                val data = JSONObject(json).optJSONArray("data") ?: continue
+                if (data.length() == 0) continue
+                // Pick the first hit whose artist matches; otherwise fall back to top result.
+                var picked: JSONObject? = null
+                for (i in 0 until data.length()) {
+                    val obj = data.getJSONObject(i)
+                    val artistName = obj.optJSONObject("artist")?.optString("name", "") ?: ""
+                    if (artistName.equals(artist, ignoreCase = true)) { picked = obj; break }
+                }
+                val obj = picked ?: data.getJSONObject(0)
+                val img = obj.optString("cover_big", "").ifBlank { obj.optString("cover_medium", "") }
+                if (img.isNotBlank()) { put(key, img); return@withContext img }
+            } catch (e: Exception) { Log.w(TAG, "Album lookup: ${e.message}") }
+        }
+        null
     }
 
 
@@ -111,6 +168,15 @@ object DeezerImageResolver {
 
     suspend fun getTrackImageWithFallback(title: String, artist: String): String? {
         return getTrackImage(title, artist) ?: getItunesArtwork("$artist $title")
+    }
+
+    suspend fun getAlbumImageWithFallback(artist: String, album: String): String? {
+        val key = "album::${artist.lowercase()}::${album.lowercase()}"
+        cache[key]?.let { return it }
+        getAlbumImage(artist, album)?.let { return it }
+        val it2 = getItunesArtwork("$artist $album")
+        if (it2 != null) put(key, it2)
+        return it2
     }
 
     /**
@@ -136,7 +202,12 @@ object DeezerImageResolver {
     }
 
     suspend fun getArtistImageWithFallback(name: String): String? {
-        return getArtistImage(name) ?: getItunesArtwork(name)
+        val key = "artist::${name.lowercase()}"
+        cache[key]?.let { return it }
+        getArtistImage(name)?.let { return it }
+        val it2 = getItunesArtwork(name)
+        if (it2 != null) put(key, it2)
+        return it2
     }
 
 }

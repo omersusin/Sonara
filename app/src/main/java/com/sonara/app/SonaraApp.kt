@@ -94,6 +94,7 @@ class SonaraApp : Application() {
         SonaraLogger.init(this)
         LoveStateCache.init(this)
         PendingLoveQueue.init(this)
+        com.sonara.app.intelligence.deezer.DeezerImageResolver.init(this)
         preferences = SonaraPreferences(this)
         secureSecrets = SecureSecrets(this)
         database = SonaraDatabase.get(this)

@@ -63,6 +63,9 @@ import com.sonara.app.service.SonaraNotificationListener
 import com.sonara.app.ui.components.FluentCard
 import com.sonara.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.util.Locale
@@ -101,61 +104,74 @@ fun TrackDetailScreen(
 
     LaunchedEffect(trackTitle, trackArtist) {
         withContext(Dispatchers.IO) {
-            // Resolve artwork — try Last.fm first (accurate album attribution), fall back to Deezer
-            artworkUrl = DeezerImageResolver.resolveTrackArtwork(trackTitle, trackArtist, app.lastFmAuth.getActiveApiKey())
-                ?.replace("cover_medium", "cover_big")?.replace("100x100bb", "600x600bb") ?: ""
-
             val apiKey = app.lastFmAuth.getActiveApiKey()
-            if (apiKey.isNotBlank()) {
-                try {
-                    val info = LastFmClient.api.getTrackInfo(trackTitle, trackArtist, apiKey)
-                    info.track?.let { t ->
-                        listeners = t.listeners ?: ""
-                        globalPlaycount = t.playcount ?: ""
-                        durationMs = t.duration?.toLongOrNull() ?: 0L
-                        albumName = t.album?.title ?: ""
-                        if (artworkUrl.isBlank()) {
-                            artworkUrl = t.album?.imageUrl ?: ""
-                        }
-                        val trackTags = t.toptags?.tag?.map { it.name }?.filter { it.isNotBlank() } ?: emptyList()
-                        if (trackTags.isNotEmpty()) tags = trackTags.take(8)
-                    }
-                } catch (_: Exception) {}
+            val username = app.lastFmAuth.getConnectionInfo().username
 
-                if (tags.isEmpty()) {
-                    try {
-                        tags = LastFmClient.api.getArtistTags(trackArtist, apiKey)
+            coroutineScope {
+                // Independent calls — fire all in parallel.
+                val artworkD = async {
+                    DeezerImageResolver.resolveTrackArtwork(trackTitle, trackArtist, apiKey)
+                        ?.replace("cover_medium", "cover_big")
+                        ?.replace("100x100bb", "600x600bb") ?: ""
+                }
+                val infoD = async {
+                    if (apiKey.isBlank()) null
+                    else runCatching { LastFmClient.api.getTrackInfo(trackTitle, trackArtist, apiKey) }.getOrNull()
+                }
+                val artistTagsD = async {
+                    if (apiKey.isBlank()) emptyList()
+                    else runCatching {
+                        LastFmClient.api.getArtistTags(trackArtist, apiKey)
                             .toptags?.tag?.take(8)?.map { it.name }?.filter { it.isNotBlank() } ?: emptyList()
-                    } catch (_: Exception) {}
+                    }.getOrDefault(emptyList())
+                }
+                val similarRawD = async {
+                    if (apiKey.isBlank()) emptyList()
+                    else runCatching {
+                        LastFmClient.api.getSimilarTracks(trackTitle, trackArtist, apiKey, 8)
+                            .similartracks?.track ?: emptyList()
+                    }.getOrDefault(emptyList())
+                }
+                val userTopD = async {
+                    if (apiKey.isBlank() || username.isBlank()) null
+                    else runCatching { LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 200) }.getOrNull()
+                }
+                val platformsD = async {
+                    runCatching { OdesliHelper.getLinks(trackTitle, trackArtist) }.getOrDefault(emptyList())
                 }
 
-                try {
-                    val sim = LastFmClient.api.getSimilarTracks(trackTitle, trackArtist, apiKey, 8)
-                    val raw = sim.similartracks?.track ?: emptyList()
-                    // Enrich images
-                    val enriched = raw.map { t ->
+                artworkUrl = artworkD.await()
+
+                infoD.await()?.track?.let { t ->
+                    listeners = t.listeners ?: ""
+                    globalPlaycount = t.playcount ?: ""
+                    durationMs = t.duration?.toLongOrNull() ?: 0L
+                    albumName = t.album?.title ?: ""
+                    if (artworkUrl.isBlank()) artworkUrl = t.album?.imageUrl ?: ""
+                    val trackTags = t.toptags?.tag?.map { it.name }?.filter { it.isNotBlank() } ?: emptyList()
+                    if (trackTags.isNotEmpty()) tags = trackTags.take(8)
+                }
+                if (tags.isEmpty()) tags = artistTagsD.await()
+
+                // Enrich similar-track images in parallel rather than sequentially.
+                val raw = similarRawD.await()
+                similarTracks = raw.map { t ->
+                    async {
                         val img = t.imageUrl?.takeIf { !it.contains("2a96cbd8b46e") }
                             ?: DeezerImageResolver.getTrackImageWithFallback(t.name, t.artist?.name ?: "") ?: ""
                         t.copy(image = if (img.isNotBlank()) listOf(
                             com.sonara.app.intelligence.lastfm.LastFmImage(img, "large")
                         ) else t.image)
                     }
-                    similarTracks = enriched
-                } catch (_: Exception) {}
+                }.awaitAll()
 
-                val username = app.lastFmAuth.getConnectionInfo().username
-                if (username.isNotBlank()) {
-                    try {
-                        val topTracks = LastFmClient.api.getUserTopTracks(username, apiKey, "overall", 200)
-                        userPlaycount = topTracks.toptracks?.track?.find {
-                            it.name.equals(trackTitle, ignoreCase = true) &&
-                                it.artist?.name.equals(trackArtist, ignoreCase = true)
-                        }?.playcount ?: ""
-                    } catch (_: Exception) {}
-                }
+                userPlaycount = userTopD.await()?.toptracks?.track?.find {
+                    it.name.equals(trackTitle, ignoreCase = true) &&
+                        it.artist?.name.equals(trackArtist, ignoreCase = true)
+                }?.playcount ?: ""
+
+                platformLinks = platformsD.await()
             }
-
-            try { platformLinks = OdesliHelper.getLinks(trackTitle, trackArtist) } catch (_: Exception) {}
             loading = false
         }
     }
