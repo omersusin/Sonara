@@ -258,6 +258,10 @@ class SonaraService : Service() {
             .addAction(requestAction)
             .addAction(Notification.Action.Builder(null, "Stop", stop).build())
             .setOngoing(isPlaying).setShowWhen(false)
+            .setStyle(
+                Notification.MediaStyle()
+                    .setShowActionsInCompactView(0)
+            )
         if (art != null && !art.isRecycled) { try { builder.setLargeIcon(art) } catch (_: Exception) {} }
         return builder.build()
     }
