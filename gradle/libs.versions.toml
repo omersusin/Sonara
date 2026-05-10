@@ -4,6 +4,7 @@ kotlin = "2.3.21"
 ksp = "2.3.6"
 composeBom = "2026.05.00"
 coreKtx = "1.18.0"
+appcompat = "1.7.1"
 activityCompose = "1.13.0"
 lifecycle = "2.10.0"
 navigation = "2.9.8"
@@ -15,6 +16,8 @@ coroutines = "1.10.2"
 workmanager = "2.11.2"
 gson = "2.14.0"
 coil = "2.7.0"
+material = "1.13.0"
+material3 = "1.5.0-alpha19"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -23,13 +26,14 @@ androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-ru
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }
 androidx-datastore = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
 compose-ui = { module = "androidx.compose.ui:ui" }
 compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
-compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-material3 = { module = "androidx.compose.material3:material3" , version.ref = "material3"}
 compose-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
@@ -45,6 +49,8 @@ kotlinx-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-androi
 workmanager-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "workmanager" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 compose-google-fonts = { module = "androidx.compose.ui:ui-text-google-fonts" }
+
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

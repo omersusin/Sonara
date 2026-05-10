@@ -10,12 +10,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import com.sonara.app.data.SonaraLogger
+import androidx.lifecycle.lifecycleScope
 import com.sonara.app.intelligence.lastfm.LastFmAuthManager
 import com.sonara.app.service.SonaraService
+import com.sonara.app.ui.common.CompositionLocals
+import com.sonara.app.ui.common.LocalSeedColor
+import com.sonara.app.ui.domain.provider.SeedColorProvider
 import com.sonara.app.ui.navigation.SonaraNavigation
 import com.sonara.app.ui.theme.SonaraTheme
-import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -32,8 +34,12 @@ class MainActivity : ComponentActivity() {
         handleLastFmDeepLink(intent)
 
         setContent {
-            SonaraTheme {
-                SonaraNavigation()
+            CompositionLocals {
+                SeedColorProvider.setSeedColor(LocalSeedColor.current)
+
+                SonaraTheme {
+                    SonaraNavigation()
+                }
             }
         }
     }
@@ -45,7 +51,8 @@ class MainActivity : ComponentActivity() {
         app.lastFmAuth.ensureConnectedState()
         val authState = app.lastFmAuth.authState.value
         if (authState == LastFmAuthManager.AuthState.AUTHENTICATING ||
-            authState == LastFmAuthManager.AuthState.DISCONNECTED) {
+            authState == LastFmAuthManager.AuthState.DISCONNECTED
+        ) {
             lifecycleScope.launch {
                 if (app.lastFmAuth.hasPendingAuth()) {
                     val success = app.lastFmAuth.handleCallback()
@@ -73,8 +80,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun ensureNotificationPermission() {
-        if (Build.VERSION.SDK_INT < 33) { SonaraService.start(this); return }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
+        if (Build.VERSION.SDK_INT < 33) {
+            SonaraService.start(this); return
+        }
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        )
             SonaraService.start(this)
         else notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
