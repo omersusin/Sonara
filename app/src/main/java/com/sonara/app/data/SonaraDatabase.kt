@@ -6,20 +6,20 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.sonara.app.ai.models.TrainingExample
+import com.sonara.app.ai.models.TrainingExampleDao
 import com.sonara.app.data.dao.UserEqPreferenceDao
 import com.sonara.app.data.dao.UserFeedbackDao
 import com.sonara.app.data.models.UserEqPreference
 import com.sonara.app.data.models.UserFeedback
 import com.sonara.app.intelligence.cache.TrackCacheDao
 import com.sonara.app.intelligence.cache.TrackCacheEntity
-import com.sonara.app.preset.Preset
-import com.sonara.app.preset.PresetDao
 import com.sonara.app.intelligence.lastfm.PendingScrobble
 import com.sonara.app.intelligence.lastfm.PendingScrobbleDao
-import com.sonara.app.ai.models.TrainingExample
-import com.sonara.app.ai.models.TrainingExampleDao
 import com.sonara.app.intelligence.lyrics.LyricsCacheDao
 import com.sonara.app.intelligence.lyrics.LyricsCacheEntity
+import com.sonara.app.preset.Preset
+import com.sonara.app.preset.PresetDao
 
 @Database(
     entities = [
@@ -44,7 +44,8 @@ abstract class SonaraDatabase : RoomDatabase() {
     abstract fun lyricsCacheDao(): LyricsCacheDao
 
     companion object {
-        @Volatile private var INSTANCE: SonaraDatabase? = null
+        @Volatile
+        private var INSTANCE: SonaraDatabase? = null
 
         val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -56,14 +57,16 @@ abstract class SonaraDatabase : RoomDatabase() {
 
         val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""CREATE TABLE IF NOT EXISTS lyrics_cache (
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS lyrics_cache (
                     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     cacheKey TEXT NOT NULL,
                     syncedLyrics TEXT,
                     plainLyrics TEXT,
                     source TEXT NOT NULL DEFAULT 'lrclib',
                     cachedAt INTEGER NOT NULL
-                )""")
+                )"""
+                )
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_lyrics_cache_cacheKey ON lyrics_cache (cacheKey)")
             }
         }
@@ -76,7 +79,8 @@ abstract class SonaraDatabase : RoomDatabase() {
 
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""CREATE TABLE IF NOT EXISTS sonara_training_examples (
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS sonara_training_examples (
                     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     featureVector TEXT NOT NULL,
                     genre TEXT NOT NULL,
@@ -88,7 +92,8 @@ abstract class SonaraDatabase : RoomDatabase() {
                     trackArtist TEXT NOT NULL DEFAULT '',
                     timestamp INTEGER NOT NULL,
                     useCount INTEGER NOT NULL DEFAULT 0
-                )""")
+                )"""
+                )
             }
         }
 
@@ -110,9 +115,20 @@ abstract class SonaraDatabase : RoomDatabase() {
 
         fun get(context: Context): SonaraDatabase {
             return INSTANCE ?: synchronized(this) {
-                Room.databaseBuilder(context.applicationContext, SonaraDatabase::class.java, "sonara.db")
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
-                    .fallbackToDestructiveMigration()
+                Room.databaseBuilder(
+                    context.applicationContext,
+                    SonaraDatabase::class.java,
+                    "sonara.db"
+                )
+                    .addMigrations(
+                        MIGRATION_2_3,
+                        MIGRATION_3_4,
+                        MIGRATION_4_5,
+                        MIGRATION_5_6,
+                        MIGRATION_6_7,
+                        MIGRATION_7_8
+                    )
+                    .fallbackToDestructiveMigration(false)
                     .build().also { INSTANCE = it }
             }
         }
