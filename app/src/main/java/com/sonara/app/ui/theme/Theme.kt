@@ -18,10 +18,7 @@ import com.sonara.app.ui.common.LocalDynamicColor
 import com.sonara.app.ui.common.LocalHighContrastDarkMode
 
 @Composable
-fun SonaraTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit
-) {
+fun SonaraTheme(content: @Composable () -> Unit) {
     val typography = remember { buildTypography(SonaraFont.INTER) }
 
     val view = LocalView.current

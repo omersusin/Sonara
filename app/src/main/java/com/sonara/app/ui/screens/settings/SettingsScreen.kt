@@ -7,8 +7,6 @@ import android.content.Intent
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,7 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.ArrowDropUp
@@ -36,6 +33,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Upload
 import androidx.compose.material3.AlertDialog
@@ -62,13 +60,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.sonara.app.R
 import com.sonara.app.data.BackupManager
 import com.sonara.app.ui.components.ChipStatus
 import com.sonara.app.ui.components.FluentCard
@@ -85,6 +84,7 @@ import com.sonara.app.ui.theme.SonaraWarning
 
 @Composable
 fun SettingsScreen(
+    onNavigateLookAndFeel: () -> Unit = {},
     onNavigateBehavior: () -> Unit = {},
     onNavigateNotifications: () -> Unit = {},
     onNavigateBackup: () -> Unit = {},
@@ -114,6 +114,14 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(Modifier.height(16.dp))
+        }
+        item {
+            SettingsCategoryCard(
+                Icons.Rounded.Palette,
+                stringResource(R.string.look_and_feel),
+                stringResource(R.string.des_look_and_feel),
+                onNavigateLookAndFeel
+            )
         }
         item {
             SettingsCategoryCard(
@@ -784,7 +792,6 @@ internal fun DataCard(s: SettingsUiState, vm: SettingsViewModel) {
         }
     }
 }
-
 
 
 @Composable

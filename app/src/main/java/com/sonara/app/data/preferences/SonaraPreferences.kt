@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.map
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "sonara_prefs")
 
 class SonaraPreferences(private val context: Context) {
-
     private val LASTFM_API_KEY = stringPreferencesKey("lastfm_api_key")
     private val LASTFM_SHARED_SECRET = stringPreferencesKey("lastfm_shared_secret")
     private val LASTFM_SESSION_KEY = stringPreferencesKey("lastfm_session_key")

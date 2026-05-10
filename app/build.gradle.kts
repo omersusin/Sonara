@@ -1,5 +1,9 @@
-import java.util.Properties
+import org.gradle.kotlin.dsl.assign
+import org.gradle.kotlin.dsl.withType
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.FileInputStream
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -15,8 +19,12 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.sonara.app"
-    compileSdk = 36
+
     ndkVersion = "28.2.13676358"
+
+    compileSdk {
+        version = release(37)
+    }
 
     defaultConfig {
         applicationId = "com.sonara.app"
@@ -26,8 +34,12 @@ android {
         versionName = "1.0.0"
 
         // API keys from environment variables (GitHub Actions secrets)
-        buildConfigField("String", "LASTFM_API_KEY", "\"${System.getenv("LASTFM_API_KEY") ?: ""}\""  )
-        buildConfigField("String", "LASTFM_SHARED_SECRET", "\"${System.getenv("LASTFM_SHARED_SECRET") ?: ""}\"")
+        buildConfigField("String", "LASTFM_API_KEY", "\"${System.getenv("LASTFM_API_KEY") ?: ""}\"")
+        buildConfigField(
+            "String",
+            "LASTFM_SHARED_SECRET",
+            "\"${System.getenv("LASTFM_SHARED_SECRET") ?: ""}\""
+        )
         buildConfigField("String", "GEMINI_API_KEY", "\"${System.getenv("GEMINI_API_KEY") ?: ""}\"")
     }
 
@@ -50,7 +62,11 @@ android {
         }
         release {
             isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -60,12 +76,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        }
     }
 
     buildFeatures {
@@ -79,6 +89,16 @@ android {
         // lifecycle 2.9.0-rc01 ships the fixed lint rules; this disable is a fallback
         // in case any transitive lifecycle-lint JAR still slips through.
         disable += "NullSafeMutableLiveData"
+    }
+}
+
+tasks.withType<KotlinCompile>().configureEach {
+    ksp {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
+
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_17
     }
 }
 
@@ -99,6 +119,7 @@ dependencies {
     implementation(libs.compose.icons.extended)
 
     implementation(libs.material)
+    implementation(libs.shapeindicators)
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)

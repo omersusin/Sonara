@@ -7,11 +7,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.platform.LocalContext
-import com.sonara.app.data.preferences.SonaraPreferences
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonara.app.ui.data.provider.AppSeedColors
 import com.sonara.app.ui.data.provider.SeedColor
 import com.sonara.app.ui.domain.provider.SeedColorProvider
+import com.sonara.app.ui.screens.settings.SettingsViewModel
 
 val LocalDarkMode = staticCompositionLocalOf<Boolean> {
     error("No dark mode pref provided")
@@ -33,24 +33,24 @@ val LocalDynamicColor = staticCompositionLocalOf<Boolean> {
 
 @Composable
 fun CompositionLocals(content: @Composable () -> Unit) {
-    val context = LocalContext.current
+    val settingsViewModel: SettingsViewModel = viewModel()
 
-    val themeMode by SonaraPreferences(context).themeMode.collectAsState(initial = AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+    val themeMode by settingsViewModel.themeMode.collectAsState(initial = AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
     val isDarkTheme = when (themeMode) {
         AppCompatDelegate.MODE_NIGHT_YES -> true
         AppCompatDelegate.MODE_NIGHT_NO -> false
         else -> isSystemInDarkTheme()
     }
 
-    val highContrastDarkMode by SonaraPreferences(context).highContrastDarkMode.collectAsState(
+    val highContrastDarkMode by settingsViewModel.highContrastDarkMode.collectAsState(
         initial = false
     )
 
-    val dynamicColorEnabled by SonaraPreferences(context).dynamicColorEnabled.collectAsState(initial = true)
+    val dynamicColorEnabled by settingsViewModel.dynamicColorEnabled.collectAsState(initial = true)
 
-    val primarySeed by SonaraPreferences(context).primarySeedColor.collectAsState(initial = SeedColorProvider.primary)
-    val secondarySeed by SonaraPreferences(context).secondarySeedColor.collectAsState(initial = SeedColorProvider.secondary)
-    val tertiarySeed by SonaraPreferences(context).tertiarySeedColor.collectAsState(initial = SeedColorProvider.tertiary)
+    val primarySeed by settingsViewModel.primarySeed.collectAsState(initial = SeedColorProvider.primary)
+    val secondarySeed by settingsViewModel.secondarySeed.collectAsState(initial = SeedColorProvider.secondary)
+    val tertiarySeed by settingsViewModel.tertiarySeed.collectAsState(initial = SeedColorProvider.tertiary)
 
     val seedColor = SeedColor(primarySeed, secondarySeed, tertiarySeed)
 
@@ -82,7 +82,7 @@ fun CompositionLocals(content: @Composable () -> Unit) {
         LocalHighContrastDarkMode provides highContrastDarkMode,
         LocalSeedColor provides seedColor,
         LocalTonalPalette provides tonalPalette,
-        LocalDarkMode provides dynamicColorEnabled
+        LocalDynamicColor provides dynamicColorEnabled
     ) {
         content()
     }

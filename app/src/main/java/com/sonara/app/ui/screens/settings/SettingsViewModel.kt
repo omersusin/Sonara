@@ -3,26 +3,26 @@ package com.sonara.app.ui.screens.settings
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.sonara.app.intelligence.lyrics.LyricsAnimationStyle
 import com.sonara.app.SonaraApp
+import com.sonara.app.ai.SonaraAi
+import com.sonara.app.data.BackupManager
 import com.sonara.app.intelligence.cache.TrackCache
 import com.sonara.app.intelligence.lastfm.LastFmAuthManager
-import com.sonara.app.data.BackupManager
+import com.sonara.app.intelligence.lyrics.LyricsAnimationStyle
 import com.sonara.app.preset.PresetExporter
 import com.sonara.app.service.SonaraNotificationListener
-import com.sonara.app.ai.SonaraAi
+import com.sonara.app.ui.data.provider.SeedColor
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import org.json.JSONArray
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 data class SettingsUiState(
@@ -59,8 +59,7 @@ data class SettingsUiState(
     val communityDownloadEnabled: Boolean = false,
     val communityUploadEnabled: Boolean = false,
     val communityPending: Int = 0,
-    val communityTotalSent: Int = 0
-,
+    val communityTotalSent: Int = 0,
     val githubTokenInput: String = "",
     val isGithubTokenSet: Boolean = false,
     val syncInterval: Int = 50,
@@ -101,91 +100,380 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
-        _uiState.update { it.copy(isGithubTokenSet = secrets.getGitHubTokenInstance().isNotBlank()) }
+        _uiState.update {
+            it.copy(
+                isGithubTokenSet = secrets.getGitHubTokenInstance().isNotBlank()
+            )
+        }
 
         // Read key status from SecureSecrets directly
-        _uiState.update { it.copy(
-            isApiKeySet = secrets.getLastFmApiKey().isNotBlank(),
-            isSharedSecretSet = secrets.getLastFmSharedSecret().isNotBlank(),
-            isGithubTokenSet = secrets.getGitHubTokenInstance().isNotBlank()
-        ) }
-        viewModelScope.launch { prefs.aiEnabledFlow.collect { e -> _uiState.update { it.copy(aiEnabled = e) } } }
-        viewModelScope.launch { prefs.autoEqEnabledFlow.collect { e -> _uiState.update { it.copy(autoEqEnabled = e) } } }
-        viewModelScope.launch { prefs.smoothTransitionsFlow.collect { e -> _uiState.update { it.copy(smoothTransitions = e) } } }
-        viewModelScope.launch { prefs.safetyLimiterFlow.collect { e -> _uiState.update { it.copy(safetyLimiter = e) } } }
-        viewModelScope.launch { prefs.scrobblingEnabledFlow.collect { e -> _uiState.update { it.copy(scrobblingEnabled = e) } } }
-        viewModelScope.launch { prefs.autoPresetFlow.collect { e -> _uiState.update { it.copy(autoPreset = e) } } }
+        _uiState.update {
+            it.copy(
+                isApiKeySet = secrets.getLastFmApiKey().isNotBlank(),
+                isSharedSecretSet = secrets.getLastFmSharedSecret().isNotBlank(),
+                isGithubTokenSet = secrets.getGitHubTokenInstance().isNotBlank()
+            )
+        }
+        viewModelScope.launch {
+            prefs.aiEnabledFlow.collect { e ->
+                _uiState.update {
+                    it.copy(
+                        aiEnabled = e
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.autoEqEnabledFlow.collect { e ->
+                _uiState.update {
+                    it.copy(
+                        autoEqEnabled = e
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.smoothTransitionsFlow.collect { e ->
+                _uiState.update {
+                    it.copy(
+                        smoothTransitions = e
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.safetyLimiterFlow.collect { e ->
+                _uiState.update {
+                    it.copy(
+                        safetyLimiter = e
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.scrobblingEnabledFlow.collect { e ->
+                _uiState.update {
+                    it.copy(
+                        scrobblingEnabled = e
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.autoPresetFlow.collect { e ->
+                _uiState.update {
+                    it.copy(
+                        autoPreset = e
+                    )
+                }
+            }
+        }
         // Gemini
-        viewModelScope.launch { prefs.geminiEnabledFlow.collect { e -> _uiState.update { it.copy(geminiEnabled = e) } } }
+        viewModelScope.launch {
+            prefs.geminiEnabledFlow.collect { e ->
+                _uiState.update {
+                    it.copy(
+                        geminiEnabled = e
+                    )
+                }
+            }
+        }
         viewModelScope.launch {
             prefs.geminiModelFlow.collect { m ->
                 _uiState.update { it.copy(geminiModel = m) }
-                app.geminiEngine.customModelId = m.takeIf { it.contains("gemini", ignoreCase = true) }
+                app.geminiEngine.customModelId =
+                    m.takeIf { it.contains("gemini", ignoreCase = true) }
             }
         }
-        viewModelScope.launch { prefs.geminiApiKeyFlow.collect { k -> _uiState.update { it.copy(geminiApiKey = k) } } }
+        viewModelScope.launch {
+            prefs.geminiApiKeyFlow.collect { k ->
+                _uiState.update {
+                    it.copy(
+                        geminiApiKey = k
+                    )
+                }
+            }
+        }
         // AI Sources
-        viewModelScope.launch { prefs.sourceLastFmEnabledFlow.collect { e -> _uiState.update { it.copy(sourceLastFm = e) } } }
-        viewModelScope.launch { prefs.sourceLocalAiEnabledFlow.collect { e -> _uiState.update { it.copy(sourceLocalAi = e) } } }
-        viewModelScope.launch { prefs.sourceLyricsEnabledFlow.collect { e -> _uiState.update { it.copy(sourceLyrics = e) } } }
+        viewModelScope.launch {
+            prefs.sourceLastFmEnabledFlow.collect { e ->
+                _uiState.update {
+                    it.copy(
+                        sourceLastFm = e
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.sourceLocalAiEnabledFlow.collect { e ->
+                _uiState.update {
+                    it.copy(
+                        sourceLocalAi = e
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.sourceLyricsEnabledFlow.collect { e ->
+                _uiState.update {
+                    it.copy(
+                        sourceLyrics = e
+                    )
+                }
+            }
+        }
         // Provider
-        viewModelScope.launch { prefs.aiProviderFlow.collect { v -> _uiState.update { it.copy(aiProvider = v) } } }
-        viewModelScope.launch { prefs.openRouterApiKeyFlow.collect { v -> _uiState.update { it.copy(openRouterApiKey = v) } } }
-        viewModelScope.launch { prefs.openRouterModelFlow.collect { v -> _uiState.update { it.copy(openRouterModel = v) } } }
-        viewModelScope.launch { prefs.groqApiKeyFlow.collect { v -> _uiState.update { it.copy(groqApiKey = v) } } }
-        viewModelScope.launch { prefs.groqModelFlow.collect { v -> _uiState.update { it.copy(groqModel = v) } } }
-        viewModelScope.launch { prefs.huggingFaceApiKeyFlow.collect { v -> _uiState.update { it.copy(huggingFaceApiKey = v) } } }
-        viewModelScope.launch { prefs.huggingFaceModelFlow.collect { v -> _uiState.update { it.copy(huggingFaceModel = v) } } }
+        viewModelScope.launch {
+            prefs.aiProviderFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        aiProvider = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.openRouterApiKeyFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        openRouterApiKey = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.openRouterModelFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        openRouterModel = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.groqApiKeyFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        groqApiKey = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.groqModelFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        groqModel = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.huggingFaceApiKeyFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        huggingFaceApiKey = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.huggingFaceModelFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        huggingFaceModel = v
+                    )
+                }
+            }
+        }
         // Notification
-        viewModelScope.launch { prefs.keepNotificationPausedFlow.collect { e -> _uiState.update { it.copy(keepNotificationPaused = e) } } }
+        viewModelScope.launch {
+            prefs.keepNotificationPausedFlow.collect { e ->
+                _uiState.update {
+                    it.copy(
+                        keepNotificationPaused = e
+                    )
+                }
+            }
+        }
         // Last.fm connection status
-        viewModelScope.launch { app.lastFmAuth.authState.collect { state ->
-            _uiState.update { it.copy(lastFmConnected = state == LastFmAuthManager.AuthState.CONNECTED) }
-        } }
-        viewModelScope.launch { app.lastFmAuth.username.collect { name ->
-            _uiState.update { it.copy(lastFmUsername = name) }
-        } }
-        viewModelScope.launch { app.lastFmAuth.errorMessage.collect { err ->
-            _uiState.update { it.copy(lastFmAuthError = err) }
-        } }
+        viewModelScope.launch {
+            app.lastFmAuth.authState.collect { state ->
+                _uiState.update { it.copy(lastFmConnected = state == LastFmAuthManager.AuthState.CONNECTED) }
+            }
+        }
+        viewModelScope.launch {
+            app.lastFmAuth.username.collect { name ->
+                _uiState.update { it.copy(lastFmUsername = name) }
+            }
+        }
+        viewModelScope.launch {
+            app.lastFmAuth.errorMessage.collect { err ->
+                _uiState.update { it.copy(lastFmAuthError = err) }
+            }
+        }
 
         // Community
         viewModelScope.launch {
             val cloud = SonaraAi.getInstance()?.cloudManager
             if (cloud != null) {
-                _uiState.update { it.copy(
-                    communityUploadEnabled = cloud.isContributionEnabled(),
-                    communityPending = cloud.getPendingCount(),
-                    communityTotalSent = cloud.getTotalSent()
-                ) }
+                _uiState.update {
+                    it.copy(
+                        communityUploadEnabled = cloud.isContributionEnabled(),
+                        communityPending = cloud.getPendingCount(),
+                        communityTotalSent = cloud.getTotalSent()
+                    )
+                }
             }
         }
-        viewModelScope.launch { prefs.communitySyncIntervalFlow.collect { v -> _uiState.update { it.copy(syncInterval = v) } } }
+        viewModelScope.launch {
+            prefs.communitySyncIntervalFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        syncInterval = v
+                    )
+                }
+            }
+        }
         // Lyrics settings
-        viewModelScope.launch { prefs.lyricsAnimationFlow.collect { v ->
-            _uiState.update { it.copy(lyricsAnimationStyle = LyricsAnimationStyle.fromId(v)) }
-        } }
-        viewModelScope.launch { prefs.lyricsTextSizeFlow.collect { v -> _uiState.update { it.copy(lyricsTextSize = v) } } }
-        viewModelScope.launch { prefs.lyricsSyncOffsetFlow.collect { v -> _uiState.update { it.copy(lyricsSyncOffsetMs = v) } } }
-        viewModelScope.launch { prefs.lyricsShowTranslatedFlow.collect { v -> _uiState.update { it.copy(lyricsShowTranslated = v) } } }
-        viewModelScope.launch { prefs.lyricsTargetLanguageFlow.collect { v -> _uiState.update { it.copy(lyricsTargetLanguage = v) } } }
-        viewModelScope.launch { prefs.preferredLyricsProviderFlow.collect { v -> _uiState.update { it.copy(preferredLyricsProvider = v) } } }
-        viewModelScope.launch { prefs.lyricsLineSpacingFlow.collect { v -> _uiState.update { it.copy(lyricsLineSpacing = v) } } }
-        viewModelScope.launch { prefs.lyricsBlurInactiveFlow.collect { v -> _uiState.update { it.copy(lyricsBlurInactive = v) } } }
-        viewModelScope.launch { prefs.lyricsRomanizeFlow.collect { v -> _uiState.update { it.copy(lyricsRomanize = v) } } }
-        viewModelScope.launch { prefs.lyricsPositionFlow.collect { v -> _uiState.update { it.copy(lyricsPosition = v) } } }
-        viewModelScope.launch { prefs.lyricsAutoScrollFlow.collect { v -> _uiState.update { it.copy(lyricsAutoScroll = v) } } }
-        viewModelScope.launch { prefs.lyricsGlowEnabledFlow.collect { v -> _uiState.update { it.copy(lyricsGlowEnabled = v) } } }
-        viewModelScope.launch { prefs.lyricsBackgroundFlow.collect { v -> _uiState.update { it.copy(lyricsBackground = v) } } }
-        viewModelScope.launch { prefs.digestEnabledFlow.collect { v -> _uiState.update { it.copy(digestEnabled = v) } } }
+        viewModelScope.launch {
+            prefs.lyricsAnimationFlow.collect { v ->
+                _uiState.update { it.copy(lyricsAnimationStyle = LyricsAnimationStyle.fromId(v)) }
+            }
+        }
+        viewModelScope.launch {
+            prefs.lyricsTextSizeFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        lyricsTextSize = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.lyricsSyncOffsetFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        lyricsSyncOffsetMs = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.lyricsShowTranslatedFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        lyricsShowTranslated = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.lyricsTargetLanguageFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        lyricsTargetLanguage = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.preferredLyricsProviderFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        preferredLyricsProvider = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.lyricsLineSpacingFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        lyricsLineSpacing = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.lyricsBlurInactiveFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        lyricsBlurInactive = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.lyricsRomanizeFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        lyricsRomanize = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.lyricsPositionFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        lyricsPosition = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.lyricsAutoScrollFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        lyricsAutoScroll = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.lyricsGlowEnabledFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        lyricsGlowEnabled = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.lyricsBackgroundFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        lyricsBackground = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            prefs.digestEnabledFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        digestEnabled = v
+                    )
+                }
+            }
+        }
 
         refreshCacheSize(); checkNotificationListener(); refreshPendingScrobbles()
         _uiState.update { it.copy(personalSamples = app.personalization.getTotalSamples()) }
     }
 
-    fun updateApiKeyInput(v: String) { _uiState.update { it.copy(apiKeyInput = v) } }
-    fun updateSharedSecretInput(v: String) { _uiState.update { it.copy(sharedSecretInput = v) } }
-    fun updateGeminiKeyInput(v: String) { _uiState.update { it.copy(geminiKeyInput = v) } }
+    fun updateApiKeyInput(v: String) {
+        _uiState.update { it.copy(apiKeyInput = v) }
+    }
+
+    fun updateSharedSecretInput(v: String) {
+        _uiState.update { it.copy(sharedSecretInput = v) }
+    }
+
+    fun updateGeminiKeyInput(v: String) {
+        _uiState.update { it.copy(geminiKeyInput = v) }
+    }
 
     fun saveApiKey() {
         viewModelScope.launch {
@@ -220,20 +508,44 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun setAiEnabled(e: Boolean) { viewModelScope.launch { prefs.setAiEnabled(e) } }
-    fun setAutoEqEnabled(e: Boolean) { viewModelScope.launch { prefs.setAutoEqEnabled(e) } }
-    fun setSmoothTransitions(e: Boolean) { viewModelScope.launch { prefs.setSmoothTransitions(e) } }
-    fun setSafetyLimiter(e: Boolean) { viewModelScope.launch { prefs.setSafetyLimiter(e) } }
-    fun setScrobblingEnabled(e: Boolean) { viewModelScope.launch { prefs.setScrobblingEnabled(e) } }
-    fun setAutoPreset(e: Boolean) { viewModelScope.launch { prefs.setAutoPreset(e) } }
-    fun setGeminiEnabled(e: Boolean) { viewModelScope.launch { prefs.setGeminiEnabled(e) } }
+    fun setAiEnabled(e: Boolean) {
+        viewModelScope.launch { prefs.setAiEnabled(e) }
+    }
+
+    fun setAutoEqEnabled(e: Boolean) {
+        viewModelScope.launch { prefs.setAutoEqEnabled(e) }
+    }
+
+    fun setSmoothTransitions(e: Boolean) {
+        viewModelScope.launch { prefs.setSmoothTransitions(e) }
+    }
+
+    fun setSafetyLimiter(e: Boolean) {
+        viewModelScope.launch { prefs.setSafetyLimiter(e) }
+    }
+
+    fun setScrobblingEnabled(e: Boolean) {
+        viewModelScope.launch { prefs.setScrobblingEnabled(e) }
+    }
+
+    fun setAutoPreset(e: Boolean) {
+        viewModelScope.launch { prefs.setAutoPreset(e) }
+    }
+
+    fun setGeminiEnabled(e: Boolean) {
+        viewModelScope.launch { prefs.setGeminiEnabled(e) }
+    }
+
     fun setGeminiModel(m: String) {
         viewModelScope.launch {
             prefs.setGeminiModel(m)
             app.geminiEngine.customModelId = m.takeIf { it.contains("gemini", ignoreCase = true) }
         }
     }
-    fun setKeepNotificationPaused(e: Boolean) { viewModelScope.launch { prefs.setKeepNotificationPaused(e) } }
+
+    fun setKeepNotificationPaused(e: Boolean) {
+        viewModelScope.launch { prefs.setKeepNotificationPaused(e) }
+    }
 
     fun connectLastFm(onIntent: (android.content.Intent) -> Unit) {
         viewModelScope.launch {
@@ -264,15 +576,33 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun clearLastFmAuthError() { app.lastFmAuth.clearError() }
+    fun clearLastFmAuthError() {
+        app.lastFmAuth.clearError()
+    }
 
     fun disconnectLastFm() {
         app.lastFmAuth.disconnect()
-        viewModelScope.launch { _uiState.update { it.copy(lastFmConnected = false, lastFmUsername = "") } }
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    lastFmConnected = false,
+                    lastFmUsername = ""
+                )
+            }
+        }
     }
-    fun setSourceLastFm(e: Boolean) { viewModelScope.launch { prefs.setSourceLastFmEnabled(e) } }
-    fun setSourceLocalAi(e: Boolean) { viewModelScope.launch { prefs.setSourceLocalAiEnabled(e) } }
-    fun setSourceLyrics(e: Boolean) { viewModelScope.launch { prefs.setSourceLyricsEnabled(e) } }
+
+    fun setSourceLastFm(e: Boolean) {
+        viewModelScope.launch { prefs.setSourceLastFmEnabled(e) }
+    }
+
+    fun setSourceLocalAi(e: Boolean) {
+        viewModelScope.launch { prefs.setSourceLocalAiEnabled(e) }
+    }
+
+    fun setSourceLyrics(e: Boolean) {
+        viewModelScope.launch { prefs.setSourceLyricsEnabled(e) }
+    }
 
     fun setAiProvider(v: String) {
         viewModelScope.launch {
@@ -281,8 +611,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             fetchModels(v)
         }
     }
-    fun updateOpenRouterKeyInput(v: String) { _uiState.update { it.copy(openRouterKeyInput = v) } }
-    fun setOpenRouterModel(v: String) { viewModelScope.launch { prefs.setOpenRouterModel(v) } }
+
+    fun updateOpenRouterKeyInput(v: String) {
+        _uiState.update { it.copy(openRouterKeyInput = v) }
+    }
+
+    fun setOpenRouterModel(v: String) {
+        viewModelScope.launch { prefs.setOpenRouterModel(v) }
+    }
+
     fun saveOpenRouterKey() {
         viewModelScope.launch {
             val k = _uiState.value.openRouterKeyInput
@@ -295,8 +632,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
         }
     }
-    fun updateGroqKeyInput(v: String) { _uiState.update { it.copy(groqKeyInput = v) } }
-    fun setGroqModel(v: String) { viewModelScope.launch { prefs.setGroqModel(v) } }
+
+    fun updateGroqKeyInput(v: String) {
+        _uiState.update { it.copy(groqKeyInput = v) }
+    }
+
+    fun setGroqModel(v: String) {
+        viewModelScope.launch { prefs.setGroqModel(v) }
+    }
+
     fun saveGroqKey() {
         viewModelScope.launch {
             val k = _uiState.value.groqKeyInput
@@ -310,8 +654,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun updateHuggingFaceKeyInput(v: String) { _uiState.update { it.copy(huggingFaceKeyInput = v) } }
-    fun setHuggingFaceModel(v: String) { viewModelScope.launch { prefs.setHuggingFaceModel(v) } }
+    fun updateHuggingFaceKeyInput(v: String) {
+        _uiState.update { it.copy(huggingFaceKeyInput = v) }
+    }
+
+    fun setHuggingFaceModel(v: String) {
+        viewModelScope.launch { prefs.setHuggingFaceModel(v) }
+    }
+
     fun saveHuggingFaceKey() {
         viewModelScope.launch {
             val k = _uiState.value.huggingFaceKeyInput
@@ -333,6 +683,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
         }
     }
+
     fun setCommunityUpload(enabled: Boolean) {
         SonaraAi.getInstance()?.cloudManager?.setContributionEnabled(enabled)
         _uiState.update { it.copy(communityUploadEnabled = enabled) }
@@ -342,29 +693,56 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun refreshCommunityStats() {
         val cloud = SonaraAi.getInstance()?.cloudManager
         if (cloud != null) {
-            _uiState.update { it.copy(
-                communityUploadEnabled = cloud.isContributionEnabled(),
-                communityPending = cloud.getPendingCount(),
-                communityTotalSent = cloud.getTotalSent()
-            ) }
+            _uiState.update {
+                it.copy(
+                    communityUploadEnabled = cloud.isContributionEnabled(),
+                    communityPending = cloud.getPendingCount(),
+                    communityTotalSent = cloud.getTotalSent()
+                )
+            }
         }
     }
+
     fun syncCommunityNow() {
         SonaraAi.getInstance()?.cloudManager?.syncNow()
     }
 
-    fun clearCache() { viewModelScope.launch { cache.clear(); refreshCacheSize() } }
+    fun clearCache() {
+        viewModelScope.launch { cache.clear(); refreshCacheSize() }
+    }
 
     fun clearAllData() {
         viewModelScope.launch {
             app.clearAllData(); refreshCacheSize()
-            _uiState.update { it.copy(isApiKeySet = false, isSharedSecretSet = false, cacheSize = 0) }
+            _uiState.update {
+                it.copy(
+                    isApiKeySet = false,
+                    isSharedSecretSet = false,
+                    cacheSize = 0
+                )
+            }
         }
     }
 
     fun checkNotificationListener() {
-        viewModelScope.launch { app.preferences.legacyAnalysisFlow.collect { v -> _uiState.update { it.copy(legacyAnalysis = v) } } }
-        viewModelScope.launch { app.preferences.hearTheDiffEnabledFlow.collect { v -> _uiState.update { it.copy(hearTheDiffEnabled = v) } } }
+        viewModelScope.launch {
+            app.preferences.legacyAnalysisFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        legacyAnalysis = v
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            app.preferences.hearTheDiffEnabledFlow.collect { v ->
+                _uiState.update {
+                    it.copy(
+                        hearTheDiffEnabled = v
+                    )
+                }
+            }
+        }
         val alive = SonaraNotificationListener.instance != null
         val sys = SonaraNotificationListener.isEnabled(getApplication())
         _uiState.update { it.copy(notificationListenerEnabled = alive || sys) }
@@ -375,27 +753,36 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             try {
                 val count = app.database.pendingScrobbleDao().count()
                 _uiState.update { it.copy(pendingScrobbles = count) }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
     }
 
-    private fun refreshCacheSize() { viewModelScope.launch { _uiState.update { it.copy(cacheSize = cache.size()) } } }
+    private fun refreshCacheSize() {
+        viewModelScope.launch { _uiState.update { it.copy(cacheSize = cache.size()) } }
+    }
 
     fun exportPresets(onResult: (String) -> Unit) {
         viewModelScope.launch {
             val all = app.presetRepository.allPresets().first()
             val custom = all.filter { !it.isBuiltIn }
             val toExport = custom.ifEmpty { all }
-            if (toExport.isEmpty()) { onResult(""); return@launch }
+            if (toExport.isEmpty()) {
+                onResult(""); return@launch
+            }
             onResult(PresetExporter.exportToJson(toExport))
         }
     }
 
     fun importPresets(json: String, onResult: (String) -> Unit) {
         viewModelScope.launch {
-            if (!PresetExporter.validateJson(json)) { onResult("Invalid format."); return@launch }
+            if (!PresetExporter.validateJson(json)) {
+                onResult("Invalid format."); return@launch
+            }
             val imported = PresetExporter.importFromJson(json)
-            if (imported.isNullOrEmpty()) { onResult("No valid presets found."); return@launch }
+            if (imported.isNullOrEmpty()) {
+                onResult("No valid presets found."); return@launch
+            }
             imported.forEach { app.presetRepository.save(it) }
             onResult("Imported ${imported.size} presets")
         }
@@ -405,7 +792,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(githubTokenInput = v) }
     }
 
-    fun setLegacyAnalysis(v: Boolean) { viewModelScope.launch { app.preferences.setLegacyAnalysis(v); _uiState.update { it.copy(legacyAnalysis = v) } } }
+    fun setLegacyAnalysis(v: Boolean) {
+        viewModelScope.launch {
+            app.preferences.setLegacyAnalysis(v); _uiState.update {
+            it.copy(
+                legacyAnalysis = v
+            )
+        }
+        }
+    }
+
     fun setHearTheDiffEnabled(v: Boolean) {
         viewModelScope.launch {
             app.preferences.setHearTheDiffEnabled(v)
@@ -423,14 +819,25 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             if (token.isNotBlank()) {
                 secrets.setGitHubToken(token)
                 com.sonara.app.ai.SonaraAi.getInstance()?.cloudManager?.setContributionEnabled(true)
-                _uiState.update { it.copy(githubTokenInput = "", isGithubTokenSet = true, communityUploadEnabled = true) }
+                _uiState.update {
+                    it.copy(
+                        githubTokenInput = "",
+                        isGithubTokenSet = true,
+                        communityUploadEnabled = true
+                    )
+                }
             }
         }
     }
 
     // ═══ Direct Last.fm login ═══
-    fun updateLastFmUsernameInput(v: String) { _uiState.update { it.copy(lastFmUsernameInput = v) } }
-    fun updateLastFmPasswordInput(v: String) { _uiState.update { it.copy(lastFmPasswordInput = v) } }
+    fun updateLastFmUsernameInput(v: String) {
+        _uiState.update { it.copy(lastFmUsernameInput = v) }
+    }
+
+    fun updateLastFmPasswordInput(v: String) {
+        _uiState.update { it.copy(lastFmPasswordInput = v) }
+    }
 
     fun directLoginLastFm() {
         viewModelScope.launch {
@@ -439,7 +846,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             if (user.isNotBlank() && pass.isNotBlank()) {
                 val ok = app.lastFmAuth.directLogin(user, pass)
                 if (ok) {
-                    _uiState.update { it.copy(lastFmUsernameInput = "", lastFmPasswordInput = "", lastFmConnected = true) }
+                    _uiState.update {
+                        it.copy(
+                            lastFmUsernameInput = "",
+                            lastFmPasswordInput = "",
+                            lastFmConnected = true
+                        )
+                    }
                 }
             }
         }
@@ -469,7 +882,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             )
             if (key.isBlank()) return fallbackGemini
             try {
-                val client = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
+                val client = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS)
+                    .readTimeout(10, TimeUnit.SECONDS).build()
                 val req = Request.Builder()
                     .url("https://generativelanguage.googleapis.com/v1beta/models?key=$key")
                     .get().build()
@@ -483,13 +897,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     val name = m.optString("name", "")
                     val displayName = m.optString("displayName", "")
                     val methods = m.optJSONArray("supportedGenerationMethods")
-                    val supportsGenerate = (0 until (methods?.length() ?: 0)).any { methods!!.getString(it) == "generateContent" }
+                    val supportsGenerate = (0 until (methods?.length()
+                        ?: 0)).any { methods!!.getString(it) == "generateContent" }
                     if (!supportsGenerate || !name.contains("gemini")) continue
                     val modelId = name.substringAfter("models/")
                     list.add(modelId to displayName.ifBlank { modelId })
                 }
                 return if (list.isEmpty()) fallbackGemini else list
-            } catch (_: Exception) { return fallbackGemini }
+            } catch (_: Exception) {
+                return fallbackGemini
+            }
         }
         val fallbackOpenRouter = listOf(
             "google/gemini-2.5-flash" to "Gemini 2.5 Flash",
@@ -513,7 +930,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val key = secrets.getGroqApiKey()
             if (key.isBlank()) return fallbackGroq
             try {
-                val client = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
+                val client = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS)
+                    .readTimeout(10, TimeUnit.SECONDS).build()
                 val req = Request.Builder().url("https://api.groq.com/openai/v1/models")
                     .addHeader("Authorization", "Bearer $key").get().build()
                 val resp = client.newCall(req).execute()
@@ -528,13 +946,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     list.add(id to id.replace("-", " ").replaceFirstChar { it.uppercase() })
                 }
                 return if (list.isEmpty()) fallbackGroq else list.take(20)
-            } catch (_: Exception) { return fallbackGroq }
+            } catch (_: Exception) {
+                return fallbackGroq
+            }
         }
         if (provider == "openrouter") {
             val key = secrets.getOpenRouterApiKey()
             if (key.isBlank()) return fallbackOpenRouter
             try {
-                val client = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
+                val client = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS)
+                    .readTimeout(10, TimeUnit.SECONDS).build()
                 val req = Request.Builder().url("https://openrouter.ai/api/v1/models")
                     .addHeader("Authorization", "Bearer $key").get().build()
                 val resp = client.newCall(req).execute()
@@ -542,7 +963,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 val obj = JSONObject(json)
                 val data = obj.optJSONArray("data") ?: return fallbackOpenRouter
                 val list = mutableListOf<Pair<String, String>>()
-                val keywords = listOf("gpt", "claude", "gemini", "llama", "mistral", "deepseek", "qwen", "gemma", "command")
+                val keywords = listOf(
+                    "gpt",
+                    "claude",
+                    "gemini",
+                    "llama",
+                    "mistral",
+                    "deepseek",
+                    "qwen",
+                    "gemma",
+                    "command"
+                )
                 for (i in 0 until data.length()) {
                     val m = data.getJSONObject(i)
                     val id = m.getString("id")
@@ -552,7 +983,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     }
                 }
                 return if (list.isEmpty()) fallbackOpenRouter else list.take(30)
-            } catch (_: Exception) { return fallbackOpenRouter }
+            } catch (_: Exception) {
+                return fallbackOpenRouter
+            }
         }
         val fallbackHuggingFace = listOf(
             "meta-llama/Meta-Llama-3.1-8B-Instruct" to "Llama 3.1 8B Instruct",
@@ -568,7 +1001,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val key = secrets.getHuggingFaceApiKey()
             if (key.isBlank()) return fallbackHuggingFace
             try {
-                val client = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
+                val client = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS)
+                    .readTimeout(10, TimeUnit.SECONDS).build()
                 val req = Request.Builder().url("https://router.huggingface.co/v1/models")
                     .addHeader("Authorization", "Bearer $key").get().build()
                 val resp = client.newCall(req).execute()
@@ -583,7 +1017,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     list.add(id to name)
                 }
                 return if (list.isEmpty()) fallbackHuggingFace else list.take(40)
-            } catch (_: Exception) { return fallbackHuggingFace }
+            } catch (_: Exception) {
+                return fallbackHuggingFace
+            }
         }
         return emptyList()
     }
@@ -607,27 +1043,58 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setLyricsAnimationStyle(style: LyricsAnimationStyle) {
         viewModelScope.launch { prefs.setLyricsAnimation(style.id) }
     }
+
     fun setLyricsTextSize(size: Float) {
         viewModelScope.launch { prefs.setLyricsTextSize(size.coerceIn(10f, 24f)) }
     }
+
     fun setLyricsSyncOffset(ms: Int) {
         viewModelScope.launch { prefs.setLyricsSyncOffset(ms.coerceIn(-2000, 2000)) }
     }
+
     fun setLyricsShowTranslated(v: Boolean) {
         viewModelScope.launch { prefs.setLyricsShowTranslated(v) }
     }
+
     fun setLyricsTargetLanguage(code: String) {
         viewModelScope.launch { prefs.setLyricsTargetLanguage(code) }
     }
-    fun setPreferredLyricsProvider(p: String) { viewModelScope.launch { prefs.setPreferredLyricsProvider(p) } }
-    fun setLyricsLineSpacing(v: Float) { viewModelScope.launch { prefs.setLyricsLineSpacing(v) } }
-    fun setLyricsBlurInactive(v: Boolean) { viewModelScope.launch { prefs.setLyricsBlurInactive(v) } }
-    fun setLyricsRomanize(v: Boolean) { viewModelScope.launch { prefs.setLyricsRomanize(v) } }
-    fun setLyricsPosition(v: String) { viewModelScope.launch { prefs.setLyricsPosition(v) } }
-    fun setLyricsAutoScroll(v: Boolean) { viewModelScope.launch { prefs.setLyricsAutoScroll(v) } }
-    fun setLyricsGlowEnabled(v: Boolean) { viewModelScope.launch { prefs.setLyricsGlowEnabled(v) } }
-    fun setLyricsBackground(v: String) { viewModelScope.launch { prefs.setLyricsBackground(v) } }
-    fun setDigestEnabled(e: Boolean) { viewModelScope.launch { prefs.setDigestEnabled(e) } }
+
+    fun setPreferredLyricsProvider(p: String) {
+        viewModelScope.launch { prefs.setPreferredLyricsProvider(p) }
+    }
+
+    fun setLyricsLineSpacing(v: Float) {
+        viewModelScope.launch { prefs.setLyricsLineSpacing(v) }
+    }
+
+    fun setLyricsBlurInactive(v: Boolean) {
+        viewModelScope.launch { prefs.setLyricsBlurInactive(v) }
+    }
+
+    fun setLyricsRomanize(v: Boolean) {
+        viewModelScope.launch { prefs.setLyricsRomanize(v) }
+    }
+
+    fun setLyricsPosition(v: String) {
+        viewModelScope.launch { prefs.setLyricsPosition(v) }
+    }
+
+    fun setLyricsAutoScroll(v: Boolean) {
+        viewModelScope.launch { prefs.setLyricsAutoScroll(v) }
+    }
+
+    fun setLyricsGlowEnabled(v: Boolean) {
+        viewModelScope.launch { prefs.setLyricsGlowEnabled(v) }
+    }
+
+    fun setLyricsBackground(v: String) {
+        viewModelScope.launch { prefs.setLyricsBackground(v) }
+    }
+
+    fun setDigestEnabled(e: Boolean) {
+        viewModelScope.launch { prefs.setDigestEnabled(e) }
+    }
 
     fun setSyncInterval(value: Int) {
         viewModelScope.launch {
@@ -647,6 +1114,46 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val result = BackupManager.importFull(app, json)
             onResult(result)
+        }
+    }
+
+
+    val themeMode = prefs.themeMode
+    val dynamicColorEnabled = prefs.dynamicColorEnabled
+    val highContrastDarkMode = prefs.highContrastDarkMode
+    val primarySeed = prefs.primarySeedColor
+    val secondarySeed = prefs.secondarySeedColor
+    val tertiarySeed = prefs.tertiarySeedColor
+
+    private var lastSeed: SeedColor? = null
+    fun setSeedColor(seed: SeedColor) {
+        if (seed == lastSeed) return
+        lastSeed = seed
+
+        viewModelScope.launch(Dispatchers.IO) {
+            prefs.setSeedColor(
+                primary = seed.primary,
+                secondary = seed.secondary,
+                tertiary = seed.tertiary
+            )
+        }
+    }
+
+    fun setThemeMode(mode: Int) {
+        viewModelScope.launch {
+            prefs.setThemeMode(mode)
+        }
+    }
+
+    fun setHighContrastDarkTheme(enabled: Boolean) {
+        viewModelScope.launch {
+            prefs.setHighContrastDarkMode(enabled)
+        }
+    }
+
+    fun setDynamicColorEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            prefs.setDynamicColorEnabled(enabled)
         }
     }
 }

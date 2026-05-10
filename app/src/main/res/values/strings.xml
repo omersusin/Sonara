@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Sonara</string>
+    <string name="additional_settings">Additional settings</string>
+    <string name="on">On</string>
+    <string name="off">Off</string>
+    <string name="system">System</string>
+    <string name="dark_theme">Dark theme</string>
+    <string name="look_and_feel">Look &amp; Feel</string>
+    <string name="des_look_and_feel">Dynamic colors, Dark theme, Language</string>
+    <string name="high_contrast_dark_mode">High contrast dark mode</string>
+    <string name="des_high_contrast_dark_mode">Pitch black dark theme for devices with OLED display</string>
+    <string name="dynamic_colors">Dynamic colors</string>
+    <string name="des_dynamic_colors">Automatically set the app theme according to the device wallpaper</string>
     <string name="notification_listener_label">Sonara Sound Engine</string>
     <string name="notification_listener_description">Reads music session metadata (title, artist, album) from media players to power automatic EQ and lyrics. Notification content is never accessed.</string>
 </resources>
