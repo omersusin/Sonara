@@ -2,3 +2,5 @@ sonara-release.jks
 keystore.properties
 .gradle/
 local.properties
+.kotlin
+.idea
